@@ -84,23 +84,48 @@
         .card-note-excerpt { font-size: 10px; color: #888; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
         .rearrange-card-num { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 10px; border-radius: 4px; pointer-events: none; }
 
+        /* --- FLOATING SEARCH BAR (NEW) --- */
+        #floating-search-bar {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #050505;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 8px 12px;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            display: none; /* hidden by default */
+            align-items: center;
+            gap: 8px;
+        }
+        #floating-search-bar.active { display: flex; }
+        #search-input { 
+            background: #111; border: 1px solid #333; color: white; padding: 5px 8px; 
+            font-size: 13px; border-radius: 4px; outline: none; width: 200px;
+        }
+        #search-input:focus { border-color: #666; }
+        #search-count { font-size: 11px; color: #888; min-width: 40px; text-align: center; }
+        .search-btn {
+            background: transparent; border: 1px solid transparent; color: #aaa; 
+            cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 12px;
+        }
+        .search-btn:hover { background: #222; color: #fff; border-color: #333; }
+        #scanning-status { font-size: 10px; color: #555; margin-left: 5px; display: none; white-space: nowrap; }
+
         #menu-container { position: absolute; top: 10px; left: 10px; z-index: 100; }
         #gear-btn { background: transparent; color: #555; border: none; font-size: 24px; cursor: pointer; padding: 5px; transition: color 0.2s; }
         #gear-btn:hover { color: #fff; }
         #controls-panel { display: none; margin-top: 5px; background: #111; padding: 15px; border-radius: 8px; border: 1px solid #333; flex-direction: column; gap: 15px; width: 300px; }
         #controls-panel.active { display: flex; }
-        button.action-btn, .slide-ops button, .search-nav-btn, #clear-search-btn { padding: 8px; font-size: 12px; cursor: pointer; background: #000; color: #ccc; border: 1px solid #444; border-radius: 4px; transition: all 0.1s; }
-        button.action-btn:hover, .slide-ops button:hover, .search-nav-btn:hover { background: #333; color: #fff; border-color: #888; }
+        button.action-btn, .slide-ops button { padding: 8px; font-size: 12px; cursor: pointer; background: #000; color: #ccc; border: 1px solid #444; border-radius: 4px; transition: all 0.1s; }
+        button.action-btn:hover, .slide-ops button:hover { background: #333; color: #fff; border-color: #888; }
         .toolbar { display: flex; gap: 5px; background: #222; padding: 5px; border-radius: 5px; }
         .tool-btn { flex: 1; padding: 5px; font-size: 11px; cursor: pointer; background: #000; color: #888; border: 1px solid #444; border-radius: 3px; }
         .tool-btn:hover { background: #333; color: #fff; }
         .tool-btn.active { background: #ddd; color: #000; border-color: #fff; font-weight: bold; }
-        .search-group { display: flex; gap: 5px; align-items: center; }
-        #search-input { flex: 1; background: #000; border: 1px solid #444; color: white; padding: 6px; font-size: 12px; border-radius: 4px; outline: none; }
-        #search-input:focus { border-color: #888; }
-        #search-count { font-size: 10px; color: #666; min-width: 40px; text-align: center; }
-        #clear-search-btn { border: none; font-size: 14px; padding: 0 5px; }
-        #clear-search-btn:hover { color: #fff; }
         .slide-ops { display: flex; gap: 5px; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 12px; color: #888; }
@@ -112,10 +137,19 @@
         .checkbox-container { display: flex; align-items: center; margin-top: 5px; cursor: pointer; }
         .checkbox-container input { margin-right: 8px; cursor: pointer; accent-color: #888; }
         .checkbox-text { font-size: 12px; color: #ccc; }
-        #scanning-status { font-size:10px; color:#666; margin-top:5px; display:none; }
     </style>
 </head>
 <body>
+
+    <div id="floating-search-bar">
+        <input type="text" id="search-input" placeholder="Find in notes or PDF..." oninput="performSearch()">
+        <button class="search-btn" title="Clear" onclick="clearSearch()">✖</button>
+        <span id="search-count">0/0</span>
+        <button class="search-btn" onclick="nextMatch(-1)">▲</button>
+        <button class="search-btn" onclick="nextMatch(1)">▼</button>
+        <div id="scanning-status">Scanning PDF...</div>
+        <button class="search-btn" style="margin-left: 5px;" onclick="toggleSearchBar()">Close</button>
+    </div>
 
     <div id="rearrange-overlay">
         <div id="rearrange-header">
@@ -158,20 +192,7 @@
             
             <button class="action-btn" onclick="openRearrangeMenu()" style="margin-top:5px;">⚄ Rearrange Notes</button>
 
-            <div class="control-group" style="margin-top:10px;">
-                <label>Search (Ctrl+F)</label>
-                <div class="search-group">
-                    <input type="text" id="search-input" placeholder="Find..." oninput="performSearch()">
-                    <button id="clear-search-btn" title="Clear Search" onclick="clearSearch()">✖</button>
-                    <div id="search-count">0/0</div>
-                </div>
-                <div id="scanning-status">Scanning PDF Text...</div>
-                <div class="search-group">
-                    <button class="search-nav-btn" style="flex:1" onclick="nextMatch(-1)">Prev</button>
-                    <button class="search-nav-btn" style="flex:1" onclick="nextMatch(1)">Next</button>
-                </div>
-            </div>
-            <div class="control-group" id="drawing-controls" style="display:none;">
+            <div class="control-group" id="drawing-controls" style="display:none; margin-top: 10px;">
                 <label>Drawing Tools</label>
                 <div class="toolbar">
                     <button class="tool-btn active" id="btn-pen" onclick="setTool('pen')">Pen</button>
@@ -223,9 +244,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. GLOBAL VARIABLES
-        // ==========================================
         const pdfCanvas = document.getElementById('the-canvas');
         const drawCanvas = document.getElementById('draw-canvas');
         const pdfCtx = pdfCanvas.getContext('2d');
@@ -243,6 +261,7 @@
         const btnEraser = document.getElementById('btn-eraser');
         const searchInput = document.getElementById('search-input');
         const searchCount = document.getElementById('search-count');
+        const searchBar = document.getElementById('floating-search-bar');
         const sidebar = document.getElementById('sidebar');
         const tocList = document.getElementById('toc-list');
         const resizer = document.getElementById('resizer');
@@ -286,10 +305,6 @@
 
         let isDrawing = false; let isErasing = false; let currentTool = 'pen'; let currentStrokes = [];
         let isPageRendering = false; let pageNumPending = null;
-
-        // ==========================================
-        // 2. HELPER FUNCTIONS
-        // ==========================================
 
         function getHistory(index) {
             if (!historyStacks[index]) historyStacks[index] = { undo: [], redo: [] };
@@ -665,6 +680,16 @@
             isDirty = true; updateDisplay();
         }
 
+        function toggleSearchBar() {
+            if (searchBar.classList.contains('active')) {
+                searchBar.classList.remove('active');
+                searchInput.blur();
+            } else {
+                searchBar.classList.add('active');
+                searchInput.focus();
+            }
+        }
+
         function performSearch() {
             const query = searchInput.value.toLowerCase().trim();
             searchMatches = []; currentMatchPos = -1;
@@ -758,6 +783,7 @@
         function updatePdfSize(val) { pdfContainer.style.height = val + "vh"; }
         function refreshPdfResolution() { if (MODES[currentModeIndex] === 'PDF' && pdfDoc) renderPage(); }
         
+        // SCROLL RATIO FIX: PRESERVE SCROLL ON VIEW SWITCH (WITH TIMEOUT FOR DOM PAINT)
         function activateEditor() {
             const wrapper = document.getElementById('notes-wrapper');
             const maxScrollPreview = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
@@ -775,7 +801,14 @@
 
         document.getElementById('pdf-upload').value = '';
         window.addEventListener('beforeunload', function (e) { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
-        window.addEventListener('keydown', function(e) { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); } });
+        window.addEventListener('keydown', function(e) { 
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearchBar(); }
+            if (e.key === 'Escape') { 
+                if (searchBar.classList.contains('active')) { toggleSearchBar(); }
+                else { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); } document.activeElement.blur(); } 
+            }
+        });
 
         document.getElementById('pdf-upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -836,14 +869,29 @@
         drawCanvas.addEventListener('mouseup', endAction); drawCanvas.addEventListener('mouseout', endAction);
 
         searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if(e.shiftKey) nextMatch(-1); else nextMatch(1); } });
+        
+        // GLOBAL KEY LISTENERS HANDLED IN WINDOW EVENT ABOVE
+
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); toggleMenu(); } document.activeElement.blur(); return; }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); if(!controlsPanel.classList.contains('active')) toggleMenu(); searchInput.focus(); return; }
-            if (e.ctrlKey || e.metaKey) { if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); handleNav('forward'); return; } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); handleNav('backward'); return; } }
+             // Handle arrow keys and navigation when not in specific inputs
             if (document.activeElement === editor || document.activeElement === searchInput) return;
-            if (document.activeElement === slideLabel) { if (['ArrowUp','ArrowDown'].includes(e.key)) { e.preventDefault(); handleNav(e.key === 'ArrowUp' ? 'forward' : 'backward'); } if (e.key === 'Enter') { e.preventDefault(); document.activeElement.blur(); } return; }
+            
+            if (document.activeElement === slideLabel) { 
+                 if (['ArrowUp','ArrowDown'].includes(e.key)) { e.preventDefault(); handleNav(e.key === 'ArrowUp' ? 'forward' : 'backward'); } 
+                 if (e.key === 'Enter') { e.preventDefault(); document.activeElement.blur(); } 
+                 return; 
+            }
+
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey) { // Simple modifier keys
+                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); handleNav('forward'); return; }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); handleNav('backward'); return; }
+            }
+            
+            // Standard Navigation
+            if (e.key === 'ArrowUp' || e.key === 'ArrowRight') handleNav('forward');
+            else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') handleNav('backward');
+
             if (e.key === 'i' && !isEditorActive) { pdfCanvas.classList.toggle('inverted'); if (state.slides[state.count-1].type === 'blank') renderPage(); return; }
-            if(e.key === 'ArrowUp' || e.key === 'ArrowRight') handleNav('forward'); else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft') handleNav('backward');
         });
 
         updateUIForMode(); updateDisplay();
