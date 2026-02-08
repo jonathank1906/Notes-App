@@ -112,6 +112,7 @@
         .checkbox-container { display: flex; align-items: center; margin-top: 5px; cursor: pointer; }
         .checkbox-container input { margin-right: 8px; cursor: pointer; accent-color: #888; }
         .checkbox-text { font-size: 12px; color: #ccc; }
+        #scanning-status { font-size:10px; color:#666; margin-top:5px; display:none; }
     </style>
 </head>
 <body>
@@ -164,6 +165,7 @@
                     <button id="clear-search-btn" title="Clear Search" onclick="clearSearch()">✖</button>
                     <div id="search-count">0/0</div>
                 </div>
+                <div id="scanning-status">Scanning PDF Text...</div>
                 <div class="search-group">
                     <button class="search-nav-btn" style="flex:1" onclick="nextMatch(-1)">Prev</button>
                     <button class="search-nav-btn" style="flex:1" onclick="nextMatch(1)">Next</button>
@@ -183,8 +185,6 @@
             <div class="control-group">
                 <label>2. Import Notes</label>
                 <button id="open-btn" class="action-btn" onclick="openNotesEditable()">📂 Open (Keep Saved Link)</button>
-                <div style="font-size:10px; color:#666; margin-top:2px;">OR</div>
-                <input type="file" id="json-upload" accept=".json" autocomplete="off">
             </div>
 
             <div class="control-group">
@@ -196,7 +196,6 @@
                     <span class="checkbox-text">Enable Auto-Save (Every 2 min)</span>
                 </label>
             </div>
-            <div class="control-group"><button id="panic-btn" class="action-btn" onclick="recoverLostText()">🆘 Restore Lost Text</button></div>
             <hr style="width:100%; border:0; border-top:1px solid #333;">
             <div class="control-group"><label>Number Size</label><input type="range" min="20" max="120" value="80" oninput="updateNumberSize(this.value)"></div>
             <div class="control-group"><label>Text Size</label><input type="range" min="12" max="60" value="18" oninput="updateTextSize(this.value)"></div>
@@ -250,6 +249,7 @@
         const rearrangeOverlay = document.getElementById('rearrange-overlay');
         const rearrangeGrid = document.getElementById('rearrange-grid');
         const lastSavedDiv = document.getElementById('last-saved');
+        const scanningStatus = document.getElementById('scanning-status');
 
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
@@ -267,22 +267,20 @@
         let state = { count: 1, slides: [] };
         state.slides = [{ type: 'blank', header: '', notes: '', drawings: [] }];
         
-        let MODES = ['NUM', 'PULSE', 'PDF'];
+        let MODES = ['NUM', 'PDF']; 
         let currentModeIndex = 0; 
         let pdfDoc = null;
+        let pdfTextIndex = []; 
         let renderTask = null;
         let searchMatches = []; 
         let currentMatchPos = -1;
-        let timeoutHandle = null;
         let isEditorActive = false;
         
-        // DIRTY FLAG FOR SAVING
         let isDirty = false;
 
         let historyStacks = {}; 
         let saveTimeout = null;
         let isRestoring = false;
-        let emergencyBackup = ""; 
         let fileHandle = null;
         let autoSaveInterval = null;
 
@@ -311,9 +309,7 @@
             const h = getHistory(index);
             if (h.undo.length === 0) return null;
             const currentText = editor.value;
-            if (h.undo.length > 0 && h.undo[h.undo.length - 1] === currentText) {
-                h.undo.pop();
-            }
+            if (h.undo.length > 0 && h.undo[h.undo.length - 1] === currentText) { h.undo.pop(); }
             if (h.undo.length === 0) return null;
             h.redo.push(currentText); 
             const prev = h.undo.pop();
@@ -328,18 +324,17 @@
             return next;
         }
 
-        function recoverLostText() {
-            if (emergencyBackup) {
-                if(confirm("Restore the last mass-deleted text from memory?")) {
-                    editor.value = emergencyBackup + "\n" + editor.value;
-                    handleInput();
-                }
-            } else { alert("No lost text found in memory."); }
+        function checkIfDirty() {
+            if (state.slides.length > 1) return true; 
+            const s = state.slides[0];
+            if (s.header && s.header.trim() !== "") return true;
+            if (s.notes && s.notes.trim() !== "") return true;
+            if (s.drawings && s.drawings.length > 0) return true;
+            return false;
         }
 
         function saveData() { /* Memory Only */ }
 
-        // AUTO-RESIZE TEXTAREA LOGIC
         function autoResizeTextarea() {
             editor.style.height = 'auto';
             editor.style.height = (editor.scrollHeight) + 'px';
@@ -348,25 +343,15 @@
         function handleInput() {
             const idx = state.count - 1;
             const newText = editor.value;
-            
-            // Mark as dirty
             isDirty = true;
-            
-            // Auto Resize height
             autoResizeTextarea();
 
-            const oldText = state.slides[idx] ? state.slides[idx].notes : "";
-            if (oldText && oldText.length > 20 && newText.length < 5) {
-                emergencyBackup = oldText;
-            }
             if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'', drawings:[] };
             state.slides[idx].header = slideLabel.innerText;
             state.slides[idx].notes = newText; 
             
             if (saveTimeout) clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                pushSnapshot(idx, newText); 
-            }, 500);
+            saveTimeout = setTimeout(() => { pushSnapshot(idx, newText); }, 500);
             saveData();
             updateSidebar(); 
         }
@@ -397,7 +382,6 @@
             }
 
             const mode = MODES[currentModeIndex];
-            
             if (mode === 'PDF') {
                 if (slide.type === 'blank') {
                     pdfContainer.style.display = 'none';
@@ -405,20 +389,18 @@
                     pdfContainer.style.display = 'flex';
                     if (pdfCanvas.width === 0 && pdfDoc) renderPage();
                 }
+            } else {
+                pdfContainer.style.display = 'none';
             }
 
-            if (mode === 'NUM' || mode === 'PDF') { display.textContent = state.count; display.style.color = "white"; } 
-            else if (mode === 'PULSE') { if (!timeoutHandle) { display.textContent = "---"; display.style.color = "#333"; } }
+            display.textContent = state.count;
+            display.style.color = "white"; 
             
             updateSidebar();
-            // Trigger resize after value update if editor is active
             if(isEditorActive) autoResizeTextarea();
         }
 
-        // --- SIDEBAR LOGIC ---
-        function toggleSidebar() {
-            sidebar.classList.toggle('active');
-        }
+        function toggleSidebar() { sidebar.classList.toggle('active'); }
 
         function updateSidebar() {
             let html = "";
@@ -443,63 +425,29 @@
             if (MODES[currentModeIndex] === 'PDF') renderPage();
         }
 
-        // --- REARRANGE MATRIX LOGIC ---
         let dragSrcIndex = -1;
-
-        function openRearrangeMenu() {
-            rearrangeOverlay.classList.add('active');
-            renderRearrangeGrid();
-        }
-
-        function closeRearrangeMenu() {
-            rearrangeOverlay.classList.remove('active');
-            updateDisplay(); 
-            if (MODES[currentModeIndex] === 'PDF') renderPage();
-        }
+        function openRearrangeMenu() { rearrangeOverlay.classList.add('active'); renderRearrangeGrid(); }
+        function closeRearrangeMenu() { rearrangeOverlay.classList.remove('active'); updateDisplay(); if (MODES[currentModeIndex] === 'PDF') renderPage(); }
 
         function renderRearrangeGrid() {
             rearrangeGrid.innerHTML = "";
             state.slides.forEach((slide, index) => {
                 const num = index + 1;
-                const card = document.createElement('div');
-                card.className = 'rearrange-card';
-                
-                const pdfPrev = document.createElement('div');
-                pdfPrev.className = 'card-pdf-preview';
-                pdfPrev.id = `thumb-${index}`;
-                const badge = document.createElement('div');
-                badge.className = 'rearrange-card-num';
-                badge.innerText = num;
+                const card = document.createElement('div'); card.className = 'rearrange-card';
+                const pdfPrev = document.createElement('div'); pdfPrev.className = 'card-pdf-preview'; pdfPrev.id = `thumb-${index}`;
+                const badge = document.createElement('div'); badge.className = 'rearrange-card-num'; badge.innerText = num;
                 pdfPrev.appendChild(badge);
                 if (slide.type === 'blank') { pdfPrev.innerText = "Note Slide"; } 
                 card.appendChild(pdfPrev);
 
-                const noteBox = document.createElement('div');
-                noteBox.className = 'card-note-box';
-                noteBox.draggable = true;
-                noteBox.dataset.index = index;
-                
-                const header = document.createElement('div');
-                header.className = 'card-note-header';
-                header.innerText = slide.header || "(No Header)";
-                
-                const excerpt = document.createElement('div');
-                excerpt.className = 'card-note-excerpt';
-                excerpt.innerText = slide.notes ? slide.notes.substring(0, 100) : "(No Notes)";
-                
-                noteBox.appendChild(header);
-                noteBox.appendChild(excerpt);
-                noteBox.addEventListener('dragstart', handleDragStart);
-                noteBox.addEventListener('dragover', handleDragOver);
-                noteBox.addEventListener('drop', handleDrop);
-                noteBox.addEventListener('dragenter', (e) => e.preventDefault());
+                const noteBox = document.createElement('div'); noteBox.className = 'card-note-box'; noteBox.draggable = true; noteBox.dataset.index = index;
+                const header = document.createElement('div'); header.className = 'card-note-header'; header.innerText = slide.header || "(No Header)";
+                const excerpt = document.createElement('div'); excerpt.className = 'card-note-excerpt'; excerpt.innerText = slide.notes ? slide.notes.substring(0, 100) : "(No Notes)";
+                noteBox.appendChild(header); noteBox.appendChild(excerpt);
+                noteBox.addEventListener('dragstart', handleDragStart); noteBox.addEventListener('dragover', handleDragOver); noteBox.addEventListener('drop', handleDrop); noteBox.addEventListener('dragenter', (e) => e.preventDefault());
 
-                card.appendChild(noteBox);
-                rearrangeGrid.appendChild(card);
-
-                if (pdfDoc && slide.type !== 'blank') {
-                    renderThumbnail(slide.pdfPage, index);
-                }
+                card.appendChild(noteBox); rearrangeGrid.appendChild(card);
+                if (pdfDoc && slide.type !== 'blank') { renderThumbnail(slide.pdfPage, index); }
             });
         }
 
@@ -507,80 +455,36 @@
             if(!pdfDoc) return;
             pdfDoc.getPage(pageNum).then(page => {
                 const viewport = page.getViewport({scale: 0.2});
-                const cvs = document.createElement('canvas');
-                cvs.height = viewport.height;
-                cvs.width = viewport.width;
+                const cvs = document.createElement('canvas'); cvs.height = viewport.height; cvs.width = viewport.width;
                 const ctx = cvs.getContext('2d');
                 if (pdfCanvas.classList.contains('inverted')) { ctx.filter = 'invert(1)'; }
                 const renderCtx = { canvasContext: ctx, viewport: viewport };
                 page.render(renderCtx).promise.then(() => {
                     const container = document.getElementById(`thumb-${index}`);
-                    if (container) {
-                        if (container.childNodes.length > 1 && container.lastChild.tagName !== 'CANVAS') {}
-                        container.appendChild(cvs);
-                    }
+                    if (container) { if (container.childNodes.length > 1 && container.lastChild.tagName !== 'CANVAS') {} container.appendChild(cvs); }
                 });
             });
         }
 
-        function handleDragStart(e) {
-            dragSrcIndex = parseInt(this.dataset.index);
-            e.dataTransfer.effectAllowed = 'move';
-            this.style.opacity = '0.4';
-        }
-
-        function handleDragOver(e) {
-            if (e.preventDefault) e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            return false;
-        }
-
+        function handleDragStart(e) { dragSrcIndex = parseInt(this.dataset.index); e.dataTransfer.effectAllowed = 'move'; this.style.opacity = '0.4'; }
+        function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
         function handleDrop(e) {
             if (e.stopPropagation) e.stopPropagation();
             const targetIndex = parseInt(this.dataset.index);
             if (dragSrcIndex !== targetIndex) {
-                const srcSlide = state.slides[dragSrcIndex];
-                const tgtSlide = state.slides[targetIndex];
-                const tempHeader = srcSlide.header;
-                const tempNotes = srcSlide.notes;
-                const tempDrawings = srcSlide.drawings;
-
-                srcSlide.header = tgtSlide.header;
-                srcSlide.notes = tgtSlide.notes;
-                srcSlide.drawings = tgtSlide.drawings;
-
-                tgtSlide.header = tempHeader;
-                tgtSlide.notes = tempNotes;
-                tgtSlide.drawings = tempDrawings;
-                
-                isDirty = true; // Changes made
-                saveData();
-                renderRearrangeGrid();
+                const srcSlide = state.slides[dragSrcIndex]; const tgtSlide = state.slides[targetIndex];
+                const tempHeader = srcSlide.header; const tempNotes = srcSlide.notes; const tempDrawings = srcSlide.drawings;
+                srcSlide.header = tgtSlide.header; srcSlide.notes = tgtSlide.notes; srcSlide.drawings = tgtSlide.drawings;
+                tgtSlide.header = tempHeader; tgtSlide.notes = tempNotes; tgtSlide.drawings = tempDrawings;
+                isDirty = true; saveData(); renderRearrangeGrid();
             }
             return false;
         }
 
-
-        // --- SIDEBAR RESIZE LOGIC ---
         let isResizing = false;
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            document.body.style.cursor = 'col-resize';
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
-            let newWidth = e.clientX;
-            if (newWidth < 150) newWidth = 150;
-            if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
-            sidebar.style.width = newWidth + 'px';
-        });
-        document.addEventListener('mouseup', () => {
-            if(isResizing) {
-                isResizing = false;
-                document.body.style.cursor = 'default';
-            }
-        });
+        resizer.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+        document.addEventListener('mousemove', (e) => { if (!isResizing) return; let newWidth = e.clientX; if (newWidth < 150) newWidth = 150; if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8; sidebar.style.width = newWidth + 'px'; });
+        document.addEventListener('mouseup', () => { if(isResizing) { isResizing = false; document.body.style.cursor = 'default'; } });
 
         function updateUIForMode() {
             const mode = MODES[currentModeIndex];
@@ -588,83 +492,62 @@
                 slideLabel.style.display = 'block'; pdfContainer.style.display = 'flex'; modeStatus.textContent = "Mode: PDF Slides";
                 drawCanvas.classList.add('active'); drawingControls.style.display = 'flex'; setTool('pen'); 
             } else {
-                slideLabel.style.display = 'block'; pdfContainer.style.display = 'none'; modeStatus.textContent = (mode === 'NUM') ? "Mode: Standard" : "Mode: No Numbers";
+                slideLabel.style.display = 'block'; pdfContainer.style.display = 'none'; modeStatus.textContent = "Mode: Standard";
                 drawCanvas.classList.remove('active'); drawingControls.style.display = 'none';
             }
-            if(timeoutHandle) { clearTimeout(timeoutHandle); timeoutHandle = null; }
             updateDisplay(); 
+        }
+
+        async function extractAllText(pdf) {
+            scanningStatus.style.display = "block";
+            pdfTextIndex = new Array(pdf.numPages).fill("");
+            for (let i = 1; i <= pdf.numPages; i++) {
+                try {
+                    const page = await pdf.getPage(i);
+                    const tokenizedText = await page.getTextContent();
+                    const pageString = tokenizedText.items.map(token => token.str).join(" ");
+                    pdfTextIndex[i - 1] = pageString.toLowerCase();
+                    scanningStatus.innerText = `Scanning Slide ${i}/${pdf.numPages}...`;
+                } catch(e) { console.error("Err extracting text", e); }
+            }
+            scanningStatus.style.display = "none";
         }
 
         function renderPage() {
             if (pdfContainer.style.display === 'none') return;
             if (pdfContainer.clientHeight === 0) return; 
-
             if (renderTask) renderTask.cancel();
             const slide = state.slides[state.count - 1];
-            
             if (!slide || slide.type === 'blank') {
                 pdfCtx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height);
                 if(pdfCanvas.width < 100) { pdfCanvas.width=800; pdfCanvas.height=450; } 
-                
                 const isDark = pdfCanvas.classList.contains('inverted');
-                pdfCtx.fillStyle = isDark ? '#333' : '#eee';
-                pdfCtx.fillRect(0,0,pdfCanvas.width, pdfCanvas.height);
-                
-                pdfCtx.font = "30px Arial";
-                pdfCtx.fillStyle = isDark ? '#fff' : '#555';
-                pdfCtx.textAlign = "center";
-                pdfCtx.fillText("📝 Additional Notes (Not in PDF)", pdfCanvas.width/2, pdfCanvas.height/2);
-                
+                pdfCtx.fillStyle = isDark ? '#333' : '#eee'; pdfCtx.fillRect(0,0,pdfCanvas.width, pdfCanvas.height);
+                pdfCtx.font = "30px Arial"; pdfCtx.fillStyle = isDark ? '#fff' : '#555'; pdfCtx.textAlign = "center"; pdfCtx.fillText("📝 Additional Notes (Not in PDF)", pdfCanvas.width/2, pdfCanvas.height/2);
                 resizeDrawLayer(); return;
             }
             if (!pdfDoc) return;
-
             const pageNum = slide.pdfPage || state.count;
             if(pageNum > pdfDoc.numPages) { pdfCtx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height); return; }
-
-            if (isPageRendering) {
-                pageNumPending = pageNum;
-                if (renderTask) { renderTask.cancel(); }
-                return; 
-            }
-
+            if (isPageRendering) { pageNumPending = pageNum; if (renderTask) { renderTask.cancel(); } return; }
             isPageRendering = true;
             pdfDoc.getPage(pageNum).then(function(page) {
                 const containerHeight = pdfContainer.clientHeight;
                 const unscaledViewport = page.getViewport({scale: 1});
                 const scale = containerHeight / unscaledViewport.height;
                 const viewport = page.getViewport({scale: scale});
-                
-                offscreenCanvas.height = viewport.height;
-                offscreenCanvas.width = viewport.width;
-
+                offscreenCanvas.height = viewport.height; offscreenCanvas.width = viewport.width;
                 const renderContext = { canvasContext: offscreenCtx, viewport: viewport };
                 renderTask = page.render(renderContext);
-
                 renderTask.promise.then(function() {
                     isPageRendering = false;
-                    if (pageNumPending !== null) { 
-                        pageNumPending = null; 
-                        renderPage(); 
-                    } else {
-                        pdfCanvas.height = offscreenCanvas.height;
-                        pdfCanvas.width = offscreenCanvas.width;
-                        pdfCtx.drawImage(offscreenCanvas, 0, 0);
-                        resizeDrawLayer();
+                    if (pageNumPending !== null) { pageNumPending = null; renderPage(); } 
+                    else {
+                        pdfCanvas.height = offscreenCanvas.height; pdfCanvas.width = offscreenCanvas.width;
+                        pdfCtx.drawImage(offscreenCanvas, 0, 0); resizeDrawLayer();
                     }
-                }).catch(function(err) {
-                    isPageRendering = false;
-                    if (err.name === 'RenderingCancelledException') {
-                        if (pageNumPending !== null) { pageNumPending = null; renderPage(); }
-                    } else { console.log(err); }
-                });
+                }).catch(function(err) { isPageRendering = false; if (err.name === 'RenderingCancelledException') { if (pageNumPending !== null) { pageNumPending = null; renderPage(); } } else { console.log(err); } });
             });
-        }
-
-        function triggerFlash(symbol) {
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-            display.textContent = symbol; display.style.color = "white"; 
-            timeoutHandle = setTimeout(() => { display.textContent = "---"; display.style.color = "#333"; timeoutHandle = null; }, 500);
         }
 
         function cycleMode() {
@@ -686,9 +569,8 @@
                     state.slides.push({ type: nextType, pdfPage: nextPdfPage, header: "", notes: "", drawings: [] });
                 }
                 state.count++;
-                if (MODES[currentModeIndex] === 'PULSE') triggerFlash(">>>");
             } else if (direction === 'backward') { 
-                if (state.count > 1) { state.count--; if (MODES[currentModeIndex] === 'PULSE') triggerFlash("<<<"); } 
+                if (state.count > 1) { state.count--; } 
             }
             updateDisplay();
             if (MODES[currentModeIndex] === 'PDF') renderPage();
@@ -712,45 +594,30 @@
             return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
         }
         function eraseStrokeAtInternal(pos) {
-            const slide = state.slides[state.count - 1];
-            const drawings = slide ? (slide.drawings || []) : [];
+            const slide = state.slides[state.count - 1]; const drawings = slide ? (slide.drawings || []) : [];
             if(drawings.length === 0) return;
             const remaining = drawings.filter(path => {
-                return !path.points.some(pt => {
-                    const pPx = toPixel(pt.x, pt.y);
-                    return Math.hypot(pPx.x - pos.x, pPx.y - pos.y) < 25;
-                });
+                return !path.points.some(pt => { const pPx = toPixel(pt.x, pt.y); return Math.hypot(pPx.x - pos.x, pPx.y - pos.y) < 25; });
             });
-            if(remaining.length !== drawings.length) { 
-                slide.drawings = remaining; 
-                isDirty = true; 
-                saveData(); 
-                renderDrawings(); 
-            }
+            if(remaining.length !== drawings.length) { slide.drawings = remaining; isDirty = true; saveData(); renderDrawings(); }
         }
         function saveDrawingsToState() {
             const slide = state.slides[state.count - 1];
             if(slide) {
                 if(!slide.drawings) slide.drawings = [];
-                slide.drawings = slide.drawings.concat(currentStrokes);
-                currentStrokes = []; saveData();
+                slide.drawings = slide.drawings.concat(currentStrokes); currentStrokes = []; saveData();
             }
         }
         function renderDrawings() {
             drawCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
-            const slide = state.slides[state.count - 1];
-            const drawings = slide ? (slide.drawings || []) : [];
+            const slide = state.slides[state.count - 1]; const drawings = slide ? (slide.drawings || []) : [];
             drawings.forEach(path => {
                 drawCtx.strokeStyle='red'; drawCtx.lineWidth=3; drawCtx.lineCap='round'; drawCtx.lineJoin='round'; if(path.points.length<1) return;
                 drawCtx.beginPath(); const start = toPixel(path.points[0].x, path.points[0].y); drawCtx.moveTo(start.x, start.y);
                 for(let i=1; i<path.points.length; i++) { const p = toPixel(path.points[i].x, path.points[i].y); drawCtx.lineTo(p.x, p.y); } drawCtx.stroke();
             });
         }
-        function resizeDrawLayer() { 
-            drawCanvas.width = pdfCanvas.width; 
-            drawCanvas.height = pdfCanvas.height; 
-            renderDrawings(); 
-        }
+        function resizeDrawLayer() { drawCanvas.width = pdfCanvas.width; drawCanvas.height = pdfCanvas.height; renderDrawings(); }
         function endAction() { if(isDrawing) { isDrawing = false; isDirty = true; saveDrawingsToState(); } if(isErasing) isErasing = false; }
 
         function insertSlide(offset) {
@@ -759,8 +626,7 @@
             let insertIndex = (offset === 1) ? state.count : state.count - 1;
             state.slides.splice(insertIndex, 0, newSlide);
             if (offset === 1) state.count++; 
-            isDirty = true;
-            updateDisplay();
+            isDirty = true; updateDisplay();
             if (MODES[currentModeIndex] === 'PDF') renderPage();
         }
         function deleteCurrentSlide() {
@@ -768,27 +634,19 @@
             if (!confirm("Delete current slide?")) return;
             state.slides.splice(state.count - 1, 1);
             if (state.count > state.slides.length) state.count = state.slides.length;
-            isDirty = true;
-            updateDisplay();
+            isDirty = true; updateDisplay();
             if (MODES[currentModeIndex] === 'PDF') renderPage();
         }
 
         function syncPdfSlides() {
             if (!pdfDoc) { alert("Load a PDF first."); return; }
             if (!confirm(`Force-Sync slides to PDF pages 1-${pdfDoc.numPages}? (Fixes black screens/missing slides)`)) return;
-            
             for (let i = 0; i < pdfDoc.numPages; i++) {
-                if (!state.slides[i]) {
-                    state.slides[i] = { type: 'pdf', pdfPage: i + 1, header: "", notes: "", drawings: [] };
-                } else {
-                    state.slides[i].type = 'pdf';
-                    state.slides[i].pdfPage = i + 1;
-                }
+                if (!state.slides[i]) { state.slides[i] = { type: 'pdf', pdfPage: i + 1, header: "", notes: "", drawings: [] }; } 
+                else { state.slides[i].type = 'pdf'; state.slides[i].pdfPage = i + 1; }
             }
             if (state.count > state.slides.length) state.count = state.slides.length;
-            isDirty = true;
-            updateDisplay();
-            renderPage();
+            isDirty = true; updateDisplay(); renderPage();
         }
 
         function shiftContent(direction) {
@@ -804,20 +662,20 @@
                     else { state.slides[i].notes = state.slides[i+1].notes; state.slides[i].drawings = state.slides[i+1].drawings; state.slides[i].header = state.slides[i+1].header; }
                 }
             }
-            isDirty = true;
-            updateDisplay();
+            isDirty = true; updateDisplay();
         }
 
         function performSearch() {
             const query = searchInput.value.toLowerCase().trim();
-            searchMatches = [];
-            currentMatchPos = -1;
+            searchMatches = []; currentMatchPos = -1;
             if (query.length === 0) { searchCount.textContent = "0/0"; updateDisplay(); return; }
             handleInput();
             state.slides.forEach((slide, index) => {
-                const header = (slide.header || "").toLowerCase();
-                const notes = (slide.notes || "").toLowerCase();
-                if (header.includes(query) || notes.includes(query)) { searchMatches.push(index + 1); }
+                const header = (slide.header || "").toLowerCase(); const notes = (slide.notes || "").toLowerCase();
+                let hit = false;
+                if (header.includes(query) || notes.includes(query)) hit = true;
+                if (!hit && slide.type !== 'blank' && slide.pdfPage && pdfTextIndex[slide.pdfPage - 1]) { if (pdfTextIndex[slide.pdfPage - 1].includes(query)) hit = true; }
+                if (hit) { searchMatches.push(index + 1); }
             });
             if (searchMatches.length > 0) {
                 const upcoming = searchMatches.findIndex(num => num >= state.count);
@@ -833,22 +691,16 @@
             if (currentMatchPos < 0) currentMatchPos = searchMatches.length - 1;
             searchCount.textContent = `${currentMatchPos + 1}/${searchMatches.length}`;
             state.count = searchMatches[currentMatchPos];
-            updateDisplay();
-            activatePreview(); 
-            if (MODES[currentModeIndex] === 'PDF') renderPage();
+            updateDisplay(); activatePreview(); if (MODES[currentModeIndex] === 'PDF') renderPage();
         }
         function clearSearch() { searchInput.value = ""; performSearch(); searchInput.blur(); }
 
         async function openNotesEditable() {
             if (!window.showOpenFilePicker) { alert("Your browser doesn't support Smart Open. Use standard Import below."); return; }
             try {
-                [fileHandle] = await window.showOpenFilePicker({
-                    types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }],
-                });
-                const file = await fileHandle.getFile();
-                const text = await file.text();
-                loadImportedData(text);
-                document.getElementById('export-btn').textContent = "💾 Save (Instant)";
+                [fileHandle] = await window.showOpenFilePicker({ types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }] });
+                const file = await fileHandle.getFile(); const text = await file.text();
+                loadImportedData(text); document.getElementById('export-btn').textContent = "💾 Save (Instant)";
                 if (document.getElementById('autosave-toggle').checked) startAutoSave();
             } catch(e) { console.error("Open cancelled", e); }
         }
@@ -857,22 +709,11 @@
             const content = JSON.stringify(state);
             if (fileHandle) {
                 try {
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(content);
-                    await writable.close();
+                    const writable = await fileHandle.createWritable(); await writable.write(content); await writable.close();
                     const btn = document.getElementById('export-btn');
-                    if (!arguments[0]) { 
-                        const orig = btn.textContent;
-                        btn.textContent = "✅ Saved!";
-                        setTimeout(() => btn.textContent = orig, 2000);
-                    } else {
-                        const orig = btn.textContent;
-                        btn.textContent = "✅ Auto-Saved";
-                        setTimeout(() => btn.textContent = orig, 1000);
-                    }
-                    isDirty = false; // CLEAN STATE
-                    updateSaveTime();
-                    return;
+                    if (!arguments[0]) { const orig = btn.textContent; btn.textContent = "✅ Saved!"; setTimeout(() => btn.textContent = orig, 2000); } 
+                    else { const orig = btn.textContent; btn.textContent = "✅ Auto-Saved"; setTimeout(() => btn.textContent = orig, 1000); }
+                    isDirty = false; updateSaveTime(); return;
                 } catch(e) { console.error("Save failed", e); fileHandle = null; }
             }
             if (!arguments[0]) saveNotesAs();
@@ -883,46 +724,20 @@
             if (window.showSaveFilePicker) {
                 try {
                     const date = new Date().toISOString().slice(0,10);
-                    fileHandle = await window.showSaveFilePicker({
-                        suggestedName: `lecture_notes_${date}.json`,
-                        types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }],
-                    });
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(content);
-                    await writable.close();
+                    fileHandle = await window.showSaveFilePicker({ suggestedName: `lecture_notes_${date}.json`, types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }] });
+                    const writable = await fileHandle.createWritable(); await writable.write(content); await writable.close();
                     document.getElementById('export-btn').textContent = "💾 Save (Instant)";
-                    
                     if (document.getElementById('autosave-toggle').checked) startAutoSave();
-                    isDirty = false; // CLEAN STATE
-                    updateSaveTime();
-                    return;
+                    isDirty = false; updateSaveTime(); return;
                 } catch(e) { if(e.name !== 'AbortError') alert("Save failed. Using download fallback."); }
             }
             exportNotes(); 
         }
 
-        function updateSaveTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            lastSavedDiv.textContent = `Last saved: ${timeString}`;
-        }
-        function startAutoSave() {
-            if (autoSaveInterval) clearInterval(autoSaveInterval);
-            autoSaveInterval = setInterval(() => { saveNotes(true); }, 120000);
-            console.log("Auto-save timer started");
-        }
-        function toggleAutoSave() {
-            const isChecked = document.getElementById('autosave-toggle').checked;
-            if (autoSaveInterval) { clearInterval(autoSaveInterval); autoSaveInterval = null; }
-            if (isChecked) { if (fileHandle) { startAutoSave(); alert("Auto-save started."); } }
-        }
-        function exportNotes() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-            const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr);
-            const date = new Date().toISOString().slice(0,10); downloadAnchorNode.setAttribute("download", "lecture_notes_" + date + ".json");
-            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
-            isDirty = false;
-        }
+        function updateSaveTime() { const now = new Date(); lastSavedDiv.textContent = `Last saved: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; }
+        function startAutoSave() { if (autoSaveInterval) clearInterval(autoSaveInterval); autoSaveInterval = setInterval(() => { saveNotes(true); }, 120000); console.log("Auto-save timer started"); }
+        function toggleAutoSave() { const isChecked = document.getElementById('autosave-toggle').checked; if (autoSaveInterval) { clearInterval(autoSaveInterval); autoSaveInterval = null; } if (isChecked) { if (fileHandle) { startAutoSave(); alert("Auto-save started."); } } }
+        function exportNotes() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); const date = new Date().toISOString().slice(0,10); downloadAnchorNode.setAttribute("download", "lecture_notes_" + date + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); isDirty = false; }
         function loadImportedData(jsonString) {
             try {
                 let imported = JSON.parse(jsonString);
@@ -930,18 +745,10 @@
                     imported.slides = [];
                     const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b);
                     const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0;
-                    for(let i=0; i<=maxIdx; i++) {
-                        const d = imported.memory[i] || {};
-                        imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"", drawings: d.drawings||[] });
-                    }
+                    for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"", drawings: d.drawings||[] }); }
                     if(imported.count !== undefined) imported.count++;
                 }
-                state = imported;
-                if(state.count < 1) state.count = 1;
-                historyStacks = {}; 
-                isDirty = false; // Reset Dirty flag on load
-                updateDisplay();
-                if(pdfDoc && MODES[currentModeIndex] === 'PDF') renderPage();
+                state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateDisplay(); if(pdfDoc && MODES[currentModeIndex] === 'PDF') renderPage();
             } catch(err) { alert("Error reading JSON"); }
         }
         function clearAllData() { if(confirm("Reset all?")) { state = { count: 1, slides: [] }; isDirty = false; location.reload(); } }
@@ -951,61 +758,24 @@
         function updatePdfSize(val) { pdfContainer.style.height = val + "vh"; }
         function refreshPdfResolution() { if (MODES[currentModeIndex] === 'PDF' && pdfDoc) renderPage(); }
         
-        // SCROLL RATIO FIX: PRESERVE SCROLL ON VIEW SWITCH (WITH TIMEOUT FOR DOM PAINT)
         function activateEditor() {
             const wrapper = document.getElementById('notes-wrapper');
             const maxScrollPreview = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
             const ratio = maxScrollPreview > 0 ? wrapper.scrollTop / maxScrollPreview : 0;
-
-            isEditorActive = true;
-            editor.style.display = 'block';
-            preview.style.display = 'none';
-            editor.focus();
-            autoResizeTextarea();
-
-            setTimeout(() => {
-                const maxScrollEditor = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
-                if (maxScrollEditor > 0) wrapper.scrollTop = ratio * maxScrollEditor;
-            }, 10); // increased timeout slightly for safety
+            isEditorActive = true; editor.style.display = 'block'; preview.style.display = 'none'; editor.focus(); autoResizeTextarea();
+            setTimeout(() => { const maxScrollEditor = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight); if (maxScrollEditor > 0) wrapper.scrollTop = ratio * maxScrollEditor; }, 10);
         }
-
         function activatePreview() {
             const wrapper = document.getElementById('notes-wrapper');
             const maxScrollEditor = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
             const ratio = maxScrollEditor > 0 ? wrapper.scrollTop / maxScrollEditor : 0;
-
-            isEditorActive = false;
-            editor.style.display = 'none';
-            preview.style.display = 'block';
-            updateDisplay(); 
-
-            setTimeout(() => {
-                const maxScrollPreview = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
-                if (maxScrollPreview > 0) wrapper.scrollTop = ratio * maxScrollPreview;
-            }, 10);
+            isEditorActive = false; editor.style.display = 'none'; preview.style.display = 'block'; updateDisplay(); 
+            setTimeout(() => { const maxScrollPreview = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight); if (maxScrollPreview > 0) wrapper.scrollTop = ratio * maxScrollPreview; }, 10);
         }
 
-        // ==========================================
-        // 3. EVENT LISTENERS
-        // ==========================================
         document.getElementById('pdf-upload').value = '';
-        document.getElementById('json-upload').value = '';
-        
-        // DIRTY CHECK LISTENER
-        window.addEventListener('beforeunload', function (e) { 
-            if (isDirty) { 
-                e.preventDefault(); 
-                e.returnValue = ''; 
-            } 
-        });
-
-        // Add CTRL+S Support
-        window.addEventListener('keydown', function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                saveNotes();
-            }
-        });
+        window.addEventListener('beforeunload', function (e) { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
+        window.addEventListener('keydown', function(e) { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); } });
 
         document.getElementById('pdf-upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -1014,26 +784,16 @@
                 fileReader.onload = function() {
                     const typedarray = new Uint8Array(this.result);
                     pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
-                        pdfDoc = pdfDoc_;
-                        noPdfMsg.style.display = "none";
+                        pdfDoc = pdfDoc_; noPdfMsg.style.display = "none"; extractAllText(pdfDoc);
                         if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) {
-                            state.slides = [];
-                            for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"", drawings:[] }); }
+                            state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"", drawings:[] }); }
                             state.count = 1; updateDisplay();
                         }
-                        const pdfModeIdx = MODES.indexOf('PDF');
-                        if (pdfModeIdx !== -1) { currentModeIndex = pdfModeIdx; updateUIForMode(); }
+                        const pdfModeIdx = MODES.indexOf('PDF'); if (pdfModeIdx !== -1) { currentModeIndex = pdfModeIdx; updateUIForMode(); }
                         renderPage(); document.getElementById('pdf-upload').blur();
                     });
-                };
-                fileReader.readAsArrayBuffer(file);
+                }; fileReader.readAsArrayBuffer(file);
             }
-        });
-        document.getElementById('json-upload').addEventListener('change', function(e) {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(event) { loadImportedData(event.target.result); };
-            reader.readAsText(file); e.target.value = '';
         });
 
         slideLabel.addEventListener('input', handleInput);
@@ -1049,10 +809,8 @@
                 e.preventDefault(); pushSnapshot(idx, editor.value);
                 const start = editor.selectionStart; const end = editor.selectionEnd; const val = editor.value;
                 const lineStart = val.lastIndexOf('\n', start - 1) + 1;
-                if (e.shiftKey) {
-                    const line = val.substring(lineStart); const match = line.match(/^ {1,4}/);
-                    if (match) { const len = match[0].length; editor.value = val.substring(0, lineStart) + val.substring(lineStart + len); editor.selectionStart = Math.max(lineStart, start - len); editor.selectionEnd = Math.max(lineStart, end - len); }
-                } else { editor.value = val.substring(0, lineStart) + "    " + val.substring(lineStart); editor.selectionStart = start + 4; editor.selectionEnd = end + 4; }
+                if (e.shiftKey) { const line = val.substring(lineStart); const match = line.match(/^ {1,4}/); if (match) { const len = match[0].length; editor.value = val.substring(0, lineStart) + val.substring(lineStart + len); editor.selectionStart = Math.max(lineStart, start - len); editor.selectionEnd = Math.max(lineStart, end - len); } } 
+                else { editor.value = val.substring(0, lineStart) + "    " + val.substring(lineStart); editor.selectionStart = start + 4; editor.selectionEnd = end + 4; }
                 handleInput();
             }
             if (e.key === 'Backspace' || e.key === 'Delete' || (e.ctrlKey && e.key === 'x') || (e.ctrlKey && e.key === 'v')) { pushSnapshot(idx, editor.value); }
@@ -1061,71 +819,34 @@
                 const start = editor.selectionStart; const end = editor.selectionEnd; const val = editor.value;
                 const lineStart = val.lastIndexOf('\n', start - 1) + 1;
                 const match = val.substring(lineStart, start).match(/^(\s*)([-*]|\d+\.)\s/);
-                if (match) {
-                    e.preventDefault(); const indent = match[1]; const marker = match[2];
-                    let nextMarker = marker;
-                    if (/^\d+\.$/.test(marker)) { const num = parseInt(marker); nextMarker = (num + 1) + "."; }
-                    const prefix = `\n${indent}${nextMarker} `;
-                    const newVal = val.substring(0, start) + prefix + val.substring(end);
-                    editor.value = newVal; editor.selectionStart = editor.selectionEnd = start + prefix.length; handleInput();
-                }
+                if (match) { e.preventDefault(); const indent = match[1]; const marker = match[2]; let nextMarker = marker; if (/^\d+\.$/.test(marker)) { const num = parseInt(marker); nextMarker = (num + 1) + "."; } const prefix = `\n${indent}${nextMarker} `; const newVal = val.substring(0, start) + prefix + val.substring(end); editor.value = newVal; editor.selectionStart = editor.selectionEnd = start + prefix.length; handleInput(); }
             }
         });
 
         let lastScrollTime = 0;
         document.addEventListener('wheel', (e) => {
-            const notesDiv = document.getElementById('notes-wrapper');
-            const sidebarDiv = document.getElementById('sidebar'); 
+            const notesDiv = document.getElementById('notes-wrapper'); const sidebarDiv = document.getElementById('sidebar'); 
             if (notesDiv.contains(e.target) || sidebarDiv.contains(e.target)) return;
-            const now = Date.now();
-            if (now - lastScrollTime < 30) return;
-            if (e.deltaY > 0) { handleNav('forward'); lastScrollTime = now; } 
-            else if (e.deltaY < 0) { handleNav('backward'); lastScrollTime = now; }
+            const now = Date.now(); if (now - lastScrollTime < 30) return;
+            if (e.deltaY > 0) { handleNav('forward'); lastScrollTime = now; } else if (e.deltaY < 0) { handleNav('backward'); lastScrollTime = now; }
         });
 
-        drawCanvas.addEventListener('mousedown', (e) => {
-            const norm = getNormalizedPos(e);
-            if (currentTool === 'eraser') { isErasing = true; eraseStrokeAtInternal(toPixel(norm.x, norm.y)); } 
-            else { isDrawing = true; currentStrokes.push({ points: [norm] }); const px = toPixel(norm.x, norm.y); drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(px.x, px.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke(); }
-        });
-        drawCanvas.addEventListener('mousemove', (e) => {
-            const norm = getNormalizedPos(e); const px = toPixel(norm.x, norm.y);
-            if (currentTool === 'eraser' && isErasing) { eraseStrokeAtInternal(px); return; }
-            if (currentTool === 'pen' && isDrawing) {
-                const path = currentStrokes[currentStrokes.length - 1];
-                const last = path.points[path.points.length - 1]; const lastPx = toPixel(last.x, last.y);
-                drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(lastPx.x, lastPx.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke();
-                path.points.push(norm);
-            }
-        });
+        drawCanvas.addEventListener('mousedown', (e) => { const norm = getNormalizedPos(e); if (currentTool === 'eraser') { isErasing = true; eraseStrokeAtInternal(toPixel(norm.x, norm.y)); } else { isDrawing = true; currentStrokes.push({ points: [norm] }); const px = toPixel(norm.x, norm.y); drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(px.x, px.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke(); } });
+        drawCanvas.addEventListener('mousemove', (e) => { const norm = getNormalizedPos(e); const px = toPixel(norm.x, norm.y); if (currentTool === 'eraser' && isErasing) { eraseStrokeAtInternal(px); return; } if (currentTool === 'pen' && isDrawing) { const path = currentStrokes[currentStrokes.length - 1]; const last = path.points[path.points.length - 1]; const lastPx = toPixel(last.x, last.y); drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(lastPx.x, lastPx.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke(); path.points.push(norm); } });
         drawCanvas.addEventListener('mouseup', endAction); drawCanvas.addEventListener('mouseout', endAction);
 
         searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if(e.shiftKey) nextMatch(-1); else nextMatch(1); } });
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); toggleMenu(); } document.activeElement.blur(); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); if(!controlsPanel.classList.contains('active')) toggleMenu(); searchInput.focus(); return; }
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); handleNav('forward'); return; }
-                if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); handleNav('backward'); return; }
-            }
+            if (e.ctrlKey || e.metaKey) { if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); handleNav('forward'); return; } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); handleNav('backward'); return; } }
             if (document.activeElement === editor || document.activeElement === searchInput) return;
-            if (document.activeElement === slideLabel) {
-                 if (['ArrowUp','ArrowDown'].includes(e.key)) { e.preventDefault(); handleNav(e.key === 'ArrowUp' ? 'forward' : 'backward'); } 
-                 if (e.key === 'Enter') { e.preventDefault(); document.activeElement.blur(); }
-                 return; 
-            }
-            if (e.key === 'i' && !isEditorActive) {
-                pdfCanvas.classList.toggle('inverted');
-                if (state.slides[state.count-1].type === 'blank') renderPage();
-                return;
-            }
-            if(e.key === 'ArrowUp' || e.key === 'ArrowRight') handleNav('forward');
-            else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft') handleNav('backward');
+            if (document.activeElement === slideLabel) { if (['ArrowUp','ArrowDown'].includes(e.key)) { e.preventDefault(); handleNav(e.key === 'ArrowUp' ? 'forward' : 'backward'); } if (e.key === 'Enter') { e.preventDefault(); document.activeElement.blur(); } return; }
+            if (e.key === 'i' && !isEditorActive) { pdfCanvas.classList.toggle('inverted'); if (state.slides[state.count-1].type === 'blank') renderPage(); return; }
+            if(e.key === 'ArrowUp' || e.key === 'ArrowRight') handleNav('forward'); else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft') handleNav('backward');
         });
 
-        // Initialize (Run once at start)
-        updateUIForMode();
-        updateDisplay();
+        updateUIForMode(); updateDisplay();
     </script>
 </body>
 </html>
