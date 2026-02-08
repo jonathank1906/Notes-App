@@ -24,6 +24,11 @@
             flex: 0 0 40px; background: #111; border-bottom: 1px solid #222;
             display: flex; align-items: center; padding: 0 15px; gap: 15px; z-index: 105; /* High z-index to stay on top */
         }
+        #app-logo {
+            width: 30px; height: 30px; margin-right: 5px; opacity: 0.9;
+            transition: opacity 0.2s ease;
+        }
+        #app-logo:hover { opacity: 1; }
         .menu-trigger {
             background: #222; border: 1px solid #444; color: #ddd; padding: 4px 12px;
             font-size: 13px; cursor: pointer; border-radius: 4px; font-weight: bold;
@@ -193,6 +198,12 @@
 <body>
 
     <div id="app-menu-bar">
+        <svg id="app-logo" xmlns='http://www.w3.org/2000/svg' viewBox='0 0 38.25 42.94'>
+            <path d='M17.39.97L2.23 9.72a3.46 3.46 0 0 0-1.73 3v17.5a3.46 3.46 0 0 0 1.73 3l15.16 8.75a3.45 3.45 0 0 0 3.46 0l15.16-8.75a3.46 3.46 0 0 0 1.73-3v-17.5a3.46 3.46 0 0 0-1.73-3L20.85.97a3.45 3.45 0 0 0-3.46 0z' fill='#181919' stroke='#231f20' stroke-miterlimit='10'/>
+            <path d='M5.94 28.84l12.92 7.46a.53.53 0 0 0 .52 0l12.92-7.46a.51.51 0 0 0 0-.89l-12.92-7.47a.53.53 0 0 0-.52 0L5.94 27.97a.51.51 0 0 0 0 .87z' fill='#58595b' opacity='.92'/>
+            <path d='M5.94 21.91l12.92 7.47a.53.53 0 0 0 .52 0l12.92-7.47a.5.5 0 0 0 0-.88l-12.92-7.47a.53.53 0 0 0-.52 0L5.94 21.03a.5.5 0 0 0 0 .88z' fill='#939598' opacity='.89'/>
+            <path d='M5.94 14.97l12.92 7.47a.53.53 0 0 0 .52 0l12.92-7.47a.51.51 0 0 0 0-.89L19.38 6.62a.53.53 0 0 0-.52 0L5.94 14.08a.51.51 0 0 0 0 .89z' fill='#d1d3d4' opacity='.93'/>
+        </svg>
         <button class="menu-trigger" onclick="toggleMenu('file-menu')">File</button>
         <button class="menu-trigger" onclick="toggleMenu('edit-menu')">Edit</button>
         <button class="menu-trigger" onclick="toggleMenu('fixes-menu')">Fixes</button>
