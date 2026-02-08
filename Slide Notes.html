@@ -22,7 +22,7 @@
         /* --- TOP MENU BAR --- */
         #app-menu-bar {
             flex: 0 0 40px; background: #111; border-bottom: 1px solid #222;
-            display: flex; align-items: center; padding: 0 15px; gap: 15px; z-index: 105; /* High z-index to stay on top */
+            display: flex; align-items: center; padding: 0 15px; gap: 0; z-index: 105; /* High z-index to stay on top */
         }
         #app-logo {
             width: 30px; height: 30px; margin-right: 5px; opacity: 0.9;
@@ -30,10 +30,24 @@
         }
         #app-logo:hover { opacity: 1; }
         .menu-trigger {
-            background: #222; border: 1px solid #444; color: #ddd; padding: 4px 12px;
-            font-size: 13px; cursor: pointer; border-radius: 4px; font-weight: bold;
+            background: none;
+            border: 1px solid transparent;
+            color: #888;
+            padding: 4px 8px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.15s ease;
+            margin-left: 0;
+            margin-right: 0;
         }
-        .menu-trigger:hover { background: #333; color: white; }
+        .menu-trigger:hover {
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 6px;
+        }
 
         /* Menu Dropdown */
         .menu-dropdown {
@@ -67,7 +81,15 @@
         .slider-item input { width: 100%; cursor: pointer; accent-color: #888; }
 
         /* Toggle Switch */
-        .mode-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #aaa; cursor: pointer; }
+            .mode-toggle {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+                color: #aaa;
+                cursor: pointer;
+                margin-left: 24px;
+            }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
@@ -187,9 +209,10 @@
         #floating-search-bar.active { display: flex; }
         #search-input { background: #111; border: 1px solid #333; color: white; padding: 5px 8px; font-size: 13px; border-radius: 4px; outline: none; width: 200px; }
         #search-input:focus { border-color: #666; }
-        #search-count { font-size: 11px; color: #888; min-width: 40px; text-align: center; }
-        .search-btn { background: transparent; border: 1px solid transparent; color: #aaa; cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 12px; }
+        #search-count { font-size: 11px; color: #888; min-width: 50px; text-align: center; }
+        .search-btn { background: transparent; border: 1px solid transparent; color: #aaa; cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .search-btn:hover { background: #222; color: #fff; border-color: #333; }
+        .search-btn svg { width: 12px; height: 12px; fill: currentColor; }
         #scanning-status { font-size: 10px; color: #555; margin-left: 5px; display: none; white-space: nowrap; }
 
         .hidden-file-input { display:none; }
@@ -270,12 +293,19 @@
 
     <div id="floating-search-bar">
         <input type="text" id="search-input" placeholder="Find..." oninput="performSearch()">
-        <button class="search-btn" title="Clear" onclick="clearSearch()">✖</button>
-        <span id="search-count">0/0</span>
-        <button class="search-btn" onclick="nextMatch(-1)">▲</button>
-        <button class="search-btn" onclick="nextMatch(1)">▼</button>
+        
+        <span id="search-count">0 of 0</span>
+        <button class="search-btn" title="Previous" onclick="nextMatch(-1)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 511.999 511.999">
+                <path d="M172.548,256.005L388.82,39.729c9.089-9.089,9.089-23.824,0-32.912s-23.824-9.089-32.912,0.002L123.18,239.551c-4.366,4.363-6.817,10.282-6.817,16.454c0,6.173,2.453,12.093,6.817,16.457l232.727,232.721c4.543,4.544,10.499,6.816,16.455,6.816s11.913-2.271,16.457-6.817c9.089-9.089,9.089-23.824,0-32.912L172.548,256.005z"/>
+            </svg>
+        </button>
+        <button class="search-btn" title="Next" onclick="nextMatch(1)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512.001 512.001">
+                <path d="M388.819,239.537L156.092,6.816c-9.087-9.089-23.824-9.089-32.912,0.002c-9.087,9.089-9.087,23.824,0.002,32.912l216.27,216.266L123.179,472.272c-9.087,9.089-9.087,23.824,0.002,32.912c4.543,4.544,10.499,6.816,16.455,6.816c5.956,0,11.913-2.271,16.457-6.817L388.819,272.45c4.366-4.364,6.817-10.283,6.817-16.455C395.636,249.822,393.185,243.902,388.819,239.537z"/>
+            </svg>
+        </button>
         <div id="scanning-status">Scanning PDF...</div>
-        <button class="search-btn" style="margin-left: 5px;" onclick="toggleSearchBar()">Close</button>
     </div>
 
     <div id="rearrange-overlay">
@@ -596,7 +626,7 @@
         function toggleSearchBar() { if (searchBar.classList.contains('active')) { searchBar.classList.remove('active'); searchInput.blur(); } else { searchBar.classList.add('active'); searchInput.focus(); } }
         function performSearch() {
             const query = searchInput.value.toLowerCase().trim(); searchMatches = []; currentMatchPos = -1;
-            if (query.length === 0) { searchCount.textContent = "0/0"; updateDisplay(); return; }
+            if (query.length === 0) { searchCount.textContent = "0 of 0"; updateDisplay(); return; }
             handleInput();
             state.slides.forEach((slide, index) => {
                 const header = (slide.header || "").toLowerCase(); const notes = (slide.notes || "").toLowerCase(); let hit = false;
@@ -604,7 +634,7 @@
                 if (!hit && slide.type !== 'blank' && slide.pdfPage && pdfTextIndex[slide.pdfPage - 1]) { if (pdfTextIndex[slide.pdfPage - 1].includes(query)) hit = true; }
                 if (hit) { searchMatches.push(index + 1); }
             });
-            if (searchMatches.length > 0) { const upcoming = searchMatches.findIndex(num => num >= state.count); currentMatchPos = (upcoming !== -1) ? upcoming : 0; searchCount.textContent = `${currentMatchPos + 1}/${searchMatches.length}`; } else { searchCount.textContent = "0/0"; }
+            if (searchMatches.length > 0) { const upcoming = searchMatches.findIndex(num => num >= state.count); currentMatchPos = (upcoming !== -1) ? upcoming : 0; searchCount.textContent = `${currentMatchPos + 1} of ${searchMatches.length}`; } else { searchCount.textContent = "0 of 0"; }
             updateDisplay();
         }
         function nextMatch(dir) {
@@ -612,7 +642,7 @@
             if (state.count === searchMatches[currentMatchPos]) currentMatchPos += dir;
             if (currentMatchPos >= searchMatches.length) currentMatchPos = 0;
             if (currentMatchPos < 0) currentMatchPos = searchMatches.length - 1;
-            searchCount.textContent = `${currentMatchPos + 1}/${searchMatches.length}`;
+            searchCount.textContent = `${currentMatchPos + 1} of ${searchMatches.length}`;
             state.count = searchMatches[currentMatchPos];
             updateDisplay(); activatePreview(); if (MODES[currentModeIndex] === 'PDF') renderPage();
         }
