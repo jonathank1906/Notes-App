@@ -246,7 +246,7 @@
             </div>
             <div class="slider-item">
                 <label>Text Size</label>
-                <input type="range" min="12" max="60" value="18" oninput="updateTextSize(this.value)">
+                <input type="range" min="10" max="36" value="18" oninput="updateTextSize(this.value)">
             </div>
             <div class="slider-item">
                 <label>Number Size</label>
@@ -286,7 +286,7 @@
         <span id="slideLabel" contenteditable="true" role="textbox" data-placeholder="Header..."></span>
         <div id="pdf-render-container">
             <div id="no-pdf-msg">Load PDF in Menu</div>
-            <canvas id="the-canvas"></canvas>
+            <canvas id="the-canvas" class="inverted"></canvas>
             <div id="text-layer" class="textLayer"></div>
             <canvas id="draw-canvas"></canvas>
         </div>
@@ -646,7 +646,7 @@
 
         // --- RESTORED SLIDER FUNCTIONS ---
         function updateNumberSize(val) { display.style.fontSize = val + "px"; }
-        function updateTextSize(val) { editor.style.fontSize = val + "px"; preview.style.fontSize = val + "px"; slideLabel.style.fontSize = (val * 1.5) + "px"; }
+        function updateTextSize(val) { editor.style.fontSize = val + "px"; preview.style.fontSize = val + "px"; }
         function updatePdfSize(val) { pdfContainer.style.height = val + "vh"; }
         function refreshPdfResolution() { if (MODES[currentModeIndex] === 'PDF' && pdfDoc) renderPage(); }
 
