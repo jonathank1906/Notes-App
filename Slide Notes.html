@@ -335,7 +335,7 @@
 
     <div id="notes-container">
         <div id="notes-wrapper">
-            <textarea id="slideNotesEditor" placeholder="Type Markdown here..."></textarea>
+              <textarea id="slideNotesEditor"></textarea>
             <div id="slideNotesPreview" onclick="activateEditor()"></div>
         </div>
     </div>
@@ -428,7 +428,7 @@
             slideLabel.innerText = slide.header || ""; editor.value = slide.notes || "";
             if (!historyStacks[idx]) historyStacks[idx] = { undo: [], redo: [] };
             let htmlContent = "";
-            if (typeof marked !== 'undefined') { htmlContent = slide.notes ? marked.parse(slide.notes) : '<span class="empty-placeholder">Click to add notes...</span>'; } else htmlContent = slide.notes || "";
+                if (typeof marked !== 'undefined') { htmlContent = slide.notes ? marked.parse(slide.notes) : ''; } else htmlContent = slide.notes || "";
             preview.innerHTML = htmlContent;
             if (typeof renderMathInElement !== 'undefined') { renderMathInElement(preview, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false }); }
             const mode = MODES[currentModeIndex];
