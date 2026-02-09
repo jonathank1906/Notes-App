@@ -209,6 +209,88 @@
             font-family: monospace;
         }
 
+        /* --- FLASHCARD MODE STYLES --- */
+        #flashcard-overlay {
+            display: none;
+            position: absolute; top: 40px; left: 0; width: 100%; height: calc(100vh - 40px);
+            background-color: #0e0e0e; 
+            z-index: 200;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #flashcard-overlay.active { display: flex; }
+
+        .fc-mode-label {
+            position: absolute; top: 10px; left: 20px;
+            font-size: 14px; color: #888; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        /* --- STUDY MODE --- */
+        #fc-study-container { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; justify-content: center; }
+        
+        .fc-scene {
+            width: 600px; height: 400px; perspective: 1000px; margin: 20px; cursor: pointer;
+            -webkit-user-select: none; user-select: none;
+        }
+        .fc-card {
+            width: 100%; height: 100%; position: relative;
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+            transform-style: preserve-3d;
+        }
+        .fc-card.is-flipped { transform: rotateX(180deg); }
+        .fc-face {
+            position: absolute; width: 100%; height: 100%; border-radius: 1rem;
+            background: #2b2b2b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            padding: 2rem; text-align: center; font-size: 2rem; line-height: 1.5; font-weight: 400;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            overflow-y: auto;
+        }
+        .fc-face-back { transform: rotateX(180deg); color: #fff; }
+        .fc-face-front { color: #fff; }
+
+        .fc-instructions {
+            margin-top: 1rem; color: #6e6e6e; font-size: 0.875rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase; user-select: none;
+        }
+        .fc-controls {
+            display: flex; gap: 15px; align-items: center; margin-top: 20px;
+        }
+        .fc-btn {
+            background: #222; border: 1px solid #444; color: #ccc; padding: 8px 16px; 
+            border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        .fc-btn:hover { background: #333; color: white; }
+        .fc-btn.edit-toggle { color: #8af; border-color: #357; }
+        #fc-counter { font-family: monospace; color: #888; }
+        #no-cards-msg { color: #666; font-style: italic; margin-bottom: 20px; }
+
+        /* --- EDIT MODE --- */
+        #fc-edit-container { 
+            display: none; flex-direction: column; width: 600px; height: 600px; 
+            background: #111; border: 1px solid #333; border-radius: 8px; padding: 20px;
+        }
+        .fc-edit-field {
+            display: flex; flex-direction: column; flex: 1; margin-bottom: 15px;
+        }
+        .fc-edit-field label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
+        .fc-edit-textarea {
+            flex: 1; background: #1a1a1a; border: 1px solid #333; color: #ddd; 
+            padding: 10px; font-family: 'Consolas', monospace; font-size: 14px; resize: none; outline: none;
+            border-radius: 4px;
+        }
+        .fc-edit-textarea:focus { border-color: #555; }
+        .fc-edit-controls { display: flex; justify-content: space-between; align-items: center; }
+        .fc-btn.add-btn { color: #8f8; border-color: #353; }
+        .fc-btn.del-btn { color: #f88; border-color: #533; }
+
+        /* Markdown Styles in Flashcard */
+        .fc-face p { margin-bottom: 10px; }
+        .fc-face code { background: #444; padding: 2px 4px; border-radius: 3px; font-size: 0.8em; font-family: monospace; }
+        .fc-face pre { background: #111; padding: 10px; border-radius: 5px; width: 100%; text-align: left; overflow-x: auto; }
+
         #pdf-render-container { display: none; justify-content: center; align-items: center; width: 100%; height: 30vh; position: relative; transition: height 0.1s ease; }
         #the-canvas { max-height: 100%; max-width: 80%; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: absolute; z-index: 1; }
         #the-canvas.inverted { filter: invert(1); }
@@ -282,6 +364,7 @@
         <button class="menu-trigger" onclick="toggleMenu('edit-menu')">Edit</button>
         <button class="menu-trigger" onclick="toggleMenu('fixes-menu')">Fixes</button>
         <button class="menu-trigger" onclick="toggleMenu('appearance-menu')">Appearance</button>
+        <button class="menu-trigger" id="btn-flashcards" onclick="toggleFlashcardMode()">Flashcards</button>
         
         <label class="mode-toggle">
             Standard
@@ -384,6 +467,54 @@
         <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, null)">Remove Level</button>
     </div>
 
+    <div id="flashcard-overlay">
+        <div class="fc-mode-label" id="fc-mode-label">Study Mode</div>
+
+        <div id="fc-study-container">
+            <div id="no-cards-msg" style="display:none;">Deck is empty. Press 'e' to add cards.</div>
+            
+            <div class="fc-scene" id="fc-scene">
+                <div class="fc-card">
+                    <div class="fc-face fc-face-front"></div>
+                    <div class="fc-face fc-face-back"></div>
+                </div>
+            </div>
+            
+            <div class="fc-instructions">Space to flip • 'e' to Edit</div>
+            
+            <div class="fc-controls">
+                <button class="fc-btn" onclick="navFlashcard(-1)">Previous</button>
+                <span id="fc-counter">0 / 0</span>
+                <button class="fc-btn" onclick="navFlashcard(1)">Next</button>
+                <div style="width:20px;"></div>
+                <button class="fc-btn edit-toggle" onclick="toggleFlashcardEditMode()">Edit / Add</button>
+            </div>
+        </div>
+
+        <div id="fc-edit-container">
+            <h3 style="margin-top:0; margin-bottom:15px; color:#8af;">Edit Flashcard</h3>
+            
+            <div class="fc-edit-field">
+                <label>Front (Question)</label>
+                <textarea class="fc-edit-textarea" id="fc-edit-front" placeholder="Type question here (Markdown supported)..."></textarea>
+            </div>
+            
+            <div class="fc-edit-field">
+                <label>Back (Answer)</label>
+                <textarea class="fc-edit-textarea" id="fc-edit-back" placeholder="Type answer here (Markdown supported)..."></textarea>
+            </div>
+            
+            <div class="fc-edit-controls">
+                <button class="fc-btn del-btn" onclick="deleteFlashcard()">Delete Card</button>
+                <div>
+                     <button class="fc-btn" onclick="toggleFlashcardEditMode()">Cancel / View</button>
+                     <button class="fc-btn add-btn" onclick="saveFlashcardAndNext()">Save & Add New</button>
+                     <button class="fc-btn" onclick="saveFlashcardOnly()" style="border-color:#8af; color:#8af;">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="sticky-header-group">
         <div id="display">1</div>
         <span id="slideLabel" contenteditable="true" role="textbox" data-placeholder="Header..."></span>
@@ -450,7 +581,7 @@
             });
         } catch(e) { console.error("Marked/HLJS not loaded", e); }
 
-        let state = { count: 1, slides: [] };
+        let state = { count: 1, slides: [], flashcards: [] };
         state.slides = [{ type: 'blank', header: '', notes: '', drawings: [] }];
         
         let MODES = ['NUM', 'PDF']; 
@@ -469,6 +600,25 @@
         let autoSaveInterval = null;
         let isDrawing = false; let isErasing = false; let currentTool = 'pen'; let currentStrokes = [];
         let isPageRendering = false; let pageNumPending = null;
+        
+        // --- FLASHCARD STATE ---
+        let currentFlashcardIndex = 0;
+        let isFlashcardMode = false;
+        let isFlashcardEditMode = false;
+
+        // --- FLASHCARD ELEMENTS ---
+        const fcOverlay = document.getElementById('flashcard-overlay');
+        const fcScene = document.getElementById('fc-scene');
+        const fcCard = document.querySelector('.fc-card');
+        const fcFront = document.querySelector('.fc-face-front');
+        const fcBack = document.querySelector('.fc-face-back');
+        const fcCounter = document.getElementById('fc-counter');
+        const noCardsMsg = document.getElementById('no-cards-msg');
+        const fcStudyContainer = document.getElementById('fc-study-container');
+        const fcEditContainer = document.getElementById('fc-edit-container');
+        const fcEditFront = document.getElementById('fc-edit-front');
+        const fcEditBack = document.getElementById('fc-edit-back');
+        const fcModeLabel = document.getElementById('fc-mode-label');
 
         // --- CORE FUNCTIONS ---
 
@@ -557,6 +707,150 @@
                 updateSidebar();
             }
             tocContextMenu.classList.remove('active');
+        }
+
+        // --- FLASHCARD FUNCTIONS ---
+        function toggleFlashcardMode() {
+            isFlashcardMode = !isFlashcardMode;
+            const btn = document.getElementById('btn-flashcards');
+            
+            if (isFlashcardMode) {
+                fcOverlay.classList.add('active');
+                btn.style.background = '#222';
+                btn.style.color = '#fff';
+                btn.style.borderColor = '#444';
+                
+                if(!state.flashcards) state.flashcards = [];
+                isFlashcardEditMode = false;
+                renderFlashcardUI();
+            } else {
+                fcOverlay.classList.remove('active');
+                btn.style.background = 'none';
+                btn.style.color = '#888';
+                btn.style.borderColor = 'transparent';
+                if (MODES[currentModeIndex] === 'PDF') renderPage();
+            }
+        }
+
+        function toggleFlashcardEditMode() {
+            isFlashcardEditMode = !isFlashcardEditMode;
+            renderFlashcardUI();
+        }
+
+        function renderFlashcardUI() {
+            if (isFlashcardEditMode) {
+                fcStudyContainer.style.display = 'none';
+                fcEditContainer.style.display = 'flex';
+                fcModeLabel.innerText = "Edit Mode";
+                
+                if(state.flashcards && state.flashcards.length > 0 && currentFlashcardIndex < state.flashcards.length) {
+                    const card = state.flashcards[currentFlashcardIndex];
+                    fcEditFront.value = card.front;
+                    fcEditBack.value = card.back;
+                } else {
+                    fcEditFront.value = "";
+                    fcEditBack.value = "";
+                }
+                fcEditFront.focus();
+
+            } else {
+                fcStudyContainer.style.display = 'flex';
+                fcEditContainer.style.display = 'none';
+                fcModeLabel.innerText = "Study Mode";
+                
+                fcCard.classList.remove('is-flipped');
+
+                if (!state.flashcards || state.flashcards.length === 0) {
+                    noCardsMsg.style.display = 'block';
+                    fcScene.style.display = 'none';
+                    fcCounter.innerText = "0 / 0";
+                } else {
+                    noCardsMsg.style.display = 'none';
+                    fcScene.style.display = 'block';
+                    updateFlashcardDisplay();
+                }
+            }
+        }
+
+        function updateFlashcardDisplay() {
+            const cards = state.flashcards || [];
+            if (cards.length === 0) return;
+            
+            if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
+            
+            const cardData = cards[currentFlashcardIndex];
+            
+            fcFront.innerHTML = marked.parse(cardData.front || "...");
+            fcBack.innerHTML = marked.parse(cardData.back || "...");
+            
+            fcCounter.textContent = `${currentFlashcardIndex + 1} / ${cards.length}`;
+            fcCard.classList.remove('is-flipped');
+        }
+
+        function navFlashcard(dir) {
+            const cards = state.flashcards || [];
+            if (cards.length === 0) return;
+            currentFlashcardIndex += dir;
+            if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
+            if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
+            updateFlashcardDisplay();
+        }
+
+        function flipCard() {
+            fcCard.classList.toggle('is-flipped');
+        }
+
+        fcScene.addEventListener('click', flipCard);
+
+        function saveFlashcardOnly() {
+            if(!state.flashcards) state.flashcards = [];
+            
+            const frontVal = fcEditFront.value;
+            const backVal = fcEditBack.value;
+
+            if (state.flashcards.length > 0 && currentFlashcardIndex < state.flashcards.length) {
+                state.flashcards[currentFlashcardIndex].front = frontVal;
+                state.flashcards[currentFlashcardIndex].back = backVal;
+            } else {
+                state.flashcards.push({ front: frontVal, back: backVal });
+                currentFlashcardIndex = 0;
+            }
+            isDirty = true;
+            toggleFlashcardEditMode();
+        }
+
+        function saveFlashcardAndNext() {
+             if(!state.flashcards) state.flashcards = [];
+             
+             const frontVal = fcEditFront.value;
+             const backVal = fcEditBack.value;
+             
+             if (currentFlashcardIndex < state.flashcards.length) {
+                 state.flashcards[currentFlashcardIndex].front = frontVal;
+                 state.flashcards[currentFlashcardIndex].back = backVal;
+             } else {
+                 state.flashcards.push({ front: frontVal, back: backVal });
+             }
+
+             state.flashcards.push({ front: "", back: "" });
+             currentFlashcardIndex = state.flashcards.length - 1;
+             
+             fcEditFront.value = "";
+             fcEditBack.value = "";
+             fcEditFront.focus();
+             
+             isDirty = true;
+        }
+
+        function deleteFlashcard() {
+             if(!state.flashcards || state.flashcards.length === 0) return;
+             if(confirm("Delete this card?")) {
+                 state.flashcards.splice(currentFlashcardIndex, 1);
+                 if (currentFlashcardIndex >= state.flashcards.length) currentFlashcardIndex = Math.max(0, state.flashcards.length - 1);
+                 isDirty = true;
+                 isFlashcardEditMode = false;
+                 renderFlashcardUI();
+             }
         }
 
         // --- MENU LOGIC ---
@@ -776,6 +1070,7 @@
             try {
                 let imported = JSON.parse(jsonString);
                 if (imported.memory && (!imported.slides || imported.slides.length === 0)) { imported.slides = []; const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b); const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0; for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"", drawings: d.drawings||[] }); } if(imported.count !== undefined) imported.count++; }
+                if(!imported.flashcards) imported.flashcards = [];
                 state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateDisplay(); if(pdfDoc && MODES[currentModeIndex] === 'PDF') renderPage();
             } catch(err) { alert("Error reading JSON"); }
         }
@@ -851,7 +1146,22 @@
 
         document.getElementById('pdf-upload').value = '';
         window.addEventListener('beforeunload', function (e) { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
-        window.addEventListener('keydown', function(e) { 
+        window.addEventListener('keydown', function(e) {
+            // 1. Flashcard Mode Handlers
+            if (isFlashcardMode) {
+                if (isFlashcardEditMode) {
+                    if (e.key === 'Escape') toggleFlashcardEditMode();
+                    return;
+                }
+                if (e.key === 'e') { e.preventDefault(); toggleFlashcardEditMode(); }
+                if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) flipCard(); }
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navFlashcard(1);
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navFlashcard(-1);
+                if (e.key === 'Escape') toggleFlashcardMode();
+                return;
+            }
+            
+            // 2. Standard Shortcuts
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); }
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearchBar(); }
             if (e.key === 'Escape') { if (searchBar.classList.contains('active')) { toggleSearchBar(); } else { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); } document.activeElement.blur(); document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active')); } }
@@ -884,6 +1194,8 @@
         document.addEventListener('wheel', (e) => {
             const notesDiv = document.getElementById('notes-wrapper'); const sidebarDiv = document.getElementById('sidebar'); 
             if (notesDiv.contains(e.target) || sidebarDiv.contains(e.target)) return;
+            if (isFlashcardEditMode) return;
+            if (fcOverlay.classList.contains('active')) return;
             const now = Date.now(); if (now - lastScrollTime < 30) return;
             if (e.deltaY > 0) { handleNav('forward'); lastScrollTime = now; } else if (e.deltaY < 0) { handleNav('backward'); lastScrollTime = now; }
         });
