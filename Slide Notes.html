@@ -1362,7 +1362,9 @@
                 glossary: []
             };
             
-            // Merge slides (in order)
+            // Merge slides with corrected PDF page numbers
+            let cumulativePageOffset = 0;
+            
             mergeFiles.forEach((file, index) => {
                 // Add separator slide
                 if (index > 0) {
@@ -1375,10 +1377,32 @@
                     });
                 }
                 
-                // Add all slides from this file
+                // Find the maximum PDF page number in this file to calculate offset for next file
+                let maxPageInFile = 0;
                 if (file.data.slides && file.data.slides.length > 0) {
-                    merged.slides.push(...file.data.slides);
+                    file.data.slides.forEach(slide => {
+                        if (slide.type === 'pdf' && slide.pdfPage) {
+                            maxPageInFile = Math.max(maxPageInFile, slide.pdfPage);
+                        }
+                    });
                 }
+                
+                // Add all slides from this file with adjusted page numbers
+                if (file.data.slides && file.data.slides.length > 0) {
+                    file.data.slides.forEach(slide => {
+                        const newSlide = JSON.parse(JSON.stringify(slide)); // Deep copy
+                        
+                        // Adjust PDF page numbers for combined PDF
+                        if (newSlide.type === 'pdf' && newSlide.pdfPage) {
+                            newSlide.pdfPage += cumulativePageOffset;
+                        }
+                        
+                        merged.slides.push(newSlide);
+                    });
+                }
+                
+                // Update offset for next file
+                cumulativePageOffset += maxPageInFile;
             });
             
             // Merge flashcards (deduplicate by front text)
