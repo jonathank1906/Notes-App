@@ -291,6 +291,157 @@
         .fc-face code { background: #444; padding: 2px 4px; border-radius: 3px; font-size: 0.8em; font-family: monospace; }
         .fc-face pre { background: #111; padding: 10px; border-radius: 5px; width: 100%; text-align: left; overflow-x: auto; }
 
+        /* --- GLOSSARY MODE STYLES --- */
+        #glossary-overlay {
+            display: none;
+            position: absolute; top: 40px; left: 0; width: 100%; height: calc(100vh - 40px);
+            background-color: #0e0e0e;
+            z-index: 200;
+            flex-direction: column;
+            padding: 40px;
+            overflow-y: auto;
+        }
+        #glossary-overlay.active { display: flex; }
+
+        .glossary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+        .glossary-header h2 {
+            margin: 0;
+            font-size: 24px;
+            color: #fff;
+        }
+        .glossary-add-section {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .glossary-input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .glossary-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 4px;
+            outline: none;
+        }
+        .glossary-input:focus { border-color: #555; }
+        .glossary-input.term-input { flex: 0 0 250px; }
+        
+        .glossary-textarea {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 4px;
+            outline: none;
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Consolas', monospace;
+        }
+        .glossary-textarea:focus { border-color: #555; }
+
+        .glossary-add-btn {
+            background: #222;
+            border: 1px solid #353;
+            color: #8f8;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .glossary-add-btn:hover { background: #252; }
+
+        .glossary-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .glossary-item {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+        .glossary-item:hover {
+            border-color: #555;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .glossary-term {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+        .glossary-definition {
+            color: #aaa;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .glossary-definition p { margin: 5px 0; }
+        .glossary-definition code {
+            background: #2d2d2d;
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #ccc;
+            border: 1px solid #444;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .glossary-item-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .glossary-item-btn {
+            background: #222;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .glossary-item-btn:hover { background: #333; color: #fff; }
+        .glossary-item-btn.delete { color: #f88; border-color: #533; }
+        .glossary-item-btn.delete:hover { background: #300; }
+
+        .glossary-search {
+            margin-bottom: 20px;
+        }
+        .glossary-search input {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 4px;
+            outline: none;
+        }
+        .glossary-search input:focus { border-color: #555; }
+
         #pdf-render-container { display: none; justify-content: center; align-items: center; width: 100%; height: 30vh; position: relative; transition: height 0.1s ease; }
         #the-canvas { max-height: 100%; max-width: 80%; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: absolute; z-index: 1; }
         #the-canvas.inverted { filter: invert(1); }
@@ -365,6 +516,7 @@
         <button class="menu-trigger" onclick="toggleMenu('fixes-menu')">Fixes</button>
         <button class="menu-trigger" onclick="toggleMenu('appearance-menu')">Appearance</button>
         <button class="menu-trigger" id="btn-flashcards" onclick="toggleFlashcardMode()">Flashcards</button>
+        <button class="menu-trigger" id="btn-glossary" onclick="toggleGlossaryMode()">Glossary</button>
         
         <label class="mode-toggle">
             Standard
@@ -515,6 +667,28 @@
         </div>
     </div>
 
+    <div id="glossary-overlay">
+        <div class="glossary-header">
+            <h2>Glossary</h2>
+            <button class="fc-btn" onclick="toggleGlossaryMode()" style="border-color:#666;">Close</button>
+        </div>
+
+        <div class="glossary-add-section">
+            <h3 style="margin-top:0; margin-bottom:15px; color:#8af; font-size:16px;">Add New Term</h3>
+            <div class="glossary-input-group">
+                <input type="text" class="glossary-input term-input" id="glossary-term-input" placeholder="Term...">
+            </div>
+            <textarea class="glossary-textarea" id="glossary-definition-input" placeholder="Definition (Markdown supported)..."></textarea>
+            <button class="glossary-add-btn" onclick="addGlossaryTerm()">Add Term</button>
+        </div>
+
+        <div class="glossary-search">
+            <input type="text" id="glossary-search-input" placeholder="Search glossary..." oninput="filterGlossary()">
+        </div>
+
+        <div class="glossary-list" id="glossary-list"></div>
+    </div>
+
     <div id="sticky-header-group">
         <div id="display">1</div>
         <span id="slideLabel" contenteditable="true" role="textbox" data-placeholder="Header..."></span>
@@ -581,7 +755,7 @@
             });
         } catch(e) { console.error("Marked/HLJS not loaded", e); }
 
-        let state = { count: 1, slides: [], flashcards: [] };
+        let state = { count: 1, slides: [], flashcards: [], glossary: [] };
         state.slides = [{ type: 'blank', header: '', notes: '', drawings: [] }];
         
         let MODES = ['NUM', 'PDF']; 
@@ -605,6 +779,10 @@
         let currentFlashcardIndex = 0;
         let isFlashcardMode = false;
         let isFlashcardEditMode = false;
+        
+        // --- GLOSSARY STATE ---
+        let isGlossaryMode = false;
+        let editingGlossaryIndex = -1;
 
         // --- FLASHCARD ELEMENTS ---
         const fcOverlay = document.getElementById('flashcard-overlay');
@@ -619,6 +797,13 @@
         const fcEditFront = document.getElementById('fc-edit-front');
         const fcEditBack = document.getElementById('fc-edit-back');
         const fcModeLabel = document.getElementById('fc-mode-label');
+        
+        // --- GLOSSARY ELEMENTS ---
+        const glossaryOverlay = document.getElementById('glossary-overlay');
+        const glossaryList = document.getElementById('glossary-list');
+        const glossaryTermInput = document.getElementById('glossary-term-input');
+        const glossaryDefInput = document.getElementById('glossary-definition-input');
+        const glossarySearchInput = document.getElementById('glossary-search-input');
 
         // --- CORE FUNCTIONS ---
 
@@ -853,6 +1038,135 @@
              }
         }
 
+        // --- GLOSSARY FUNCTIONS ---
+        function toggleGlossaryMode() {
+            isGlossaryMode = !isGlossaryMode;
+            const btn = document.getElementById('btn-glossary');
+            
+            if (isGlossaryMode) {
+                glossaryOverlay.classList.add('active');
+                btn.style.background = '#222';
+                btn.style.color = '#fff';
+                btn.style.borderColor = '#444';
+                
+                if(!state.glossary) state.glossary = [];
+                renderGlossary();
+                glossaryTermInput.focus();
+            } else {
+                glossaryOverlay.classList.remove('active');
+                btn.style.background = 'none';
+                btn.style.color = '#888';
+                btn.style.borderColor = 'transparent';
+                clearGlossaryInputs();
+                if (MODES[currentModeIndex] === 'PDF') renderPage();
+            }
+        }
+
+        function addGlossaryTerm() {
+            const term = glossaryTermInput.value.trim();
+            const definition = glossaryDefInput.value.trim();
+            
+            if (!term || !definition) {
+                alert('Please enter both a term and definition.');
+                return;
+            }
+            
+            if(!state.glossary) state.glossary = [];
+            
+            if (editingGlossaryIndex >= 0) {
+                // Update existing
+                state.glossary[editingGlossaryIndex] = { term, definition };
+                editingGlossaryIndex = -1;
+            } else {
+                // Add new
+                state.glossary.push({ term, definition });
+            }
+            
+            isDirty = true;
+            clearGlossaryInputs();
+            renderGlossary();
+            glossaryTermInput.focus();
+        }
+
+        function editGlossaryTerm(index) {
+            if (index >= 0 && index < state.glossary.length) {
+                const item = state.glossary[index];
+                glossaryTermInput.value = item.term;
+                glossaryDefInput.value = item.definition;
+                editingGlossaryIndex = index;
+                glossaryTermInput.focus();
+                glossaryTermInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function deleteGlossaryTerm(index) {
+            if (confirm('Delete this term?')) {
+                state.glossary.splice(index, 1);
+                isDirty = true;
+                renderGlossary();
+            }
+        }
+
+        function clearGlossaryInputs() {
+            glossaryTermInput.value = '';
+            glossaryDefInput.value = '';
+            editingGlossaryIndex = -1;
+        }
+
+        function renderGlossary() {
+            if (!state.glossary || state.glossary.length === 0) {
+                glossaryList.innerHTML = '<div style="color:#666; font-style:italic; grid-column: 1/-1; text-align:center; padding:40px;">No terms yet. Add your first term above!</div>';
+                return;
+            }
+            
+            const searchTerm = glossarySearchInput.value.toLowerCase().trim();
+            let filteredGlossary = state.glossary;
+            
+            if (searchTerm) {
+                filteredGlossary = state.glossary.filter(item => 
+                    item.term.toLowerCase().includes(searchTerm) || 
+                    item.definition.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Sort alphabetically by term
+            filteredGlossary = [...filteredGlossary].sort((a, b) => a.term.toLowerCase().localeCompare(b.term.toLowerCase()));
+            
+            if (filteredGlossary.length === 0) {
+                glossaryList.innerHTML = '<div style="color:#666; font-style:italic; grid-column: 1/-1; text-align:center; padding:40px;">No matching terms found.</div>';
+                return;
+            }
+            
+            let html = '';
+            filteredGlossary.forEach((item, displayIndex) => {
+                // Find original index for edit/delete
+                const originalIndex = state.glossary.indexOf(item);
+                const definitionHTML = marked.parse(item.definition);
+                
+                html += `
+                    <div class="glossary-item">
+                        <div class="glossary-term">${escapeHtml(item.term)}</div>
+                        <div class="glossary-definition">${definitionHTML}</div>
+                        <div class="glossary-item-actions">
+                            <button class="glossary-item-btn" onclick="editGlossaryTerm(${originalIndex})">Edit</button>
+                            <button class="glossary-item-btn delete" onclick="deleteGlossaryTerm(${originalIndex})">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            glossaryList.innerHTML = html;
+        }
+
+        function filterGlossary() {
+            renderGlossary();
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
         // --- MENU LOGIC ---
         function toggleMenu(menuId) {
             const menu = document.getElementById(menuId);
@@ -1071,6 +1385,7 @@
                 let imported = JSON.parse(jsonString);
                 if (imported.memory && (!imported.slides || imported.slides.length === 0)) { imported.slides = []; const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b); const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0; for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"", drawings: d.drawings||[] }); } if(imported.count !== undefined) imported.count++; }
                 if(!imported.flashcards) imported.flashcards = [];
+                if(!imported.glossary) imported.glossary = [];
                 state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateDisplay(); if(pdfDoc && MODES[currentModeIndex] === 'PDF') renderPage();
             } catch(err) { alert("Error reading JSON"); }
         }
@@ -1161,7 +1476,19 @@
                 return;
             }
             
-            // 2. Standard Shortcuts
+            // 2. Glossary Mode Handlers
+            if (isGlossaryMode) {
+                if (e.key === 'Escape' && document.activeElement !== glossaryTermInput && document.activeElement !== glossaryDefInput && document.activeElement !== glossarySearchInput) {
+                    toggleGlossaryMode();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && (document.activeElement === glossaryTermInput || document.activeElement === glossaryDefInput)) {
+                    e.preventDefault();
+                    addGlossaryTerm();
+                }
+                return;
+            }
+            
+            // 3. Standard Shortcuts
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); }
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearchBar(); }
             if (e.key === 'Escape') { if (searchBar.classList.contains('active')) { toggleSearchBar(); } else { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); } document.activeElement.blur(); document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active')); } }
@@ -1194,8 +1521,8 @@
         document.addEventListener('wheel', (e) => {
             const notesDiv = document.getElementById('notes-wrapper'); const sidebarDiv = document.getElementById('sidebar'); 
             if (notesDiv.contains(e.target) || sidebarDiv.contains(e.target)) return;
-            if (isFlashcardEditMode) return;
-            if (fcOverlay.classList.contains('active')) return;
+            if (isFlashcardEditMode || isGlossaryMode) return;
+            if (fcOverlay.classList.contains('active') || glossaryOverlay.classList.contains('active')) return;
             const now = Date.now(); if (now - lastScrollTime < 30) return;
             if (e.deltaY > 0) { handleNav('forward'); lastScrollTime = now; } else if (e.deltaY < 0) { handleNav('backward'); lastScrollTime = now; }
         });
