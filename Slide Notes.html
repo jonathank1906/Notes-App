@@ -488,6 +488,33 @@
         .card-note-excerpt { font-size: 10px; color: #888; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
         .rearrange-card-num { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 10px; border-radius: 4px; pointer-events: none; }
 
+        /* --- MERGE LECTURES OVERLAY --- */
+        #merge-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 250; overflow-y: auto; padding: 40px; }
+        #merge-overlay.active { display: flex; flex-direction: column; }
+        #merge-header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; margin-bottom: 20px; padding-bottom: 15px; }
+        #merge-header h2 { margin: 0; font-size: 20px; color: #fff; }
+        .merge-instructions { color: #888; font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
+        #merge-file-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .merge-file-card {
+            background: #111; border: 1px solid #333; border-radius: 8px; padding: 15px;
+            display: flex; align-items: center; gap: 15px; cursor: grab; transition: all 0.2s;
+        }
+        .merge-file-card:hover { border-color: #555; background: #161616; }
+        .merge-file-card:active { cursor: grabbing; }
+        .merge-file-handle { font-size: 20px; color: #666; user-select: none; }
+        .merge-file-order { background: #222; color: #fff; padding: 8px 12px; border-radius: 4px; font-weight: bold; min-width: 40px; text-align: center; }
+        .merge-file-info { flex: 1; }
+        .merge-file-name { font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 5px; }
+        .merge-file-stats { font-size: 12px; color: #888; }
+        .merge-file-remove { background: #300; border: 1px solid #533; color: #f88; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .merge-file-remove:hover { background: #400; }
+        .merge-actions { display: flex; gap: 15px; align-items: center; }
+        .merge-btn-add { background: #222; border: 1px solid #444; color: #8af; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .merge-btn-add:hover { background: #333; }
+        .merge-btn-execute { background: #252; border: 1px solid #353; color: #8f8; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        .merge-btn-execute:hover { background: #353; }
+        .merge-btn-execute:disabled { opacity: 0.3; cursor: not-allowed; }
+
         /* Floating Search */
         #floating-search-bar { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #050505; border: 1px solid #444; border-radius: 6px; padding: 8px 12px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.8); align-items: center; gap: 8px; }
         #floating-search-bar.active { display: flex; }
@@ -541,6 +568,9 @@
         <button class="menu-item" onclick="openNotesEditable()">Open Notes</button>
         <button class="menu-item" onclick="saveNotes()">Save</button>
         <button class="menu-item" onclick="saveNotesAs()">Save As New File...</button>
+        <div class="menu-separator"></div>
+        <button class="menu-item" onclick="openMergeLectures()">Merge Lectures...</button>
+        <div class="menu-separator"></div>
         <label class="menu-checkbox">
             <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()" checked>
             Enable Auto-Save
@@ -576,6 +606,7 @@
     </div>
 
     <input type="file" id="pdf-upload" accept=".pdf" class="hidden-file-input">
+    <input type="file" id="merge-json-upload" accept=".json" multiple class="hidden-file-input">
 
     <div id="floating-search-bar">
         <input type="text" id="search-input" placeholder="Find..." oninput="performSearch()">
@@ -600,6 +631,28 @@
             <button class="action-btn" onclick="closeRearrangeMenu()">Close / Apply</button>
         </div>
         <div id="rearrange-grid"></div>
+    </div>
+
+    <div id="merge-overlay">
+        <div id="merge-header">
+            <h2>Merge Lectures</h2>
+            <button class="fc-btn" onclick="closeMergeLectures()" style="border-color:#666;">Cancel</button>
+        </div>
+        
+        <div class="merge-instructions">
+            <strong>How to use:</strong><br>
+            1. Click "Add Lecture Files" to select multiple JSON files<br>
+            2. Drag files to reorder them (merged in this order)<br>
+            3. Click "Merge & Save" to create a combined file<br>
+            <em>Note: Flashcards and glossary terms will be deduplicated automatically.</em>
+        </div>
+
+        <div id="merge-file-list"></div>
+
+        <div class="merge-actions">
+            <button class="merge-btn-add" onclick="document.getElementById('merge-json-upload').click()">+ Add Lecture Files</button>
+            <button class="merge-btn-execute" id="merge-execute-btn" onclick="executeMerge()" disabled>Merge & Save</button>
+        </div>
     </div>
 
     <div id="sidebar">
@@ -783,6 +836,9 @@
         // --- GLOSSARY STATE ---
         let isGlossaryMode = false;
         let editingGlossaryIndex = -1;
+        
+        // --- MERGE STATE ---
+        let mergeFiles = []; // Array of {name, data}
 
         // --- FLASHCARD ELEMENTS ---
         const fcOverlay = document.getElementById('flashcard-overlay');
@@ -804,6 +860,12 @@
         const glossaryTermInput = document.getElementById('glossary-term-input');
         const glossaryDefInput = document.getElementById('glossary-definition-input');
         const glossarySearchInput = document.getElementById('glossary-search-input');
+        
+        // --- MERGE ELEMENTS ---
+        const mergeOverlay = document.getElementById('merge-overlay');
+        const mergeFileList = document.getElementById('merge-file-list');
+        const mergeExecuteBtn = document.getElementById('merge-execute-btn');
+        const mergeJsonUpload = document.getElementById('merge-json-upload');
 
         // --- CORE FUNCTIONS ---
 
@@ -1165,6 +1227,224 @@
         function escapeHtml(text) {
             const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // --- MERGE LECTURES FUNCTIONS ---
+        function openMergeLectures() {
+            mergeOverlay.classList.add('active');
+            mergeFiles = [];
+            renderMergeFileList();
+            document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
+        }
+
+        function closeMergeLectures() {
+            mergeOverlay.classList.remove('active');
+            mergeFiles = [];
+            renderMergeFileList();
+        }
+
+        mergeJsonUpload.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        // Ensure data has required structure
+                        if (!data.slides) data.slides = [];
+                        if (!data.flashcards) data.flashcards = [];
+                        if (!data.glossary) data.glossary = [];
+                        
+                        mergeFiles.push({
+                            name: file.name,
+                            data: data
+                        });
+                        
+                        renderMergeFileList();
+                    } catch (err) {
+                        alert(`Error reading ${file.name}: Invalid JSON`);
+                    }
+                };
+                reader.readAsText(file);
+            });
+            
+            // Reset input
+            e.target.value = '';
+        });
+
+        function renderMergeFileList() {
+            if (mergeFiles.length === 0) {
+                mergeFileList.innerHTML = '<div style="color:#666; font-style:italic; text-align:center; padding:40px;">No files loaded yet. Click "Add Lecture Files" to get started.</div>';
+                mergeExecuteBtn.disabled = true;
+                return;
+            }
+            
+            mergeExecuteBtn.disabled = false;
+            
+            let html = '';
+            mergeFiles.forEach((file, index) => {
+                const slideCount = file.data.slides?.length || 0;
+                const fcCount = file.data.flashcards?.length || 0;
+                const glossaryCount = file.data.glossary?.length || 0;
+                
+                html += `
+                    <div class="merge-file-card" draggable="true" data-index="${index}">
+                        <span class="merge-file-handle">⋮⋮</span>
+                        <div class="merge-file-order">${index + 1}</div>
+                        <div class="merge-file-info">
+                            <div class="merge-file-name">${escapeHtml(file.name)}</div>
+                            <div class="merge-file-stats">${slideCount} slides • ${fcCount} flashcards • ${glossaryCount} glossary terms</div>
+                        </div>
+                        <button class="merge-file-remove" onclick="removeMergeFile(${index})">Remove</button>
+                    </div>
+                `;
+            });
+            
+            mergeFileList.innerHTML = html;
+            
+            // Add drag-and-drop handlers
+            document.querySelectorAll('.merge-file-card').forEach(card => {
+                card.addEventListener('dragstart', handleMergeDragStart);
+                card.addEventListener('dragover', handleMergeDragOver);
+                card.addEventListener('drop', handleMergeDrop);
+                card.addEventListener('dragenter', e => e.preventDefault());
+            });
+        }
+
+        let mergeDragSrcIndex = -1;
+
+        function handleMergeDragStart(e) {
+            mergeDragSrcIndex = parseInt(this.dataset.index);
+            e.dataTransfer.effectAllowed = 'move';
+            this.style.opacity = '0.4';
+        }
+
+        function handleMergeDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleMergeDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            
+            const targetIndex = parseInt(this.dataset.index);
+            
+            if (mergeDragSrcIndex !== targetIndex) {
+                // Swap files
+                const temp = mergeFiles[mergeDragSrcIndex];
+                mergeFiles[mergeDragSrcIndex] = mergeFiles[targetIndex];
+                mergeFiles[targetIndex] = temp;
+                
+                renderMergeFileList();
+            }
+            
+            return false;
+        }
+
+        function removeMergeFile(index) {
+            mergeFiles.splice(index, 1);
+            renderMergeFileList();
+        }
+
+        async function executeMerge() {
+            if (mergeFiles.length === 0) return;
+            
+            if (!confirm(`Merge ${mergeFiles.length} lecture files into one? This will create a new combined file.`)) return;
+            
+            // Initialize merged data
+            const merged = {
+                count: 1,
+                slides: [],
+                flashcards: [],
+                glossary: []
+            };
+            
+            // Merge slides (in order)
+            mergeFiles.forEach((file, index) => {
+                // Add separator slide
+                if (index > 0) {
+                    merged.slides.push({
+                        type: 'blank',
+                        header: `─── ${file.name} ───`,
+                        notes: '',
+                        drawings: [],
+                        level: 1
+                    });
+                }
+                
+                // Add all slides from this file
+                if (file.data.slides && file.data.slides.length > 0) {
+                    merged.slides.push(...file.data.slides);
+                }
+            });
+            
+            // Merge flashcards (deduplicate by front text)
+            const fcSet = new Set();
+            mergeFiles.forEach(file => {
+                if (file.data.flashcards) {
+                    file.data.flashcards.forEach(fc => {
+                        const key = fc.front.toLowerCase().trim();
+                        if (!fcSet.has(key)) {
+                            fcSet.add(key);
+                            merged.flashcards.push(fc);
+                        }
+                    });
+                }
+            });
+            
+            // Merge glossary (deduplicate by term)
+            const glossaryMap = new Map();
+            mergeFiles.forEach(file => {
+                if (file.data.glossary) {
+                    file.data.glossary.forEach(term => {
+                        const key = term.term.toLowerCase().trim();
+                        if (!glossaryMap.has(key)) {
+                            glossaryMap.set(key, term);
+                        }
+                    });
+                }
+            });
+            merged.glossary = Array.from(glossaryMap.values());
+            
+            // Save merged file
+            const content = JSON.stringify(merged);
+            
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: `merged_lectures_${new Date().toISOString().slice(0,10)}.json`,
+                        types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    
+                    alert(`✅ Successfully merged ${mergeFiles.length} lectures!\n\nSlides: ${merged.slides.length}\nFlashcards: ${merged.flashcards.length}\nGlossary: ${merged.glossary.length}`);
+                    closeMergeLectures();
+                } catch(e) {
+                    if (e.name !== 'AbortError') {
+                        // Fallback to download
+                        downloadMergedFile(content);
+                    }
+                }
+            } else {
+                downloadMergedFile(content);
+            }
+        }
+
+        function downloadMergedFile(content) {
+            const a = document.createElement('a');
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(content);
+            a.download = `merged_lectures_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            
+            alert('✅ Merge complete! File downloaded.');
+            closeMergeLectures();
         }
 
         // --- MENU LOGIC ---
