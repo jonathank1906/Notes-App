@@ -151,12 +151,63 @@
         #toc-list { overflow-y: auto; flex: 1; padding: 10px; }
         #toc-list::-webkit-scrollbar { width: 5px; }
         #toc-list::-webkit-scrollbar-thumb { background: #333; }
-        .toc-item { padding: 8px; border-bottom: 1px solid #222; cursor: pointer; font-size: 13px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; }
+        .toc-item { padding: 8px; border-bottom: 1px solid #222; cursor: pointer; font-size: 13px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; position: relative; }
         .toc-item:hover { background: #333; color: #fff; }
         .toc-item.current { background: #333; color: #fff; border-left: 3px solid #fff; }
         .toc-num { font-weight: bold; min-width: 25px; text-align: right; }
         .toc-item.is-note .toc-num { background: #ddd; color: #000; border-radius: 50%; width: 22px; height: 22px; min-width: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; margin-right: 3px; }
         .toc-item.is-note { color: #aaa; } .toc-item.is-note:hover { color: #fff; }
+        
+        /* Heading Levels - Indentation */
+        .toc-item.level-1 { padding-left: 8px; font-weight: bold; font-size: 14px; }
+        .toc-item.level-2 { padding-left: 20px; font-size: 13px; }
+        .toc-item.level-3 { padding-left: 32px; font-size: 13px; }
+        .toc-item.level-4 { padding-left: 44px; font-size: 12px; }
+        .toc-item.level-5 { padding-left: 56px; font-size: 12px; }
+        .toc-item.level-6 { padding-left: 68px; font-size: 12px; }
+        
+        /* Context Menu for Sidebar */
+        #toc-context-menu {
+            display: none;
+            position: fixed;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            min-width: 180px;
+            z-index: 150;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            padding: 5px 0;
+        }
+        #toc-context-menu.active { display: block; }
+        .context-menu-header {
+            padding: 4px 15px;
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 5px;
+        }
+        .context-menu-item {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .context-menu-item:hover { background: #222; color: #fff; }
+        .context-menu-item .level-indicator {
+            color: #666;
+            font-size: 11px;
+            font-family: monospace;
+        }
 
         #pdf-render-container { display: none; justify-content: center; align-items: center; width: 100%; height: 30vh; position: relative; transition: height 0.1s ease; }
         #the-canvas { max-height: 100%; max-width: 80%; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: absolute; z-index: 1; }
@@ -322,6 +373,17 @@
     </div>
     <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
+    <div id="toc-context-menu">
+        <div class="context-menu-header">Heading Level</div>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 1)"><span class="level-indicator">#</span> Level 1</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 2)"><span class="level-indicator">##</span> Level 2</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 3)"><span class="level-indicator">###</span> Level 3</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 4)"><span class="level-indicator">####</span> Level 4</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 5)"><span class="level-indicator">#####</span> Level 5</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, 6)"><span class="level-indicator">######</span> Level 6</button>
+        <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, null)">Remove Level</button>
+    </div>
+
     <div id="sticky-header-group">
         <div id="display">1</div>
         <span id="slideLabel" contenteditable="true" role="textbox" data-placeholder="Header..."></span>
@@ -371,6 +433,9 @@
         const rearrangeGrid = document.getElementById('rearrange-grid');
         const lastSavedDiv = document.getElementById('last-saved');
         const scanningStatus = document.getElementById('scanning-status');
+        const tocContextMenu = document.getElementById('toc-context-menu');
+        
+        let contextMenuTargetIndex = -1;
 
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
@@ -454,14 +519,45 @@
         function updateSidebar() {
             let html = "";
             state.slides.forEach((slide, index) => {
-                const num = index + 1; const isCurrent = (num === state.count); const isBlank = (slide.type === 'blank'); const title = slide.header ? slide.header : (isBlank ? "<i>(Note Slide)</i>" : `Slide ${num}`);
-                html += `<div class="toc-item ${isCurrent ? 'current' : ''} ${isBlank ? 'is-note' : ''}" onclick="jumpToSlide(${num})">
+                const num = index + 1;
+                const isCurrent = (num === state.count);
+                const isBlank = (slide.type === 'blank');
+                const title = slide.header ? slide.header : (isBlank ? "<i>(Note Slide)</i>" : `Slide ${num}`);
+                const level = slide.level || 0;
+                const levelClass = level > 0 ? `level-${level}` : '';
+                html += `<div class="toc-item ${isCurrent ? 'current' : ''} ${isBlank ? 'is-note' : ''} ${levelClass}" 
+                    onclick="jumpToSlide(${num})" 
+                    oncontextmenu="showTocContextMenu(event, ${index}); return false;">
                     <span class="toc-num">${num}</span><span class="toc-text">${title}</span>
                 </div>`;
             });
             tocList.innerHTML = html;
         }
         function jumpToSlide(num) { if (isEditorActive) activatePreview(); state.count = num; updateDisplay(); if (MODES[currentModeIndex] === 'PDF') renderPage(); }
+        
+        // --- HEADING LEVEL FUNCTIONS ---
+        function showTocContextMenu(event, index) {
+            event.preventDefault();
+            event.stopPropagation();
+            contextMenuTargetIndex = index;
+            tocContextMenu.style.left = event.clientX + 'px';
+            tocContextMenu.style.top = event.clientY + 'px';
+            tocContextMenu.classList.add('active');
+        }
+        
+        function setSlideLevel(index, level) {
+            if (index >= 0 && index < state.slides.length) {
+                if (level === null) {
+                    delete state.slides[index].level;
+                } else {
+                    state.slides[index].level = level;
+                }
+                isDirty = true;
+                saveData();
+                updateSidebar();
+            }
+            tocContextMenu.classList.remove('active');
+        }
 
         // --- MENU LOGIC ---
         function toggleMenu(menuId) {
@@ -494,6 +590,11 @@
             
             if (!clickedMenu && !clickedTrigger) {
                 allMenus.forEach(menu => menu.classList.remove('active'));
+            }
+            
+            // Close context menu on any click
+            if (!tocContextMenu.contains(e.target)) {
+                tocContextMenu.classList.remove('active');
             }
         });
 
