@@ -2098,7 +2098,16 @@
         
         // Refresh the notes list and subjects
         if (currentDirHandle) {
+            // Remember the active subject name before reloading
+            const activeSubjectName = activeSubject ? activeSubject.name : null;
+            
             await loadSubjects();
+            
+            // Restore activeSubject reference to the new object with the same name
+            if (activeSubjectName) {
+                activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
+            }
+            
             displaySubjects();
             
             // Reload notes based on active subject
@@ -2757,15 +2766,25 @@
             // Delete old file
             await dirHandle.removeEntry(oldFileName);
             
+            // Remember the active subject name before reloading
+            const activeSubjectName = activeSubject ? activeSubject.name : null;
+            
+            // Reload subjects to update counts
+            await loadSubjects();
+            
+            // Restore activeSubject reference to the new object with the same name
+            if (activeSubjectName) {
+                activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
+            }
+            
+            displaySubjects();
+            
             // Refresh the display
             if (activeSubject) {
                 await loadNotesForSubject(activeSubject);
             } else {
                 await loadAllNotes();
             }
-            
-            // Reload subjects to update counts
-            await loadSubjects();
             
         } catch (err) {
             console.error('Error renaming note:', err);
@@ -2786,15 +2805,25 @@
             const dirHandle = contextMenuNote.dirHandle;
             await dirHandle.removeEntry(fileName);
             
+            // Remember the active subject name before reloading
+            const activeSubjectName = activeSubject ? activeSubject.name : null;
+            
+            // Reload subjects to update counts
+            await loadSubjects();
+            
+            // Restore activeSubject reference to the new object with the same name
+            if (activeSubjectName) {
+                activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
+            }
+            
+            displaySubjects();
+            
             // Refresh the display
             if (activeSubject) {
                 await loadNotesForSubject(activeSubject);
             } else {
                 await loadAllNotes();
             }
-            
-            // Reload subjects to update counts
-            await loadSubjects();
             
         } catch (err) {
             console.error('Error deleting note:', err);
