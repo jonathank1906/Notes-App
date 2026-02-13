@@ -426,7 +426,7 @@
     </div>
 
     <div id="toolbar">
-        <button class="tool-btn" id="btn-select" title="Select Tool (S)">
+        <button class="tool-btn" id="btn-select" title="Select Tool (V)">
             <svg id="selection" xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
@@ -434,7 +434,7 @@
                 <path id="Path_2318" class="cls-1" d="M.3,0C.13,0,0,.13,0,.3V19.7c0,.16,.13,.3,.3,.3,.08,0,.15-.03,.21-.09l5.73-5.74h7.7c.16,0,.3-.13,.3-.3,0-.08-.03-.15-.09-.21L.51,.09C.45,.03,.37,0,.3,0Z"/>
             </svg>
         </button>
-        <button class="tool-btn active" id="btn-pen" title="Pen Tool (P)">
+        <button class="tool-btn active" id="btn-pen" title="Pen Tool (B)">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <style type="text/css">
                     .st0{fill-rule:evenodd;clip-rule:evenodd;fill:#6E6E6E;}
@@ -481,7 +481,7 @@
     </div>
 
     <div id="info">
-        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>S</kbd> Select Tool<br>
+        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>V</kbd> Select Tool<br>
         <kbd>Space</kbd> + Drag to Pan • <kbd>Alt</kbd> + Scroll to Zoom<br>
         <kbd>Delete</kbd> Remove Selection • <kbd>Esc</kbd> Deselect
     </div>
@@ -523,6 +523,7 @@
     let isSpacePressed = false;
     let activeTool = 'pen'; 
     let lastMouse = { x: 0, y: 0 };
+    let currentMouseWorld = { x: 0, y: 0 }; // Current mouse position in world coordinates
     
     // Selection state
     let isSelecting = false;
@@ -532,6 +533,11 @@
     let selectedStrokes = new Set();
     let moveOffset = { x: 0, y: 0 };
     let originalPositions = [];
+    
+    // Eraser state
+    let isErasing = false;
+    let eraserPath = [];
+    let strokesBeforeErase = []; // Store original strokes before erasing starts
     
     let animationFrameId = null;
 
@@ -615,11 +621,32 @@
 
         // Draw Strokes on Layer
         for (let i = 0; i < strokes.length; i++) {
+            // Skip eraser strokes (they shouldn't exist, but safety check)
+            if (strokes[i].tool === 'eraser') continue;
+            
             const isSelected = selectedStrokes.has(i);
-            drawStroke(layerCtx, strokes[i], isSelected);
+            drawStroke(layerCtx, strokes[i], isSelected, false);
         }
-        if (currentStroke) {
+        if (currentStroke && currentStroke.tool !== 'eraser') {
             drawStroke(layerCtx, currentStroke, false);
+        }
+        
+        // Draw eraser cursor circle
+        if (activeTool === 'eraser' && !isPanning) {
+            layerCtx.save();
+            layerCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            layerCtx.lineWidth = 2 / camera.z;
+            layerCtx.setLineDash([]);
+            layerCtx.beginPath();
+            layerCtx.arc(
+                currentMouseWorld.x,
+                currentMouseWorld.y,
+                CONFIG.eraserWidth / (2 * camera.z),
+                0,
+                Math.PI * 2
+            );
+            layerCtx.stroke();
+            layerCtx.restore();
         }
         
         // Draw selection rectangle
@@ -679,6 +706,9 @@
     function drawStroke(context, stroke, isSelected = false) {
         if (stroke.points.length < 1) return;
         
+        // Don't draw eraser strokes
+        if (stroke.tool === 'eraser') return;
+        
         // Highlight selected strokes
         if (isSelected) {
             context.save();
@@ -697,22 +727,15 @@
         
         context.beginPath();
         context.lineWidth = stroke.width;
-
-        if (stroke.tool === 'eraser') {
-            context.globalCompositeOperation = 'destination-out';
-            context.strokeStyle = 'rgba(0,0,0,1)'; 
-        } else {
-            context.globalCompositeOperation = 'source-over';
-            context.strokeStyle = stroke.color;
-        }
+        context.globalCompositeOperation = 'source-over';
+        context.strokeStyle = stroke.color;
 
         const p = stroke.points;
         
         if (p.length === 1) {
-            if (stroke.tool !== 'eraser') context.fillStyle = stroke.color;
+            context.fillStyle = stroke.color;
             context.arc(p[0].x, p[0].y, stroke.width / 2, 0, Math.PI * 2);
-            if (stroke.tool !== 'eraser') context.fill();
-            else context.stroke(); 
+            context.fill();
             return;
         }
 
@@ -750,6 +773,33 @@
                 strokes.splice(item.idx, 0, item.stroke);
             });
             redoStack.push(action);
+        } else if (action.type === 'erase') {
+            // Restore erased segments
+            const originalStrokes = [];
+            action.deletedSegments.forEach(item => {
+                originalStrokes.push({ ...item.stroke });
+            });
+            // Rebuild strokes array by removing split segments and restoring originals
+            const newStrokes = [];
+            let segmentIdx = 0;
+            for (let i = 0; i < strokes.length; i++) {
+                let isFromErasedStroke = false;
+                for (const item of action.deletedSegments) {
+                    for (const seg of item.segments) {
+                        if (JSON.stringify(strokes[i]) === JSON.stringify(seg)) {
+                            isFromErasedStroke = true;
+                            break;
+                        }
+                    }
+                    if (isFromErasedStroke) break;
+                }
+                if (!isFromErasedStroke) {
+                    newStrokes.push(strokes[i]);
+                }
+            }
+            // Add back original strokes
+            strokes = [...newStrokes, ...originalStrokes];
+            redoStack.push(action);
         }
         
         hasUnsavedChanges = true;
@@ -779,6 +829,25 @@
                 strokes.splice(item.idx, 1);
             });
             undoStack.push(action);
+        } else if (action.type === 'erase') {
+            // Re-apply erase by removing originals and adding segments
+            const newStrokes = [];
+            for (let i = 0; i < strokes.length; i++) {
+                let isOriginalErased = false;
+                for (const item of action.deletedSegments) {
+                    if (JSON.stringify(strokes[i]) === JSON.stringify(item.stroke)) {
+                        isOriginalErased = true;
+                        // Add segments
+                        item.segments.forEach(seg => newStrokes.push(seg));
+                        break;
+                    }
+                }
+                if (!isOriginalErased) {
+                    newStrokes.push(strokes[i]);
+                }
+            }
+            strokes = newStrokes;
+            undoStack.push(action);
         }
         
         hasUnsavedChanges = true;
@@ -795,6 +864,8 @@
         undoStack = [];
         redoStack = [];
         selectedStrokes.clear();
+        eraserPath = [];
+        strokesBeforeErase = [];
         camera = { x: 0, y: 0, z: 1 };
         currentFileName = 'untitled';
         currentFileHandle = null;
@@ -804,11 +875,14 @@
     }
 
     async function saveToFile() {
+        // Filter out any eraser strokes before saving
+        const validStrokes = strokes.filter(s => s.tool !== 'eraser');
+        
         const data = {
             version: 1,
             timestamp: Date.now(),
             camera: camera,
-            strokes: strokes
+            strokes: validStrokes
         };
         const json = JSON.stringify(data);
         const blob = new Blob([json], {type: 'application/json'});
@@ -844,11 +918,14 @@
             const data = JSON.parse(text);
             
             if (data.strokes && Array.isArray(data.strokes)) {
-                strokes = data.strokes;
+                // Filter out any old eraser strokes from loaded files
+                strokes = data.strokes.filter(s => s.tool !== 'eraser');
                 if (data.camera) camera = data.camera;
                 undoStack = [];
                 redoStack = [];
                 selectedStrokes.clear();
+                eraserPath = [];
+                strokesBeforeErase = [];
                 currentFileName = fileHandle.name;
                 currentFileHandle = fileHandle;
                 hasUnsavedChanges = false;
@@ -1088,7 +1165,10 @@
             const text = await file.text();
             const data = JSON.parse(text);
             
-            if (!data.strokes || data.strokes.length === 0) {
+            // Filter out eraser strokes
+            const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
+            
+            if (!validStrokes || validStrokes.length === 0) {
                 previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:10px;">Empty</div>';
                 return;
             }
@@ -1101,7 +1181,7 @@
             
             // Calculate bounds of all strokes
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (const stroke of data.strokes) {
+            for (const stroke of validStrokes) {
                 for (const pt of stroke.points) {
                     minX = Math.min(minX, pt.x);
                     minY = Math.min(minY, pt.y);
@@ -1127,8 +1207,9 @@
             previewCtx.lineCap = 'round';
             previewCtx.lineJoin = 'round';
             
-            for (const stroke of data.strokes) {
+            for (const stroke of validStrokes) {
                 if (stroke.points.length < 1) continue;
+                if (stroke.tool === 'eraser') continue;
                 
                 previewCtx.beginPath();
                 previewCtx.strokeStyle = stroke.color || CONFIG.penColor;
@@ -1224,10 +1305,12 @@
     canvas.addEventListener('pointerdown', (e) => {
         canvas.setPointerCapture(e.pointerId);
         lastMouse = { x: e.clientX, y: e.clientY };
+        currentMouseWorld = toWorld(e.clientX, e.clientY);
 
         if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
             isPanning = true;
             canvas.style.cursor = 'grabbing';
+            requestRender(); // Hide eraser circle while panning
             return;
         }
 
@@ -1256,6 +1339,17 @@
                     selectionEnd = { x: e.clientX, y: e.clientY };
                 }
                 requestRender();
+            } else if (activeTool === 'eraser') {
+                isErasing = true;
+                const pos = toWorld(e.clientX, e.clientY);
+                eraserPath = [{ x: pos.x, y: pos.y }];
+                
+                // Store original strokes before erasing
+                strokesBeforeErase = JSON.parse(JSON.stringify(strokes));
+                
+                // Start erasing immediately
+                applyEraserToStrokes();
+                requestRender();
             } else {
                 isDrawing = true;
                 const pos = toWorld(e.clientX, e.clientY);
@@ -1264,7 +1358,7 @@
                     tool: activeTool,
                     points: [{ x: pos.x, y: pos.y }],
                     color: CONFIG.penColor,
-                    width: activeTool === 'pen' ? CONFIG.penWidth : (CONFIG.eraserWidth / camera.z)
+                    width: CONFIG.penWidth
                 };
                 requestRender();
             }
@@ -1273,6 +1367,14 @@
 
     canvas.addEventListener('pointermove', (e) => {
         const curr = { x: e.clientX, y: e.clientY };
+        
+        // Update current mouse world position for eraser cursor
+        currentMouseWorld = toWorld(e.clientX, e.clientY);
+        
+        // Request render if eraser is active to update cursor position
+        if (activeTool === 'eraser' && !isPanning) {
+            requestRender();
+        }
 
         if (isPanning) {
             const dx = curr.x - lastMouse.x;
@@ -1306,6 +1408,20 @@
             moveOffset = pos;
             requestRender();
             return;
+        }
+
+        if (isErasing) {
+            const pos = toWorld(e.clientX, e.clientY);
+            const lastPt = eraserPath[eraserPath.length - 1];
+            const dist = Math.hypot(pos.x - lastPt.x, pos.y - lastPt.y);
+            
+            if (dist > 0.5 / camera.z) {
+                eraserPath.push({ x: pos.x, y: pos.y });
+                
+                // Apply eraser in real-time
+                applyEraserToStrokes();
+                requestRender();
+            }
         }
 
         if (isDrawing) {
@@ -1362,6 +1478,47 @@
             hasUnsavedChanges = true;
             updateCursor();
         }
+        if (isErasing) {
+            isErasing = false;
+            
+            // Create undo entry comparing before and after
+            if (eraserPath.length > 0 && strokesBeforeErase.length > 0) {
+                const deletedSegments = [];
+                
+                // Build the deletedSegments structure for undo
+                for (let i = 0; i < strokesBeforeErase.length; i++) {
+                    const originalStroke = strokesBeforeErase[i];
+                    if (originalStroke.tool === 'eraser') continue;
+                    
+                    // Find what this stroke became
+                    const segments = splitStrokeByEraser(originalStroke);
+                    
+                    // Check if stroke changed
+                    const wasModified = segments.length === 0 || 
+                        segments.length !== 1 || 
+                        segments[0].points.length !== originalStroke.points.length;
+                    
+                    if (wasModified) {
+                        deletedSegments.push({
+                            idx: i,
+                            stroke: originalStroke,
+                            segments: segments
+                        });
+                    }
+                }
+                
+                if (deletedSegments.length > 0) {
+                    undoStack.push({ type: 'erase', deletedSegments: deletedSegments });
+                    redoStack = [];
+                    hasUnsavedChanges = true;
+                }
+            }
+            
+            eraserPath = [];
+            strokesBeforeErase = [];
+            updateCursor();
+        }
+        
         if (isDrawing) {
             isDrawing = false;
             if (currentStroke && currentStroke.points.length > 0) {
@@ -1380,6 +1537,13 @@
 
     canvas.addEventListener('pointerup', endAction);
     canvas.addEventListener('pointerleave', endAction);
+    
+    canvas.addEventListener('pointerenter', (e) => {
+        currentMouseWorld = toWorld(e.clientX, e.clientY);
+        if (activeTool === 'eraser') {
+            requestRender();
+        }
+    });
 
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -1410,17 +1574,27 @@
         }
         if (e.code === 'Space') {
             isSpacePressed = true;
-            if (!isDrawing && !isSelecting && !isMoving) canvas.style.cursor = 'grab';
+            if (!isDrawing && !isSelecting && !isMoving && !isErasing) canvas.style.cursor = 'grab';
         }
         if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey) setTool('eraser');
-        if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey) setTool('pen');
-        if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) setTool('select');
+        if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setTool('pen');
+        if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey) setTool('select');
         if (e.key === 'Delete' && selectedStrokes.size > 0) {
             e.preventDefault();
             deleteSelectedStrokes();
         }
         if (e.key === 'Escape') {
             selectedStrokes.clear();
+            if (isErasing) {
+                // Cancel the erase operation and restore original strokes
+                if (strokesBeforeErase.length > 0) {
+                    strokes = JSON.parse(JSON.stringify(strokesBeforeErase));
+                    strokesBeforeErase = [];
+                }
+                isErasing = false;
+                eraserPath = [];
+                updateCursor();
+            }
             requestRender();
         }
         
@@ -1448,7 +1622,7 @@
     window.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
             isSpacePressed = false;
-            if (!isPanning && !isDrawing && !isSelecting && !isMoving) {
+            if (!isPanning && !isDrawing && !isSelecting && !isMoving && !isErasing) {
                 updateCursor();
             }
         }
@@ -1488,6 +1662,193 @@
         return false;
     }
     
+    function applyEraserToStrokes() {
+        if (eraserPath.length === 0 || strokesBeforeErase.length === 0) return;
+        
+        // Process original strokes and replace with split versions
+        const newStrokes = [];
+        
+        for (let i = 0; i < strokesBeforeErase.length; i++) {
+            const originalStroke = strokesBeforeErase[i];
+            if (originalStroke.tool === 'eraser') continue;
+            
+            // Split stroke based on current eraser path
+            const segments = splitStrokeByEraser(originalStroke);
+            
+            // Add all resulting segments
+            segments.forEach(seg => newStrokes.push(seg));
+        }
+        
+        // Update strokes array
+        strokes = newStrokes;
+    }
+    
+    function splitStrokeByEraser(stroke) {
+        if (eraserPath.length === 0) return [stroke];
+        
+        const eraserRadius = CONFIG.eraserWidth / (2 * camera.z);
+        const points = stroke.points;
+        
+        if (points.length === 0) return [];
+        if (points.length === 1) {
+            // Single point stroke - check if it should be deleted
+            const dist = getDistanceToEraserPath(points[0], eraserRadius);
+            return dist < eraserRadius ? [] : [stroke];
+        }
+        
+        // Subdivide stroke into fine samples for accurate erasing
+        const sampledPoints = [];
+        const sampleDistance = Math.min(5 / camera.z, eraserRadius / 3); // Fine sampling
+        
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const steps = Math.max(1, Math.ceil(segLen / sampleDistance));
+            
+            for (let j = 0; j < steps; j++) {
+                const t = j / steps;
+                sampledPoints.push({
+                    x: p1.x + (p2.x - p1.x) * t,
+                    y: p1.y + (p2.y - p1.y) * t,
+                    erased: false
+                });
+            }
+        }
+        // Add last point
+        sampledPoints.push({
+            ...points[points.length - 1],
+            erased: false
+        });
+        
+        // Mark points that are inside the eraser
+        for (let i = 0; i < sampledPoints.length; i++) {
+            const dist = getDistanceToEraserPath(sampledPoints[i], eraserRadius);
+            sampledPoints[i].erased = dist < eraserRadius;
+        }
+        
+        // Find continuous non-erased segments
+        const segments = [];
+        let currentSegment = [];
+        
+        for (let i = 0; i < sampledPoints.length; i++) {
+            if (!sampledPoints[i].erased) {
+                currentSegment.push({
+                    x: sampledPoints[i].x,
+                    y: sampledPoints[i].y
+                });
+            } else {
+                // Hit erased section
+                if (currentSegment.length > 0) {
+                    // Try to find precise boundary point
+                    if (i > 0 && !sampledPoints[i - 1].erased) {
+                        // Refine the exit point
+                        const refined = refineBoundary(
+                            sampledPoints[i - 1],
+                            sampledPoints[i],
+                            eraserRadius,
+                            false // entering eraser
+                        );
+                        if (refined) {
+                            currentSegment[currentSegment.length - 1] = refined;
+                        }
+                    }
+                    
+                    segments.push({
+                        tool: stroke.tool,
+                        color: stroke.color,
+                        width: stroke.width,
+                        points: currentSegment
+                    });
+                    currentSegment = [];
+                }
+            }
+        }
+        
+        // Add final segment
+        if (currentSegment.length > 0) {
+            segments.push({
+                tool: stroke.tool,
+                color: stroke.color,
+                width: stroke.width,
+                points: currentSegment
+            });
+        }
+        
+        // Filter out segments that are too small (artifacts)
+        return segments.filter(seg => seg.points.length >= 2 || 
+            (seg.points.length === 1 && segments.length === 1));
+    }
+    
+    function getDistanceToEraserPath(point, eraserRadius) {
+        if (eraserPath.length === 0) return Infinity;
+        if (eraserPath.length === 1) {
+            return Math.hypot(point.x - eraserPath[0].x, point.y - eraserPath[0].y);
+        }
+        
+        let minDist = Infinity;
+        
+        // Check distance to each eraser segment
+        for (let i = 0; i < eraserPath.length - 1; i++) {
+            const dist = pointToSegmentDistance(
+                point,
+                eraserPath[i],
+                eraserPath[i + 1]
+            );
+            minDist = Math.min(minDist, dist);
+        }
+        
+        return minDist;
+    }
+    
+    function pointToSegmentDistance(p, a, b) {
+        // Calculate distance from point p to line segment ab
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const lengthSquared = dx * dx + dy * dy;
+        
+        if (lengthSquared === 0) {
+            // a and b are the same point
+            return Math.hypot(p.x - a.x, p.y - a.y);
+        }
+        
+        // Project point onto line segment
+        let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared;
+        t = Math.max(0, Math.min(1, t)); // Clamp to [0, 1]
+        
+        const projX = a.x + t * dx;
+        const projY = a.y + t * dy;
+        
+        return Math.hypot(p.x - projX, p.y - projY);
+    }
+    
+    function refineBoundary(outsidePoint, insidePoint, eraserRadius, entering) {
+        // Binary search for exact boundary
+        let p1 = { ...outsidePoint };
+        let p2 = { ...insidePoint };
+        
+        for (let i = 0; i < 8; i++) { // 8 iterations gives good precision
+            const mid = {
+                x: (p1.x + p2.x) / 2,
+                y: (p1.y + p2.y) / 2
+            };
+            
+            const dist = getDistanceToEraserPath(mid, eraserRadius);
+            const isInside = dist < eraserRadius;
+            
+            if ((!entering && isInside) || (entering && !isInside)) {
+                p2 = mid;
+            } else {
+                p1 = mid;
+            }
+        }
+        
+        return {
+            x: (p1.x + p2.x) / 2,
+            y: (p1.y + p2.y) / 2
+        };
+    }
+    
     function deleteSelectedStrokes() {
         if (selectedStrokes.size === 0) return;
         
@@ -1521,9 +1882,14 @@
         } else if (activeTool === 'pen') {
             canvas.style.cursor = 'crosshair';
         } else if (activeTool === 'eraser') {
-            canvas.style.cursor = 'cell';
+            canvas.style.cursor = 'none'; // Hide cursor, show custom circle instead
         } else if (activeTool === 'select') {
             canvas.style.cursor = 'default';
+        }
+        
+        // Update render to show/hide eraser circle
+        if (activeTool === 'eraser') {
+            requestRender();
         }
     }
 
@@ -1552,11 +1918,14 @@
             canvas.style.cursor = 'crosshair';
         } else if (tool === 'eraser') {
             btnEraser.classList.add('active');
-            canvas.style.cursor = 'cell';
+            canvas.style.cursor = 'none'; // Hide default cursor when showing custom circle
         } else if (tool === 'select') {
             btnSelect.classList.add('active');
             canvas.style.cursor = 'default';
         }
+        
+        // Always request render to update visibility of eraser circle
+        requestRender();
     }
 
     function toggleFullScreen() {
