@@ -1237,11 +1237,22 @@
             padding-top: 60px;
         }
         .fc-card-item {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
+            background: #2b2b2b;
+            border: 2px solid #6a6a6a;
+            border-radius: 12px;
             padding: 20px;
             margin-bottom: 15px;
+            position: relative;
+        }
+        .fc-card-item::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #6a6a6a;
+            transform: translateX(-50%);
         }
         .fc-card-header {
             display: flex;
@@ -1262,7 +1273,7 @@
         .fc-card-fields {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 20px;
         }
         .fc-full-edit-actions {
             position: fixed;
@@ -5263,8 +5274,22 @@
             
             noteCards.forEach(card => {
                 const title = card.querySelector('.note-title').textContent.toLowerCase();
-                if (title.includes(searchTerm)) {
-                    card.style.display = '';
+                const matchesSearch = title.includes(searchTerm);
+                
+                // If we're viewing all notes (activeSubject is null), show all matching notes
+                // If viewing a specific subject, only show matching notes in that subject
+                if (matchesSearch) {
+                    if (activeSubject === null) {
+                        // All Notes view - show if matches search
+                        card.style.display = '';
+                    } else {
+                        // Specific subject view - show only if belongs to active subject
+                        if (card.dataset.subject === activeSubject.name) {
+                            card.style.display = '';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    }
                 } else {
                     card.style.display = 'none';
                 }
