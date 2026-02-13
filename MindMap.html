@@ -62,6 +62,90 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+        }
+
+        /* Beautiful Custom Tooltips for Tool Buttons */
+        .tool-btn::before,
+        .tool-btn::after {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 10000;
+        }
+
+        .tool-btn::before {
+            content: attr(data-tooltip);
+            top: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-4px);
+            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
+                        0 2px 8px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                        0 0 0 1px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tool-btn::after {
+            content: '';
+            top: calc(100% + 4px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-4px);
+            border: 6px solid transparent;
+            border-bottom-color: #2d2d2d;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        .tool-btn:hover::before,
+        .tool-btn:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            transition-delay: 0.15s;
+        }
+
+        /* Text editing textarea */
+        #text-editor {
+            position: fixed;
+            background: rgba(30, 30, 30, 0.95);
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 8px;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+            white-space: pre;
+            box-sizing: border-box;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #666;
+            border: 1px solid #888;
+            border-radius: 2px;
+        }
+
+        .resize-handle.se {
+            bottom: -5px;
+            right: -5px;
+            cursor: nwse-resize;
         }
 
         .tool-btn:hover {
@@ -335,6 +419,54 @@
             transition: all 0.15s ease;
         }
 
+        /* Beautiful Custom Tooltip for Toggle Explorer */
+        #toggle-explorer::before,
+        #toggle-explorer::after {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 10000;
+        }
+
+        #toggle-explorer::before {
+            content: attr(data-tooltip);
+            top: 50%;
+            left: calc(100% + 12px);
+            transform: translateY(-50%) translateX(-4px);
+            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
+                        0 2px 8px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                        0 0 0 1px rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+        }
+
+        #toggle-explorer::after {
+            content: '';
+            top: 50%;
+            left: calc(100% + 4px);
+            transform: translateY(-50%) translateX(-4px);
+            border: 6px solid transparent;
+            border-right-color: #2d2d2d;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        #toggle-explorer:hover::before,
+        #toggle-explorer:hover::after {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+            transition-delay: 0.15s;
+        }
+
         #toggle-explorer:hover {
             color: var(--accent);
             background: var(--btn-hover);
@@ -398,7 +530,7 @@
 </head>
 <body>
 
-    <button id="toggle-explorer" title="Toggle File Explorer (Ctrl+E)">Files</button>
+    <button id="toggle-explorer" data-tooltip="Toggle File Explorer (Ctrl+E)">Files</button>
 
     <div id="file-name-indicator">
         <span class="file-icon">●</span>
@@ -426,7 +558,7 @@
     </div>
 
     <div id="toolbar">
-        <button class="tool-btn" id="btn-select" title="Select Tool (V)">
+        <button class="tool-btn" id="btn-select" data-tooltip="Select Tool (V)">
             <svg id="selection" xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
@@ -434,7 +566,7 @@
                 <path id="Path_2318" class="cls-1" d="M.3,0C.13,0,0,.13,0,.3V19.7c0,.16,.13,.3,.3,.3,.08,0,.15-.03,.21-.09l5.73-5.74h7.7c.16,0,.3-.13,.3-.3,0-.08-.03-.15-.09-.21L.51,.09C.45,.03,.37,0,.3,0Z"/>
             </svg>
         </button>
-        <button class="tool-btn active" id="btn-pen" title="Pen Tool (B)">
+        <button class="tool-btn active" id="btn-pen" data-tooltip="Pen Tool (B)">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <style type="text/css">
                     .st0{fill-rule:evenodd;clip-rule:evenodd;fill:#6E6E6E;}
@@ -448,7 +580,7 @@
                 </g>
             </svg>
         </button>
-        <button class="tool-btn" id="btn-eraser" title="Eraser Tool (E)">
+        <button class="tool-btn" id="btn-eraser" data-tooltip="Eraser Tool (E)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
@@ -457,7 +589,7 @@
             </svg>
         </button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+        <button class="tool-btn" id="btn-undo" data-tooltip="Undo (Ctrl+Z)">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-undo{fill:#6E6E6F;}</style>
@@ -465,7 +597,7 @@
                 <path class="cls-undo" d="M19.9,13.6l-2.3,0.8c0,0-1.1-4.1-5.5-5.1c-4.2-1-6.7,1.6-6.7,1.6l3.5,3.5H0.1V5.7l3.5,3.4c0.2-0.2,1-1,2.5-1.7c2-0.9,4.3-1.1,6.5-0.6C15,7.4,18.5,9.4,19.9,13.6z"/>
             </svg>
         </button>
-        <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)">
+        <button class="tool-btn" id="btn-redo" data-tooltip="Redo (Ctrl+Y)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-redo{fill:#6E6E6F;}</style>
@@ -474,18 +606,19 @@
             </svg>
         </button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-new" title="New (Ctrl+N)">New</button>
-        <button class="tool-btn" id="btn-save" title="Save (Ctrl+S)">Save</button>
+        <button class="tool-btn" id="btn-new" data-tooltip="New (Ctrl+N)">New</button>
+        <button class="tool-btn" id="btn-save" data-tooltip="Save (Ctrl+S)">Save</button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-fullscreen" title="Toggle Fullscreen (Shift+F)">⛶</button>
+        <button class="tool-btn" id="btn-fullscreen" data-tooltip="Toggle Fullscreen (Shift+F)">⛶</button>
     </div>
 
     <div id="info">
-        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>V</kbd> Select Tool<br>
+        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>V</kbd> Select • <kbd>B</kbd> Pen • <kbd>E</kbd> Eraser<br>
         <kbd>Space</kbd> + Drag to Pan • <kbd>Alt</kbd> + Scroll to Zoom<br>
-        <kbd>Delete</kbd> Remove Selection • <kbd>Esc</kbd> Deselect
+        <kbd>Delete</kbd> Remove Selection • <kbd>Esc</kbd> Deselect • <kbd>Double-click</kbd> Add Text
     </div>
 
+    <textarea id="text-editor"></textarea>
     <canvas id="canvas"></canvas>
 
 <script>
@@ -500,8 +633,8 @@
         maxZoom: 20,
         gridSize: 50,
         gridDotSize: 1.5,
-        zoomSensitivity: 0.0015,
-        panSensitivity: 1.0
+        zoomSensitivity: 0.003,
+        panSensitivity: 0.25
     };
 
     // --- STATE ---
@@ -514,6 +647,7 @@
     
     let camera = { x: 0, y: 0, z: 1 };
     let strokes = []; 
+    let textBoxes = [];
     let undoStack = []; 
     let redoStack = []; 
     let currentStroke = null;
@@ -531,8 +665,15 @@
     let selectionStart = null;
     let selectionEnd = null;
     let selectedStrokes = new Set();
+    let selectedTextBoxes = new Set();
     let moveOffset = { x: 0, y: 0 };
     let originalPositions = [];
+    
+    // Text box state
+    let editingTextBox = null;
+    let isResizingTextBox = false;
+    let resizeStartSize = null;
+    let resizeStartMouse = null;
     
     // Eraser state
     let isErasing = false;
@@ -591,18 +732,11 @@
     function draw() {
         animationFrameId = null;
 
-        // 1. DRAW BACKGROUND & GRID
+        // 1. DRAW BACKGROUND
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0); 
         ctx.fillStyle = CONFIG.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.restore();
-
-        // Apply Camera to Main Context for Grid
-        ctx.save();
-        ctx.translate(camera.x, camera.y);
-        ctx.scale(camera.z, camera.z);
-        if (camera.z > 0.2) drawGrid(ctx);
         ctx.restore();
 
         // 2. PREPARE INK LAYER
@@ -619,7 +753,13 @@
         layerCtx.lineCap = 'round';
         layerCtx.lineJoin = 'round';
 
-        // Draw Strokes on Layer
+        // Draw Text Boxes first (so they appear below strokes)
+        for (let i = 0; i < textBoxes.length; i++) {
+            const isSelected = selectedTextBoxes.has(i);
+            drawTextBox(layerCtx, textBoxes[i], isSelected);
+        }
+        
+        // Draw Strokes on Layer (on top of text boxes)
         for (let i = 0; i < strokes.length; i++) {
             // Skip eraser strokes (they shouldn't exist, but safety check)
             if (strokes[i].tool === 'eraser') continue;
@@ -627,6 +767,7 @@
             const isSelected = selectedStrokes.has(i);
             drawStroke(layerCtx, strokes[i], isSelected, false);
         }
+        
         if (currentStroke && currentStroke.tool !== 'eraser') {
             drawStroke(layerCtx, currentStroke, false);
         }
@@ -702,6 +843,32 @@
 
         context.stroke();
     }
+    
+    function drawFixedGrid(context) {
+        // Draw a fixed grid pattern that doesn't scroll with content
+        const dpr = window.devicePixelRatio || 1;
+        const viewWidth = canvas.width / dpr;
+        const viewHeight = canvas.height / dpr;
+        const gridSpacing = 50; // Fixed spacing in screen pixels
+        
+        context.strokeStyle = '#1f1f1f';
+        context.lineWidth = 1;
+        context.beginPath();
+        
+        // Vertical lines
+        for (let x = 0; x <= viewWidth; x += gridSpacing) {
+            context.moveTo(x, 0);
+            context.lineTo(x, viewHeight);
+        }
+        
+        // Horizontal lines
+        for (let y = 0; y <= viewHeight; y += gridSpacing) {
+            context.moveTo(0, y);
+            context.lineTo(viewWidth, y);
+        }
+        
+        context.stroke();
+    }
 
     function drawStroke(context, stroke, isSelected = false) {
         if (stroke.points.length < 1) return;
@@ -748,6 +915,330 @@
         context.lineTo(p[p.length-1].x, p[p.length-1].y);
         context.stroke();
     }
+    
+    function drawTextBox(context, textBox, isSelected = false) {
+        const { x, y, width, height, text } = textBox;
+        
+        // Skip drawing entirely if this text box is being edited (to prevent ghost effect)
+        if (editingTextBox !== null && textBoxes[editingTextBox] === textBox) {
+            return;
+        }
+        
+        // Convert to screen coordinates and round to ensure pixel-perfect alignment with textarea
+        const screenX = Math.round(x * camera.z + camera.x);
+        const screenY = Math.round(y * camera.z + camera.y);
+        const screenWidth = Math.round(width * camera.z);
+        const screenHeight = Math.round(height * camera.z);
+        
+        // Convert back to world coordinates for drawing
+        const drawX = (screenX - camera.x) / camera.z;
+        const drawY = (screenY - camera.y) / camera.z;
+        const drawWidth = screenWidth / camera.z;
+        const drawHeight = screenHeight / camera.z;
+        
+        // Draw box background
+        context.fillStyle = 'rgba(30, 30, 30, 0.95)';
+        context.strokeStyle = isSelected ? '#888' : '#555';
+        context.lineWidth = isSelected ? 2 : 1.5;
+        
+        // Draw rounded rectangle
+        const radius = 8;
+        context.beginPath();
+        context.moveTo(drawX + radius, drawY);
+        context.lineTo(drawX + drawWidth - radius, drawY);
+        context.quadraticCurveTo(drawX + drawWidth, drawY, drawX + drawWidth, drawY + radius);
+        context.lineTo(drawX + drawWidth, drawY + drawHeight - radius);
+        context.quadraticCurveTo(drawX + drawWidth, drawY + drawHeight, drawX + drawWidth - radius, drawY + drawHeight);
+        context.lineTo(drawX + radius, drawY + drawHeight);
+        context.quadraticCurveTo(drawX, drawY + drawHeight, drawX, drawY + drawHeight - radius);
+        context.lineTo(drawX, drawY + radius);
+        context.quadraticCurveTo(drawX, drawY, drawX + radius, drawY);
+        context.closePath();
+        context.fill();
+        context.stroke();
+        
+        // Draw text with wrapping (in world coordinates so it scales with the box)
+        const fontSize = 16;
+        const padding = 8;
+        const lineHeight = fontSize * 1.5;
+        const maxWidth = drawWidth - padding * 2;
+        
+        context.fillStyle = '#e0e0e0';
+        context.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+        context.textBaseline = 'top';
+        
+        const lines = text.split('\n');
+        let currentY = drawY + padding;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const words = line.split(' ');
+            let currentLine = '';
+            
+            for (let j = 0; j < words.length; j++) {
+                const testLine = currentLine + (currentLine ? ' ' : '') + words[j];
+                const metrics = context.measureText(testLine);
+                
+                if (metrics.width > maxWidth && currentLine) {
+                    // Draw current line and start new one
+                    context.fillText(currentLine, drawX + padding, currentY);
+                    currentY += lineHeight;
+                    currentLine = words[j];
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            
+            // Draw remaining text
+            if (currentLine) {
+                context.fillText(currentLine, drawX + padding, currentY);
+                currentY += lineHeight;
+            }
+        }
+        
+        // Draw resize handle if selected
+        if (isSelected && !editingTextBox) {
+            const handleSize = 10;
+            context.fillStyle = '#666';
+            context.strokeStyle = '#888';
+            context.lineWidth = 1;
+            context.fillRect(drawX + drawWidth - handleSize, drawY + drawHeight - handleSize, handleSize, handleSize);
+            context.strokeRect(drawX + drawWidth - handleSize, drawY + drawHeight - handleSize, handleSize, handleSize);
+        }
+    }
+    
+    // --- TEXT BOX FUNCTIONS ---
+    function createTextBox(worldX, worldY) {
+        const newTextBox = {
+            id: generateId(),
+            x: worldX,
+            y: worldY,
+            width: 20,
+            height: 40,
+            text: '',
+            minWidth: 20,
+            minHeight: 40,
+            manuallyResized: false
+        };
+        
+        textBoxes.push(newTextBox);
+        const idx = textBoxes.length - 1;
+        selectedTextBoxes.clear();
+        selectedTextBoxes.add(idx);
+        selectedStrokes.clear();
+        
+        startEditingTextBox(idx);
+        
+        undoStack.push({ type: 'addText', textBox: {...newTextBox} });
+        redoStack = [];
+        hasUnsavedChanges = true;
+        
+        return idx;
+    }
+    
+    function startEditingTextBox(idx) {
+        if (idx < 0 || idx >= textBoxes.length) return;
+        
+        editingTextBox = idx;
+        const textBox = textBoxes[idx];
+        const textEditor = document.getElementById('text-editor');
+        
+        // Position the textarea
+        const screenX = textBox.x * camera.z + camera.x;
+        const screenY = textBox.y * camera.z + camera.y;
+        const screenWidth = textBox.width * camera.z;
+        const screenHeight = textBox.height * camera.z;
+        
+        textEditor.style.left = Math.round(screenX) + 'px';
+        textEditor.style.top = Math.round(screenY) + 'px';
+        textEditor.style.width = Math.round(screenWidth) + 'px';
+        textEditor.style.height = Math.round(screenHeight) + 'px';
+        textEditor.style.fontSize = Math.round(16 * camera.z) + 'px';
+        textEditor.style.padding = Math.round(8 * camera.z) + 'px';
+        textEditor.style.borderRadius = Math.round(8 * camera.z) + 'px';
+        textEditor.style.borderWidth = Math.round(2 * camera.z) + 'px';
+        textEditor.style.display = 'block';
+        textEditor.value = textBox.text;
+        
+        // Set up oninput handler AFTER setting value to avoid triggering resize on initial load
+        textEditor.oninput = () => {
+            textBox.text = textEditor.value;
+            autoResizeTextBox(idx);
+            hasUnsavedChanges = true;
+            requestRender();
+        };
+        
+        textEditor.focus();
+    }
+    
+    function finishEditingTextBox() {
+        if (editingTextBox === null) return;
+        
+        const textEditor = document.getElementById('text-editor');
+        const textBox = textBoxes[editingTextBox];
+        
+        textBox.text = textEditor.value;
+        
+        // Remove empty text boxes
+        if (textBox.text.trim() === '') {
+            textBoxes.splice(editingTextBox, 1);
+            selectedTextBoxes.clear();
+        }
+        
+        textEditor.style.display = 'none';
+        textEditor.oninput = null;
+        editingTextBox = null;
+        
+        hasUnsavedChanges = true;
+        requestRender();
+    }
+    
+    function autoResizeTextBox(idx) {
+        if (idx < 0 || idx >= textBoxes.length) return;
+        
+        const textBox = textBoxes[idx];
+        const textEditor = document.getElementById('text-editor');
+        
+        // Create temporary canvas to measure text
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const fontSize = 16;
+        tempCtx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif`;
+        
+        const padding = 8;
+        const lineHeight = fontSize * 1.5;
+        const lines = textBox.text.split('\n');
+        
+        // Calculate width based on longest line and expand horizontally as user types
+        let maxWidth = textBox.minWidth;
+        for (const line of lines) {
+            const metrics = tempCtx.measureText(line);
+            const lineWidth = metrics.width + padding * 2;
+            if (lineWidth > maxWidth) {
+                maxWidth = lineWidth;
+            }
+        }
+        
+        // Expand width automatically as user types
+        if (maxWidth > textBox.width) {
+            textBox.width = maxWidth;
+        }
+        
+        // Only expand height when there are multiple lines (user pressed Enter)
+        if (lines.length > 1) {
+            const textHeight = lines.length * lineHeight + padding * 2;
+            const newHeight = Math.max(textBox.minHeight, textHeight);
+            if (newHeight > textBox.height) {
+                textBox.height = newHeight;
+            }
+        }
+        
+        // Always update textarea position to keep it in sync
+        updateTextEditorPosition();
+    }
+    
+    function updateTextEditorPosition() {
+        if (editingTextBox === null) return;
+        
+        const textBox = textBoxes[editingTextBox];
+        const textEditor = document.getElementById('text-editor');
+        
+        const screenX = textBox.x * camera.z + camera.x;
+        const screenY = textBox.y * camera.z + camera.y;
+        const screenWidth = textBox.width * camera.z;
+        const screenHeight = textBox.height * camera.z;
+        
+        textEditor.style.left = Math.round(screenX) + 'px';
+        textEditor.style.top = Math.round(screenY) + 'px';
+        textEditor.style.width = Math.round(screenWidth) + 'px';
+        textEditor.style.height = Math.round(screenHeight) + 'px';
+        textEditor.style.fontSize = Math.round(16 * camera.z) + 'px';
+        textEditor.style.padding = Math.round(8 * camera.z) + 'px';
+        textEditor.style.borderRadius = Math.round(8 * camera.z) + 'px';
+        textEditor.style.borderWidth = Math.round(2 * camera.z) + 'px';
+    }
+    
+    function isPointInTextBox(x, y, textBox) {
+        return x >= textBox.x && x <= textBox.x + textBox.width &&
+               y >= textBox.y && y <= textBox.y + textBox.height;
+    }
+    
+    function isPointInResizeHandle(x, y, textBox) {
+        const handleSize = 10;
+        const handleX = textBox.x + textBox.width - handleSize;
+        const handleY = textBox.y + textBox.height - handleSize;
+        
+        return x >= handleX && x <= handleX + handleSize &&
+               y >= handleY && y <= handleY + handleSize;
+    }
+    
+    function calculateMinTextBoxSize(textBox, targetWidth = null) {
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const fontSize = 16;
+        const padding = 8;
+        const lineHeight = fontSize * 1.5;
+        tempCtx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+        
+        const lines = textBox.text.split('\n');
+        let minWidth = textBox.minWidth;
+        
+        // Find the longest single word (can't wrap smaller than this)
+        for (const line of lines) {
+            const words = line.split(' ');
+            for (const word of words) {
+                const wordWidth = tempCtx.measureText(word).width + padding * 2;
+                if (wordWidth > minWidth) {
+                    minWidth = wordWidth;
+                }
+            }
+        }
+        
+        // Calculate height needed for given width (or minimum width)
+        const width = targetWidth || minWidth;
+        const maxWidth = width - padding * 2;
+        let totalLines = 0;
+        
+        for (const line of lines) {
+            if (line === '') {
+                totalLines++;
+                continue;
+            }
+            
+            const words = line.split(' ');
+            let currentLine = '';
+            
+            for (const word of words) {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                const metrics = tempCtx.measureText(testLine);
+                
+                if (metrics.width > maxWidth && currentLine !== '') {
+                    totalLines++;
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            
+            if (currentLine) {
+                totalLines++;
+            }
+        }
+        
+        const minHeight = Math.max(textBox.minHeight, totalLines * lineHeight + padding * 2);
+        
+        return { minWidth, minHeight };
+    }
+    
+    function getTextBoxAtPoint(x, y) {
+        // Check in reverse order (top to bottom)
+        for (let i = textBoxes.length - 1; i >= 0; i--) {
+            if (isPointInTextBox(x, y, textBoxes[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
 
     // --- ACTIONS ---
     function performUndo() {
@@ -759,18 +1250,36 @@
             // Remove the last stroke
             const stroke = strokes.pop();
             redoStack.push({ type: 'add', stroke: stroke });
+        } else if (action.type === 'addText') {
+            // Remove the last text box
+            const textBox = textBoxes.pop();
+            selectedTextBoxes.clear();
+            redoStack.push({ type: 'addText', textBox: textBox });
         } else if (action.type === 'move') {
-            // Restore original positions
+            // Restore original positions for strokes
             action.moves.forEach(move => {
                 if (strokes[move.idx]) {
                     strokes[move.idx].points = move.original.map(p => ({...p}));
                 }
             });
+            // Restore original positions for text boxes
+            if (action.textBoxMoves) {
+                action.textBoxMoves.forEach(move => {
+                    if (textBoxes[move.idx]) {
+                        textBoxes[move.idx].x = move.originalX;
+                        textBoxes[move.idx].y = move.originalY;
+                    }
+                });
+            }
             redoStack.push(action);
         } else if (action.type === 'delete') {
             // Restore deleted strokes
             action.deleted.forEach(item => {
-                strokes.splice(item.idx, 0, item.stroke);
+                if (item.type === 'stroke') {
+                    strokes.splice(item.idx, 0, item.stroke);
+                } else if (item.type === 'textBox') {
+                    textBoxes.splice(item.idx, 0, item.textBox);
+                }
             });
             redoStack.push(action);
         } else if (action.type === 'erase') {
@@ -815,18 +1324,35 @@
             // Re-add the stroke
             strokes.push(action.stroke);
             undoStack.push(action);
+        } else if (action.type === 'addText') {
+            // Re-add the text box
+            textBoxes.push(action.textBox);
+            undoStack.push(action);
         } else if (action.type === 'move') {
-            // Reapply the move
+            // Reapply the move for strokes
             action.moves.forEach(move => {
                 if (strokes[move.idx]) {
                     strokes[move.idx].points = move.modified.map(p => ({...p}));
                 }
             });
+            // Reapply the move for text boxes
+            if (action.textBoxMoves) {
+                action.textBoxMoves.forEach(move => {
+                    if (textBoxes[move.idx]) {
+                        textBoxes[move.idx].x = move.modifiedX;
+                        textBoxes[move.idx].y = move.modifiedY;
+                    }
+                });
+            }
             undoStack.push(action);
         } else if (action.type === 'delete') {
-            // Re-delete strokes
+            // Re-delete strokes and text boxes
             action.deleted.sort((a, b) => b.idx - a.idx).forEach(item => {
-                strokes.splice(item.idx, 1);
+                if (item.type === 'stroke') {
+                    strokes.splice(item.idx, 1);
+                } else if (item.type === 'textBox') {
+                    textBoxes.splice(item.idx, 1);
+                }
             });
             undoStack.push(action);
         } else if (action.type === 'erase') {
@@ -855,15 +1381,18 @@
     }
 
     function createNewMindmap() {
-        if (strokes.length > 0) {
+        if (strokes.length > 0 || textBoxes.length > 0) {
             if (!confirm('Create new mindmap? Current work will be lost if not saved.')) {
                 return;
             }
         }
         strokes = [];
+        textBoxes = [];
         undoStack = [];
         redoStack = [];
         selectedStrokes.clear();
+        selectedTextBoxes.clear();
+        editingTextBox = null;
         eraserPath = [];
         strokesBeforeErase = [];
         camera = { x: 0, y: 0, z: 1 };
@@ -871,6 +1400,11 @@
         currentFileHandle = null;
         hasUnsavedChanges = false;
         updateFileNameIndicator();
+        
+        // Hide text editor if visible
+        const textEditor = document.getElementById('text-editor');
+        textEditor.style.display = 'none';
+        
         requestRender();
     }
 
@@ -879,10 +1413,11 @@
         const validStrokes = strokes.filter(s => s.tool !== 'eraser');
         
         const data = {
-            version: 1,
+            version: 2,
             timestamp: Date.now(),
             camera: camera,
-            strokes: validStrokes
+            strokes: validStrokes,
+            textBoxes: textBoxes
         };
         const json = JSON.stringify(data);
         const blob = new Blob([json], {type: 'application/json'});
@@ -920,10 +1455,13 @@
             if (data.strokes && Array.isArray(data.strokes)) {
                 // Filter out any old eraser strokes from loaded files
                 strokes = data.strokes.filter(s => s.tool !== 'eraser');
+                textBoxes = data.textBoxes || [];
                 if (data.camera) camera = data.camera;
                 undoStack = [];
                 redoStack = [];
                 selectedStrokes.clear();
+                selectedTextBoxes.clear();
+                editingTextBox = null;
                 eraserPath = [];
                 strokesBeforeErase = [];
                 currentFileName = fileHandle.name;
@@ -1167,8 +1705,9 @@
             
             // Filter out eraser strokes
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
+            const textBoxes = data.textBoxes || [];
             
-            if (!validStrokes || validStrokes.length === 0) {
+            if (validStrokes.length === 0 && textBoxes.length === 0) {
                 previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:10px;">Empty</div>';
                 return;
             }
@@ -1179,7 +1718,7 @@
             previewCanvas.height = 80;
             const previewCtx = previewCanvas.getContext('2d');
             
-            // Calculate bounds of all strokes
+            // Calculate bounds of all strokes and text boxes
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             for (const stroke of validStrokes) {
                 for (const pt of stroke.points) {
@@ -1188,6 +1727,12 @@
                     maxX = Math.max(maxX, pt.x);
                     maxY = Math.max(maxY, pt.y);
                 }
+            }
+            for (const textBox of textBoxes) {
+                minX = Math.min(minX, textBox.x);
+                minY = Math.min(minY, textBox.y);
+                maxX = Math.max(maxX, textBox.x + textBox.width);
+                maxY = Math.max(maxY, textBox.y + textBox.height);
             }
             
             const width = maxX - minX;
@@ -1200,7 +1745,7 @@
             previewCtx.fillStyle = CONFIG.bgColor;
             previewCtx.fillRect(0, 0, 80, 80);
             
-            // Draw strokes
+            // Draw strokes and text boxes
             previewCtx.save();
             previewCtx.translate(offsetX, offsetY);
             previewCtx.scale(scale, scale);
@@ -1221,6 +1766,36 @@
                     previewCtx.lineTo(p[i].x, p[i].y);
                 }
                 previewCtx.stroke();
+            }
+            
+            // Draw text boxes
+            for (const textBox of textBoxes) {
+                const { x, y, width, height, text } = textBox;
+                
+                // Draw box
+                previewCtx.fillStyle = 'rgba(30, 30, 30, 0.95)';
+                previewCtx.strokeStyle = '#555';
+                previewCtx.lineWidth = 1.5 / scale;
+                
+                const radius = 8 / scale;
+                previewCtx.beginPath();
+                previewCtx.moveTo(x + radius, y);
+                previewCtx.lineTo(x + width - radius, y);
+                previewCtx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                previewCtx.lineTo(x + width, y + height - radius);
+                previewCtx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                previewCtx.lineTo(x + radius, y + height);
+                previewCtx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                previewCtx.lineTo(x, y + radius);
+                previewCtx.quadraticCurveTo(x, y, x + radius, y);
+                previewCtx.closePath();
+                previewCtx.fill();
+                previewCtx.stroke();
+                
+                // Draw simplified text indicator
+                previewCtx.fillStyle = '#e0e0e0';
+                previewCtx.font = `${12 / scale}px Arial`;
+                previewCtx.fillText('T', x + 5 / scale, y + 15 / scale);
             }
             
             previewCtx.restore();
@@ -1302,6 +1877,35 @@
     });
 
     // --- INPUT ---
+    canvas.addEventListener('dblclick', (e) => {
+        if (e.button !== 0) return;
+        
+        // Only allow text box creation/editing in select mode
+        if (activeTool !== 'select') return;
+        
+        // Finish editing if currently editing
+        if (editingTextBox !== null) {
+            finishEditingTextBox();
+        }
+        
+        const pos = toWorld(e.clientX, e.clientY);
+        
+        // Check if double-clicking on existing text box to edit it
+        const textBoxIdx = getTextBoxAtPoint(pos.x, pos.y);
+        if (textBoxIdx !== -1) {
+            selectedTextBoxes.clear();
+            selectedTextBoxes.add(textBoxIdx);
+            selectedStrokes.clear();
+            startEditingTextBox(textBoxIdx);
+            requestRender();
+            return;
+        }
+        
+        // Create new text box
+        createTextBox(pos.x, pos.y);
+        requestRender();
+    });
+    
     canvas.addEventListener('pointerdown', (e) => {
         canvas.setPointerCapture(e.pointerId);
         lastMouse = { x: e.clientX, y: e.clientY };
@@ -1315,8 +1919,57 @@
         }
 
         if (e.button === 0) {
+            // Finish editing text if clicking outside
+            if (editingTextBox !== null) {
+                finishEditingTextBox();
+            }
+            
             if (activeTool === 'select') {
                 const pos = toWorld(e.clientX, e.clientY);
+                
+                // Check if clicking on text box resize handle
+                for (let i = textBoxes.length - 1; i >= 0; i--) {
+                    if (selectedTextBoxes.has(i) && isPointInResizeHandle(pos.x, pos.y, textBoxes[i])) {
+                        isResizingTextBox = true;
+                        editingTextBox = null;
+                        selectedTextBoxes.clear();
+                        selectedTextBoxes.add(i);
+                        resizeStartSize = { 
+                            width: textBoxes[i].width, 
+                            height: textBoxes[i].height 
+                        };
+                        resizeStartMouse = { x: pos.x, y: pos.y };
+                        requestRender();
+                        return;
+                    }
+                }
+                
+                // Check if clicking on a text box to move it
+                const textBoxIdx = getTextBoxAtPoint(pos.x, pos.y);
+                if (textBoxIdx !== -1) {
+                    // If not already selected, select it
+                    if (!selectedTextBoxes.has(textBoxIdx)) {
+                        selectedTextBoxes.clear();
+                        selectedTextBoxes.add(textBoxIdx);
+                        selectedStrokes.clear();
+                    }
+                    
+                    // Always start moving immediately (grab anywhere on the text box)
+                    isMoving = true;
+                    canvas.style.cursor = 'move';
+                    moveOffset = { x: pos.x, y: pos.y };
+                    originalPositions = [];
+                    selectedTextBoxes.forEach(idx => {
+                        originalPositions.push({
+                            idx: idx,
+                            type: 'textBox',
+                            x: textBoxes[idx].x,
+                            y: textBoxes[idx].y
+                        });
+                    });
+                    requestRender();
+                    return;
+                }
                 
                 // Check if clicking on a selected stroke to move it
                 if (selectedStrokes.size > 0 && isPointNearSelectedStrokes(pos.x, pos.y)) {
@@ -1328,12 +1981,14 @@
                     selectedStrokes.forEach(idx => {
                         originalPositions.push({
                             idx: idx,
+                            type: 'stroke',
                             points: strokes[idx].points.map(p => ({...p}))
                         });
                     });
                 } else {
                     // Start new selection
                     selectedStrokes.clear();
+                    selectedTextBoxes.clear();
                     isSelecting = true;
                     selectionStart = { x: e.clientX, y: e.clientY };
                     selectionEnd = { x: e.clientX, y: e.clientY };
@@ -1382,12 +2037,46 @@
             camera.x += dx;
             camera.y += dy;
             lastMouse = curr;
+            
+            // Update text editor position if editing
+            if (editingTextBox !== null) {
+                updateTextEditorPosition();
+            }
+            
             requestRender();
             return;
         }
         
         if (isSelecting) {
             selectionEnd = { x: e.clientX, y: e.clientY };
+            requestRender();
+            return;
+        }
+        
+        if (isResizingTextBox) {
+            const pos = toWorld(e.clientX, e.clientY);
+            const dx = pos.x - resizeStartMouse.x;
+            const dy = pos.y - resizeStartMouse.y;
+            
+            selectedTextBoxes.forEach(idx => {
+                const textBox = textBoxes[idx];
+                const newWidth = resizeStartSize.width + dx;
+                const newHeight = resizeStartSize.height + dy;
+                
+                // Calculate minimum dimensions based on text content
+                const minSize = calculateMinTextBoxSize(textBox, newWidth);
+                
+                textBox.width = Math.max(minSize.minWidth, newWidth);
+                textBox.height = Math.max(minSize.minHeight, newHeight);
+                textBox.manuallyResized = true;
+            });
+            
+            // Update textarea dimensions if currently editing
+            if (editingTextBox !== null && selectedTextBoxes.has(editingTextBox)) {
+                updateTextEditorPosition();
+            }
+            
+            hasUnsavedChanges = true;
             requestRender();
             return;
         }
@@ -1404,6 +2093,17 @@
                     pt.y += dy;
                 });
             });
+            
+            // Move all selected text boxes
+            selectedTextBoxes.forEach(idx => {
+                textBoxes[idx].x += dx;
+                textBoxes[idx].y += dy;
+            });
+            
+            // Update text editor position if editing
+            if (editingTextBox !== null) {
+                updateTextEditorPosition();
+            }
             
             moveOffset = pos;
             requestRender();
@@ -1443,7 +2143,7 @@
         }
         if (isSelecting) {
             isSelecting = false;
-            // Select strokes within rectangle
+            // Select strokes and text boxes within rectangle
             if (selectionStart && selectionEnd) {
                 const start = toWorld(selectionStart.x, selectionStart.y);
                 const end = toWorld(selectionEnd.x, selectionEnd.y);
@@ -1455,25 +2155,60 @@
                         selectedStrokes.add(idx);
                     }
                 });
+                
+                selectedTextBoxes.clear();
+                textBoxes.forEach((textBox, idx) => {
+                    if (isPointInTextBox(rect.x, rect.y, textBox) ||
+                        isPointInTextBox(rect.x + rect.width, rect.y, textBox) ||
+                        isPointInTextBox(rect.x, rect.y + rect.height, textBox) ||
+                        isPointInTextBox(rect.x + rect.width, rect.y + rect.height, textBox)) {
+                        selectedTextBoxes.add(idx);
+                    }
+                });
             }
             selectionStart = null;
             selectionEnd = null;
+            updateCursor();
+        }
+        if (isResizingTextBox) {
+            isResizingTextBox = false;
+            hasUnsavedChanges = true;
             updateCursor();
         }
         if (isMoving) {
             isMoving = false;
             
             // Create undo entry for the move
-            const moveAction = {
-                type: 'move',
-                moves: originalPositions.map(orig => ({
-                    idx: orig.idx,
-                    original: orig.points,
-                    modified: strokes[orig.idx].points.map(p => ({...p}))
-                }))
-            };
-            undoStack.push(moveAction);
-            redoStack = [];
+            const strokeMoves = [];
+            const textBoxMoves = [];
+            
+            originalPositions.forEach(orig => {
+                if (orig.type === 'stroke') {
+                    strokeMoves.push({
+                        idx: orig.idx,
+                        original: orig.points,
+                        modified: strokes[orig.idx].points.map(p => ({...p}))
+                    });
+                } else if (orig.type === 'textBox') {
+                    textBoxMoves.push({
+                        idx: orig.idx,
+                        originalX: orig.x,
+                        originalY: orig.y,
+                        modifiedX: textBoxes[orig.idx].x,
+                        modifiedY: textBoxes[orig.idx].y
+                    });
+                }
+            });
+            
+            if (strokeMoves.length > 0 || textBoxMoves.length > 0) {
+                const moveAction = {
+                    type: 'move',
+                    moves: strokeMoves,
+                    textBoxMoves: textBoxMoves
+                };
+                undoStack.push(moveAction);
+                redoStack = [];
+            }
             
             hasUnsavedChanges = true;
             updateCursor();
@@ -1562,6 +2297,15 @@
             camera.x -= e.deltaX * CONFIG.panSensitivity;
             camera.y -= e.deltaY * CONFIG.panSensitivity;
         }
+        
+        // Update current mouse world position after camera movement
+        currentMouseWorld = toWorld(e.clientX, e.clientY);
+        
+        // Update text editor position if editing
+        if (editingTextBox !== null) {
+            updateTextEditorPosition();
+        }
+        
         requestRender();
     }, { passive: false });
 
@@ -1579,12 +2323,19 @@
         if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey) setTool('eraser');
         if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setTool('pen');
         if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey) setTool('select');
-        if (e.key === 'Delete' && selectedStrokes.size > 0) {
+        if (e.key === 'Delete' && (selectedStrokes.size > 0 || selectedTextBoxes.size > 0)) {
             e.preventDefault();
             deleteSelectedStrokes();
         }
         if (e.key === 'Escape') {
+            // Finish editing text box if active
+            if (editingTextBox !== null) {
+                finishEditingTextBox();
+            }
+            
             selectedStrokes.clear();
+            selectedTextBoxes.clear();
+            
             if (isErasing) {
                 // Cancel the erase operation and restore original strokes
                 if (strokesBeforeErase.length > 0) {
@@ -1625,6 +2376,84 @@
             if (!isPanning && !isDrawing && !isSelecting && !isMoving && !isErasing) {
                 updateCursor();
             }
+        }
+    });
+    
+    // --- DRAG AND DROP FILE LOADING ---
+    let dragCounter = 0;
+    
+    document.body.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        if (dragCounter === 1) {
+            dropOverlay.classList.add('active');
+        }
+    });
+    
+    document.body.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+    
+    document.body.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            dropOverlay.classList.remove('active');
+        }
+    });
+    
+    document.body.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dropOverlay.classList.remove('active');
+        
+        const files = e.dataTransfer.files;
+        if (files.length === 0) return;
+        
+        const file = files[0];
+        
+        // Check if it's a JSON file
+        if (!file.name.endsWith('.json')) {
+            alert('Please drop a JSON file');
+            return;
+        }
+        
+        try {
+            // Confirm if there are unsaved changes
+            if (hasUnsavedChanges && (strokes.length > 0 || textBoxes.length > 0)) {
+                if (!confirm('Load file? Current work will be lost if not saved.')) {
+                    return;
+                }
+            }
+            
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (data.strokes && Array.isArray(data.strokes)) {
+                strokes = data.strokes.filter(s => s.tool !== 'eraser');
+                textBoxes = data.textBoxes || [];
+                camera = data.camera || { x: 0, y: 0, z: 1 };
+                undoStack = [];
+                redoStack = [];
+                selectedStrokes.clear();
+                selectedTextBoxes.clear();
+                editingTextBox = null;
+                
+                // Update file info
+                currentFileName = file.name;
+                currentFileHandle = null;
+                hasUnsavedChanges = false;
+                updateFileNameIndicator();
+                
+                requestRender();
+                showNotification('Loaded ' + file.name);
+            } else {
+                alert('Invalid mind map file format');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error loading file: ' + err.message);
         }
     });
     
@@ -1850,21 +2679,37 @@
     }
     
     function deleteSelectedStrokes() {
-        if (selectedStrokes.size === 0) return;
+        if (selectedStrokes.size === 0 && selectedTextBoxes.size === 0) return;
         
-        // Store deleted strokes for undo
+        // Store deleted items for undo
         const deleted = [];
+        
         selectedStrokes.forEach(idx => {
             deleted.push({
                 idx: idx,
+                type: 'stroke',
                 stroke: JSON.parse(JSON.stringify(strokes[idx])) // Deep clone
             });
         });
         
-        // Sort indices in descending order to avoid index shifting issues
-        const indices = Array.from(selectedStrokes).sort((a, b) => b - a);
-        indices.forEach(idx => {
+        selectedTextBoxes.forEach(idx => {
+            deleted.push({
+                idx: idx,
+                type: 'textBox',
+                textBox: JSON.parse(JSON.stringify(textBoxes[idx])) // Deep clone
+            });
+        });
+        
+        // Sort stroke indices in descending order to avoid index shifting issues
+        const strokeIndices = Array.from(selectedStrokes).sort((a, b) => b - a);
+        strokeIndices.forEach(idx => {
             strokes.splice(idx, 1);
+        });
+        
+        // Sort text box indices in descending order
+        const textBoxIndices = Array.from(selectedTextBoxes).sort((a, b) => b - a);
+        textBoxIndices.forEach(idx => {
+            textBoxes.splice(idx, 1);
         });
         
         // Add to undo stack
@@ -1872,6 +2717,7 @@
         redoStack = [];
         
         selectedStrokes.clear();
+        selectedTextBoxes.clear();
         hasUnsavedChanges = true;
         requestRender();
     }
@@ -1966,8 +2812,40 @@
             from { transform: translateX(-50%) translateY(0); opacity: 1; }
             to { transform: translateX(-50%) translateY(-20px); opacity: 0; }
         }
+        #drop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(33, 150, 243, 0.1);
+            border: 4px dashed #2196F3;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        #drop-overlay.active {
+            display: flex;
+        }
+        #drop-message {
+            background: rgba(33, 150, 243, 0.95);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
     `;
     document.head.appendChild(style);
+    
+    // Create drop overlay
+    const dropOverlay = document.createElement('div');
+    dropOverlay.id = 'drop-overlay';
+    dropOverlay.innerHTML = '<div id="drop-message">Drop JSON file to open</div>';
+    document.body.appendChild(dropOverlay);
 
 </script>
 </body>
