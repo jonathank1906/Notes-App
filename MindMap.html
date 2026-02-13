@@ -1250,7 +1250,7 @@
             box-shadow: 0 0 8px rgba(136, 170, 255, 0.3);
             border-color: #579;
         }
-        .fc-card-item:hover .fc-card-hover-pane {
+        .fc-card-hover-pane.show {
             transform: translateX(80px);
             opacity: 1;
             pointer-events: auto;
@@ -1493,10 +1493,11 @@
             gap: 15px;
         }
         .glossary-item {
+            position: relative;
             background: #2b2b2b;
             border: 2px solid #6a6a6a;
             border-radius: 12px;
-            overflow: hidden;
+            overflow: visible;
         }
         .glossary-term {
             font-size: 20px;
@@ -1509,9 +1510,11 @@
             justify-content: space-between;
             padding: 20px;
             background: #2f2f2f;
+            border-radius: 10px;
         }
         .glossary-item.open .glossary-term-row {
             border-bottom: 2px solid #6a6a6a;
+            border-radius: 10px 10px 0 0;
         }
         .glossary-carrow {
             width: 44px;
@@ -1550,6 +1553,7 @@
             color: #e5e5e5;
             font-size: 15px;
             line-height: 1.6;
+            border-radius: 0 0 10px 10px;
         }
         .glossary-definition p { margin: 5px 0; }
         .glossary-definition code {
@@ -1558,6 +1562,55 @@
             border-radius: 3px;
             font-family: monospace;
             font-size: 13px;
+        }
+        .glossary-hover-pane.show {
+            transform: translateX(80px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .glossary-hover-pane {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            right: -2px;
+            width: 80px;
+            background: #2b2b2b;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            transform: translateX(0);
+            opacity: 0;
+            transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+            border: 2px solid #6a6a6a;
+            border-left: none;
+            border-radius: 0 12px 12px 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .glossary-hover-btn {
+            width: 40px;
+            height: 40px;
+            background: #3a3a3a;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .glossary-hover-btn.edit:hover {
+            background: #357;
+            box-shadow: 0 0 8px rgba(136, 170, 255, 0.3);
+            border-color: #579;
+        }
+        .glossary-hover-btn.delete:hover {
+            background: #533;
+            box-shadow: 0 0 8px rgba(255, 136, 136, 0.3);
+            border-color: #755;
         }
         .glossary-item-btn {
             background: #222;
@@ -3765,6 +3818,18 @@
             `;
             
             cardItem.appendChild(hoverPane);
+            
+            // Right-click to show edit/delete buttons
+            cardItem.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                // Hide all other hover panes first
+                document.querySelectorAll('.fc-card-hover-pane.show').forEach(pane => {
+                    pane.classList.remove('show');
+                });
+                // Show this card's hover pane
+                hoverPane.classList.add('show');
+            });
+            
             container.appendChild(cardItem);
         });
         
@@ -3807,23 +3872,44 @@
         }
     }
     
-    // Click outside handler to deactivate edit mode
+    // Click outside handler to deactivate edit mode and hide hover panes
     document.addEventListener('click', (e) => {
         const flashcardPage = document.getElementById('flashcard-page');
-        if (!flashcardPage || !flashcardPage.classList.contains('active')) return;
-        if (!isFlashcardFullEditMode) return;
+        const glossaryPage = document.getElementById('glossary-page');
         
-        // Check if click is outside any card item or on a non-editable area
-        const clickedInside = e.target.closest('.fc-card-item');
-        const clickedOnButton = e.target.closest('.fc-card-hover-btn, .fc-btn, .fc-mode-toggle');
-        const clickedOnTextarea = e.target.closest('.fc-edit-textarea');
+        // Handle flashcard hover panes
+        if (flashcardPage && flashcardPage.classList.contains('active') && isFlashcardFullEditMode) {
+            // Hide all flashcard hover panes when clicking outside
+            if (!e.target.closest('.fc-card-item')) {
+                document.querySelectorAll('.fc-card-hover-pane.show').forEach(pane => {
+                    pane.classList.remove('show');
+                });
+            }
+        }
         
-        if (!clickedInside || (clickedInside && !clickedOnTextarea && !clickedOnButton)) {
-            // Deactivate all editing
-            document.querySelectorAll('.fc-card-item.editing').forEach(item => {
-                item.classList.remove('editing');
-                item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
-            });
+        // Handle glossary hover panes
+        if (glossaryPage && glossaryPage.classList.contains('active')) {
+            // Hide all glossary hover panes when clicking outside
+            if (!e.target.closest('.glossary-item')) {
+                document.querySelectorAll('.glossary-hover-pane.show').forEach(pane => {
+                    pane.classList.remove('show');
+                });
+            }
+        }
+        
+        // Check if click is outside any card item or on a non-editable area (for flashcards)
+        if (flashcardPage && flashcardPage.classList.contains('active') && isFlashcardFullEditMode) {
+            const clickedInside = e.target.closest('.fc-card-item');
+            const clickedOnButton = e.target.closest('.fc-card-hover-btn, .fc-btn, .fc-mode-toggle');
+            const clickedOnTextarea = e.target.closest('.fc-edit-textarea');
+            
+            if (!clickedInside || (clickedInside && !clickedOnTextarea && !clickedOnButton)) {
+                // Deactivate all editing
+                document.querySelectorAll('.fc-card-item.editing').forEach(item => {
+                    item.classList.remove('editing');
+                    item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
+                });
+            }
         }
     });
 
@@ -4028,6 +4114,41 @@
             } catch (e) {
                 definitionHTML = escapeHtml(entry.definition).replace(/\n/g, '<br>');
             }
+            
+            // Create hover pane with edit/delete buttons
+            const hoverPane = document.createElement('div');
+            hoverPane.className = 'glossary-hover-pane';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'glossary-hover-btn edit';
+            editBtn.title = 'Edit';
+            editBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+            `;
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                editGlossaryEntry(originalIndex);
+                hoverPane.classList.remove('show');
+            };
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'glossary-hover-btn delete';
+            deleteBtn.title = 'Delete';
+            deleteBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+            `;
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteGlossaryEntry(originalIndex);
+            };
+            
+            hoverPane.appendChild(editBtn);
+            hoverPane.appendChild(deleteBtn);
+            
             itemDiv.innerHTML = `
                 <div class="glossary-term-row">
                     <span class="glossary-term">${termHTML}</span>
@@ -4042,6 +4163,20 @@
                     ${definitionHTML}
                 </div>
             `;
+            
+            itemDiv.appendChild(hoverPane);
+            
+            // Right-click to show edit/delete buttons
+            itemDiv.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                // Hide all other hover panes first
+                document.querySelectorAll('.glossary-hover-pane.show').forEach(pane => {
+                    pane.classList.remove('show');
+                });
+                // Show this item's hover pane
+                hoverPane.classList.add('show');
+            });
+            
             // Add carrow click handler
             const carrow = itemDiv.querySelector('.glossary-carrow');
             const defDiv = itemDiv.querySelector('.glossary-definition');
@@ -4056,6 +4191,7 @@
                     itemDiv.classList.remove('open');
                 }
             };
+            
             listDiv.appendChild(itemDiv);
         });
     }
