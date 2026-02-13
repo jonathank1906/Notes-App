@@ -1902,6 +1902,101 @@
         .qa-letter-divider::after {
             margin-left: 15px;
         }
+
+        /* To Do List Page */
+        #todo-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            overflow-y: auto;
+        }
+        #todo-page.active { display: block; }
+
+        .todo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 30px;
+        }
+        .todo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .todo-header h1 { margin: 0; color: #fff; font-size: 32px; }
+        .todo-add-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .todo-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .todo-input:focus { border-color: #555; outline: none; }
+        .todo-add-btn {
+            background: #252;
+            border: 1px solid #353;
+            color: #8f8;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .todo-add-btn:hover { background: #353; }
+        .todo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            background: #2b2b2b;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            gap: 15px;
+        }
+        .todo-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #8f8;
+        }
+        .todo-text {
+            flex: 1;
+            color: #ddd;
+            font-size: 16px;
+        }
+        .todo-text.completed {
+            text-decoration: line-through;
+            color: #666;
+        }
+        .todo-delete-btn {
+            background: #522;
+            border: 1px solid #633;
+            color: #f88;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .todo-delete-btn:hover { background: #633; }
     </style>
 </head>
 <body>
@@ -1977,6 +2072,10 @@
                             <div class="new-note-option" onclick="createNewNote('qa')">
                                 <svg viewBox="118 218 370 370"><path fill="currentColor" d="M262.9,239.9c64,0,116,41.9,116,93.6h12.2c0-58.1-57.5-105.9-128.2-105.9s-128.2,47.7-128.2,106.2c0,28.2,12.2,55.1,34.3,74.4l-26.3,45.9c-1.2,2.1-0.9,5.2,0.6,7c1.2,1.2,2.8,2.1,4.6,2.1c0.9,0,1.5,0,2.1-0.3l69.8-28.2c6.4,1.8,12.9,3.1,19.6,4l1.5-12.2c-6.7-0.9-13.5-2.4-19.6-4.3c-1.2-0.3-2.8-0.3-4,0.3L162.2,445l19.9-35.2c1.5-2.8,0.9-6.1-1.5-8c-21.4-17.1-33.7-41.9-33.7-68.2C146.9,282.2,198.9,239.9,262.9,239.9z M450.1,516.6c17.7-15.9,27.2-36.1,27.2-59.4c0-50.2-49-92.7-106.8-92.7S263.8,407,263.8,457.2c0,51.1,46.5,94.2,101.9,94.2l0,0c14.1,0,27.8-2.8,41-8.3l55.1,20.8c0.6,0.3,1.5,0.3,2.1,0.3c1.8,0,3.4-0.6,4.6-2.1c1.8-1.8,2.1-4.6,0.9-7L450.1,516.6z M408.8,530.6c-0.6-0.3-1.5-0.3-2.1-0.3c-0.9,0-1.8,0.3-2.4,0.6c-12.2,5.5-25.1,8.3-38.2,8.3l0,0c-48.7,0-89.4-37.6-89.4-81.7c0-43.5,43.1-80.2,94.2-80.2s94.2,36.7,94.2,80.2c0,21.1-8.9,38.9-26.3,52.9c-2.1,1.8-3.1,4.9-1.5,7.7l14.7,29.1L408.8,530.6z"/></svg>
                                 Q/A
+                            </div>
+                            <div class="new-note-option" onclick="createNewNote('todo')">
+                                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                                To Do List
                             </div>
                         </div>
                     </button>
@@ -3575,6 +3674,11 @@
                 return;
             }
             
+            if (data.type === 'todo') {
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>`;
+                return;
+            }
+            
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
@@ -3667,6 +3771,8 @@
             openGlossary(fileHandle, data);
         } else if (data.type === 'qa') {
             openQA(fileHandle, data);
+        } else if (data.type === 'todo') {
+            openTodo(fileHandle, data);
         } else {
             // Load as canvas note
             await loadFromFileHandle(fileHandle);
@@ -3710,7 +3816,7 @@
 
         try {
             // Check if flashcard deck, glossary, or Q/A already exists for this subject
-            if (type === 'flashcard' || type === 'glossary' || type === 'qa') {
+            if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo') {
                 const targetDirHandle = activeSubject.handle;
                 const existingFiles = [];
                 
@@ -3731,7 +3837,7 @@
                 }
                 
                 if (existingFiles.length > 0) {
-                    const typeName = type === 'flashcard' ? 'Flashcard Deck' : (type === 'glossary' ? 'Glossary' : 'Q/A');
+                    const typeName = type === 'flashcard' ? 'Flashcard Deck' : (type === 'glossary' ? 'Glossary' : (type === 'qa' ? 'Q/A' : 'To Do List'));
                     alert(`A ${typeName} already exists for this subject: ${existingFiles[0]}\\n\\nOnly one ${typeName} is allowed per subject. Please open the existing one instead.`);
                     return;
                 }
@@ -3768,6 +3874,14 @@
                     version: '1.0',
                     timestamp: new Date().toISOString(),
                     qa: []
+                };
+            } else if (type === 'todo') {
+                defaultName = `To Do List.json`;
+                blankData = {
+                    type: 'todo',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    todos: []
                 };
             } else {
                 defaultName = `Note ${formattedDate} ${formattedTime}.json`;
@@ -3809,6 +3923,8 @@
                 openGlossary(fileHandle, blankData);
             } else if (type === 'qa') {
                 openQA(fileHandle, blankData);
+            } else if (type === 'todo') {
+                openTodo(fileHandle, blankData);
             } else {
                 // Initialize blank canvas
                 strokes = [];
@@ -3849,6 +3965,8 @@
         document.getElementById('home-screen').classList.add('hidden');
         document.getElementById('canvas-container').classList.add('hidden');
         document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('qa-page').classList.remove('active');
+        document.getElementById('todo-page').classList.remove('active');
         
         // Show flashcard page
         document.getElementById('flashcard-page').classList.add('active');
@@ -4312,6 +4430,8 @@
         document.getElementById('home-screen').classList.add('hidden');
         document.getElementById('canvas-container').classList.add('hidden');
         document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('qa-page').classList.remove('active');
+        document.getElementById('todo-page').classList.remove('active');
         
         // Show glossary page
         document.getElementById('glossary-page').classList.add('active');
@@ -4612,6 +4732,7 @@
         document.getElementById('canvas-container').classList.add('hidden');
         document.getElementById('flashcard-page').classList.remove('active');
         document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('todo-page').classList.remove('active');
         
         // Show Q/A page
         document.getElementById('qa-page').classList.add('active');
@@ -4898,6 +5019,124 @@
                 item.style.display = 'none';
             }
         });
+    }
+
+    // --- TO DO LIST FUNCTIONS ---
+    let currentTodoHandle = null;
+    let currentTodoData = null;
+
+    function openTodo(fileHandle, data) {
+        currentTodoHandle = fileHandle;
+        currentTodoData = data;
+        
+        // Hide other screens
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('qa-page').classList.remove('active');
+        
+        // Show todo page
+        document.getElementById('todo-page').classList.add('active');
+        
+        // Show back button, hide home button
+        document.getElementById('btn-back').classList.remove('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        
+        // Hide toolbar and help button
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
+        // Update title
+        const fileName = currentTodoHandle.name.replace('.json', '');
+        document.getElementById('todo-title').textContent = fileName;
+        
+        if (!currentTodoData.todos) {
+            currentTodoData.todos = [];
+        }
+        
+        renderTodoList();
+        
+        // Add Enter key handler for the input
+        const input = document.getElementById('todo-item-input');
+        const addBtn = document.getElementById('todo-add-btn');
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addTodoItem();
+            }
+        });
+    }
+
+    function closeTodo() {
+        document.getElementById('todo-page').classList.remove('active');
+        document.getElementById('btn-back').classList.add('hidden');
+        currentTodoData = null;
+        currentTodoHandle = null;
+        showHomeScreen();
+    }
+
+    async function addTodoItem() {
+        const input = document.getElementById('todo-item-input');
+        const text = input.value.trim();
+        
+        if (!text) {
+            alert('Please enter a task');
+            return;
+        }
+        
+        currentTodoData.todos.push({ text, completed: false });
+        await saveTodoData();
+        renderTodoList();
+        
+        input.value = '';
+        input.focus();
+    }
+
+    async function toggleTodoItem(index) {
+        if (!currentTodoData || !currentTodoData.todos) return;
+        if (index < 0 || index >= currentTodoData.todos.length) return;
+        
+        currentTodoData.todos[index].completed = !currentTodoData.todos[index].completed;
+        await saveTodoData();
+        renderTodoList();
+    }
+
+    async function deleteTodoItem(index) {
+        if (!confirm('Delete this task?')) return;
+        currentTodoData.todos.splice(index, 1);
+        await saveTodoData();
+        renderTodoList();
+    }
+
+    function renderTodoList() {
+        const listDiv = document.getElementById('todo-list');
+        
+        if (!currentTodoData || !currentTodoData.todos || currentTodoData.todos.length === 0) {
+            listDiv.innerHTML = '<p style="color:#666;text-align:center;">No tasks yet. Add one above.</p>';
+            return;
+        }
+        
+        listDiv.innerHTML = currentTodoData.todos.map((todo, index) => `
+            <div class="todo-item">
+                <input type="checkbox" class="todo-checkbox" 
+                       ${todo.completed ? 'checked' : ''} 
+                       onclick="toggleTodoItem(${index})">
+                <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
+                <button class="todo-delete-btn" onclick="deleteTodoItem(${index})">Delete</button>
+            </div>
+        `).join('');
+    }
+
+    async function saveTodoData() {
+        if (!currentTodoHandle || !currentTodoData) return;
+        
+        currentTodoData.timestamp = new Date().toISOString();
+        const json = JSON.stringify(currentTodoData, null, 2);
+        const writable = await currentTodoHandle.createWritable();
+        await writable.write(json);
+        await writable.close();
     }
 
     async function selectRootFolder() {
@@ -5646,6 +5885,24 @@
             return;
         }
         
+        // 3. Q/A Mode Handlers
+        const qaPage = document.getElementById('qa-page');
+        if (qaPage && qaPage.classList.contains('active')) {
+            if (e.key === 'Escape') {
+                closeQA();
+            }
+            return;
+        }
+        
+        // 4. To Do List Mode Handlers
+        const todoPage = document.getElementById('todo-page');
+        if (todoPage && todoPage.classList.contains('active')) {
+            if (e.key === 'Escape') {
+                closeTodo();
+            }
+            return;
+        }
+        
         if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
             e.preventDefault();
             toggleFullScreen();
@@ -6160,6 +6417,8 @@
             closeGlossary();
         } else if (document.getElementById('qa-page').classList.contains('active')) {
             closeQA();
+        } else if (document.getElementById('todo-page').classList.contains('active')) {
+            closeTodo();
         }
     };
     if (btnNew) btnNew.onclick = createNewMindmap;
@@ -6520,6 +6779,25 @@
         </div>
     `;
     document.body.appendChild(qaPage);
+
+    // Create To Do List page
+    const todoPage = document.createElement('div');
+    todoPage.id = 'todo-page';
+    todoPage.innerHTML = `
+        <div class="todo-container">
+            <div class="todo-header">
+                <h1 id="todo-title">To Do List</h1>
+            </div>
+            
+            <div class="todo-add-section">
+                <input type="text" class="todo-input" id="todo-item-input" placeholder="Add a new task...">
+                <button class="todo-add-btn" onclick="addTodoItem()">Add Task</button>
+            </div>
+            
+            <div class="todo-list" id="todo-list"></div>
+        </div>
+    `;
+    document.body.appendChild(todoPage);
 
 </script>
 </body>
