@@ -2041,6 +2041,9 @@
                 await loadNotesForSubject(activeSubject);
             }
         }
+        
+        // Ensure button visibility is updated
+        updateNewNoteButtonVisibility();
     }
 
     function showCanvas() {
@@ -2096,6 +2099,8 @@
         document.getElementById('notes-grid').innerHTML = '';
         document.getElementById('empty-notes-state').style.display = 'block';
         document.getElementById('subjects-list').innerHTML = '<div style="padding:16px;color:#666;text-align:center;font-size:12px;">No folder selected</div>';
+        // Hide the + New button when no folder is selected
+        updateNewNoteButtonVisibility();
     }
 
     async function loadSubjects() {
@@ -2204,10 +2209,26 @@
             };
             subjectsList.appendChild(subjectItem);
         }
+        
+        // Update the + New button visibility
+        updateNewNoteButtonVisibility();
     }
 
     function getAllNotesCount() {
         return allSubjects.reduce((sum, s) => sum + s.count, 0);
+    }
+
+    function updateNewNoteButtonVisibility() {
+        const newNoteBtn = document.getElementById('btn-new-note');
+        if (newNoteBtn) {
+            // Hide button when viewing all notes (activeSubject === null)
+            // Show button when a specific subject is selected
+            if (activeSubject === null) {
+                newNoteBtn.style.display = 'none';
+            } else {
+                newNoteBtn.style.display = 'flex';
+            }
+        }
     }
 
     function toggleViewMenu() {
@@ -2485,6 +2506,12 @@
     }
 
     async function createNewNote() {
+        // Check if a specific subject is selected
+        if (!activeSubject) {
+            showNotification('Please select a subject first');
+            return;
+        }
+
         // Check if a folder is selected
         if (!currentDirHandle) {
             await selectRootFolder();
@@ -2498,8 +2525,9 @@
             const formattedDate = date.toLocaleDateString('en-US', options);
             const defaultName = `Note ${formattedDate}.json`;
             
-            // Create new file
-            const fileHandle = await currentDirHandle.getFileHandle(defaultName, { create: true });
+            // Create new file in the active subject's directory
+            const targetDirHandle = activeSubject.handle;
+            const fileHandle = await targetDirHandle.getFileHandle(defaultName, { create: true });
             
             // Create blank mindmap data
             const blankData = {
