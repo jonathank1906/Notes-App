@@ -3831,14 +3831,17 @@
             masterBtn.onclick = () => {
                 const allDefs = document.querySelectorAll('.glossary-definition');
                 const allCarrows = document.querySelectorAll('.glossary-carrow');
+                const allItems = document.querySelectorAll('.glossary-item');
                 if (masterBtn.dataset.state === 'hidden') {
                     allDefs.forEach(d => d.style.display = 'block');
                     allCarrows.forEach(c => c.classList.add('open'));
+                    allItems.forEach(item => item.classList.add('open'));
                     masterBtn.textContent = 'Hide All Definitions';
                     masterBtn.dataset.state = 'shown';
                 } else {
                     allDefs.forEach(d => d.style.display = 'none');
                     allCarrows.forEach(c => c.classList.remove('open'));
+                    allItems.forEach(item => item.classList.remove('open'));
                     masterBtn.textContent = 'Show All Definitions';
                     masterBtn.dataset.state = 'hidden';
                 }
