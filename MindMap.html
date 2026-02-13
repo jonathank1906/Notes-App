@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Infinite Mind Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -984,84 +985,82 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #121212;
+            background: #0e0e0e;
             z-index: 100;
             overflow-y: auto;
-        }
-        #flashcard-page.active { display: block; }
-
-        .fc-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 30px;
-        }
-        .fc-page-header {
-            display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #2a2a2a;
         }
-        .fc-page-header h1 {
-            color: #fff;
-            margin: 0;
-            font-size: 32px;
+        #flashcard-page.active { display: flex; }
+
+        .fc-mode-label {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            font-size: 14px;
+            color: #888;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- STUDY MODE --- */
+        #fc-study-container { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; justify-content: center; }
+        
+        .fc-scene {
+            width: 600px; height: 400px; perspective: 1000px; margin: 20px; cursor: pointer;
+            -webkit-user-select: none; user-select: none;
         }
         .fc-card {
-            background: #2a2a2a;
-            border-radius: 8px;
-            padding: 25px;
-            margin-bottom: 20px;
-            border: 1px solid #333;
+            width: 100%; height: 100%; position: relative;
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+            transform-style: preserve-3d;
         }
-        .fc-front, .fc-back {
-            margin-bottom: 15px;
+        .fc-card.is-flipped { transform: rotateX(180deg); }
+        .fc-face {
+            position: absolute; width: 100%; height: 100%; border-radius: 1rem;
+            background: #2b2b2b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            padding: 2rem; text-align: center; font-size: 2rem; line-height: 1.5; font-weight: 400;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
         }
-        .fc-front label, .fc-back label {
-            display: block;
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 5px;
-            font-weight: bold;
+        .fc-face-back { transform: rotateX(180deg); color: #fff; }
+        .fc-face-front { color: #fff; }
+
+        .fc-instructions {
+            margin-top: 1rem; color: #6e6e6e; font-size: 0.875rem; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase; user-select: none;
         }
-        .fc-front-content, .fc-back-content {
-            color: #ddd;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        .fc-edit-textarea {
-            width: 100%;
-            min-height: 80px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #ddd;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 14px;
-            font-family: inherit;
-            resize: vertical;
-        }
-        .fc-edit-textarea:focus { border-color: #555; outline: none; }
         .fc-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 20px;
+            display: flex; gap: 15px; align-items: center; margin-top: 20px;
         }
         .fc-btn {
-            background: #222;
-            border: 1px solid #444;
-            color: #ddd;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
+            background: #222; border: 1px solid #444; color: #ccc; padding: 8px 16px; 
+            border-radius: 4px; cursor: pointer; font-size: 14px;
         }
-        .fc-btn:hover { background: #333; color: #fff; }
+        .fc-btn:hover { background: #333; color: white; }
+        .fc-btn.edit-toggle { color: #8af; border-color: #357; }
+        #fc-counter { font-family: monospace; color: #888; }
+        #no-cards-msg { color: #666; font-style: italic; margin-bottom: 20px; }
+
+        /* --- EDIT MODE --- */
+        #fc-edit-container { display: none; flex-direction: column; max-width: 700px; width: 90%; }
+        .fc-edit-field { margin-bottom: 20px; }
+        .fc-edit-field label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
+        .fc-edit-textarea {
+            width: 100%; min-height: 150px; background: #1a1a1a; border: 1px solid #333;
+            color: #ddd; padding: 10px; border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;
+        }
+        .fc-edit-textarea:focus { border-color: #555; }
+        .fc-edit-controls { display: flex; justify-content: space-between; align-items: center; }
         .fc-btn.add-btn { color: #8f8; border-color: #353; }
         .fc-btn.del-btn { color: #f88; border-color: #533; }
+
+        /* Markdown Styles in Flashcard */
+        .fc-face p { margin-bottom: 10px; }
+        .fc-face code { background: #444; padding: 2px 4px; border-radius: 3px; font-size: 0.8em; font-family: monospace; }
+        .fc-face pre { background: #111; padding: 10px; border-radius: 5px; width: 100%; text-align: left; overflow-x: auto; }
 
         /* Glossary Page */
         #glossary-page {
@@ -1199,6 +1198,28 @@
         .glossary-item-btn:hover { background: #333; color: #fff; }
         .glossary-item-btn.delete { color: #f88; border-color: #533; }
         .glossary-item-btn.delete:hover { background: #300; }
+        .glossary-letter-divider {
+            display: flex;
+            align-items: center;
+            margin: 30px 0 20px 0;
+            color: #888;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .glossary-letter-divider::before,
+        .glossary-letter-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #444;
+        }
+        .glossary-letter-divider::before {
+            margin-right: 15px;
+        }
+        .glossary-letter-divider::after {
+            margin-left: 15px;
+        }
     </style>
 </head>
 <body>
@@ -1318,8 +1339,9 @@
 
     <!-- Back Button -->
     <button id="btn-back" class="hidden" data-tooltip="Back" data-shortcut="Ctrl+H">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
-            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
+            <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
+	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
         </svg>
     </button>
 
@@ -2854,13 +2876,13 @@
             // Handle different note types
             if (data.type === 'flashcard') {
                 const count = data.flashcards ? data.flashcards.length : 0;
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="40" height="40" viewBox="0 0 24 24" fill="#444"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H7v2h4v4z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} card${count !== 1 ? 's' : ''}</div></div>`;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="110" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/><path fill="#fff" d="M3.05,4.62A2,2,0,0,1,4.11,3.48a2,2,0,0,1,1.55-.06l5.68,2.07-8.63.06Z"/><path fill="#fff" d="M6.5,1.57,7.16.93A1.82,1.82,0,0,1,8.58.31,2,2,0,0,1,10,.92L13.13,4Z"/><path fill="none" fill-rule="evenodd" d="M3.41,9.54H16.59v8.1H3.41Z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} card${count !== 1 ? 's' : ''}</div></div>`;
                 return;
             }
             
             if (data.type === 'glossary') {
                 const count = data.glossary ? data.glossary.length : 0;
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="40" height="40" viewBox="0 0 24 24" fill="#444"><path d="M21 5h-7l-2-2H3c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 11H3V5h7.17l2 2H21v9zM9 10v2h10v-2H9zm0 4v2h10v-2H9z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} term${count !== 1 ? 's' : ''}</div></div>`;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="90" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} term${count !== 1 ? 's' : ''}</div></div>`;
                 return;
             }
             
@@ -3113,10 +3135,14 @@
     // --- FLASHCARD FUNCTIONS ---
     let currentFlashcardData = null;
     let currentFlashcardHandle = null;
+    let currentFlashcardIndex = 0;
+    let isFlashcardEditMode = false;
 
     function openFlashcard(fileHandle, data) {
         currentFlashcardHandle = fileHandle;
         currentFlashcardData = data;
+        currentFlashcardIndex = 0;
+        isFlashcardEditMode = false;
         
         // Hide other screens
         document.getElementById('home-screen').classList.add('hidden');
@@ -3135,11 +3161,11 @@
         document.getElementById('toolbar').classList.add('hidden');
         document.getElementById('help-btn').classList.add('hidden');
         
-        // Update title
-        const fileName = currentFlashcardHandle.name.replace('.json', '');
-        document.getElementById('flashcard-title').textContent = fileName;
+        if (!currentFlashcardData.flashcards) {
+            currentFlashcardData.flashcards = [];
+        }
         
-        renderFlashcardList();
+        renderFlashcardUI();
     }
 
     function closeFlashcard() {
@@ -3150,97 +3176,159 @@
         showHomeScreen();
     }
 
-    function renderFlashcardList() {
-        const listDiv = document.getElementById('flashcard-list');
-        if (!currentFlashcardData || !currentFlashcardData.flashcards) {
-            listDiv.innerHTML = '<p style="color:#666;text-align:center;">No flashcards yet. Add one below.</p>';
-            addNewFlashcardForm(listDiv);
-            return;
-        }
-
-        listDiv.innerHTML = '';
-        
-        currentFlashcardData.flashcards.forEach((card, index) => {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'fc-card';
-            cardDiv.innerHTML = `
-                <div class="fc-front">
-                    <label>FRONT</label>
-                    <div class="fc-front-content">${escapeHtml(card.front)}</div>
-                </div>
-                <div class="fc-back">
-                    <label>BACK</label>
-                    <div class="fc-back-content">${escapeHtml(card.back)}</div>
-                </div>
-                <div class="fc-controls">
-                    <button class="fc-btn del-btn" onclick="deleteFlashcard(${index})">Delete</button>
-                    <button class="fc-btn" onclick="editFlashcard(${index})">Edit</button>
-                </div>
-            `;
-            listDiv.appendChild(cardDiv);
-        });
-        
-        addNewFlashcardForm(listDiv);
+    function toggleFlashcardEditMode() {
+        isFlashcardEditMode = !isFlashcardEditMode;
+        renderFlashcardUI();
     }
 
-    function addNewFlashcardForm(container) {
-        const formDiv = document.createElement('div');
-        formDiv.className = 'fc-card';
-        formDiv.innerHTML = `
-            <h3 style="color:#fff;margin-top:0;">Add New Flashcard</h3>
-            <div class="fc-front">
-                <label>FRONT</label>
-                <textarea class="fc-edit-textarea" id="new-fc-front" placeholder="Question or term..."></textarea>
-            </div>
-            <div class="fc-back">
-                <label>BACK</label>
-                <textarea class="fc-edit-textarea" id="new-fc-back" placeholder="Answer or definition..."></textarea>
-            </div>
-            <div class="fc-controls">
-                <button class="fc-btn add-btn" onclick="addFlashcard()">Add Flashcard</button>
-            </div>
-        `;
-        container.appendChild(formDiv);
+    function renderFlashcardUI() {
+        const fcStudyContainer = document.getElementById('fc-study-container');
+        const fcEditContainer = document.getElementById('fc-edit-container');
+        const fcModeLabel = document.getElementById('fc-mode-label');
+        const fcScene = document.getElementById('fc-scene');
+        const noCardsMsg = document.getElementById('no-cards-msg');
+        const fcCard = document.querySelector('.fc-card');
+        
+        if (isFlashcardEditMode) {
+            fcStudyContainer.style.display = 'none';
+            fcEditContainer.style.display = 'flex';
+            fcModeLabel.innerText = "Edit Mode";
+            
+            const fcEditFront = document.getElementById('fc-edit-front');
+            const fcEditBack = document.getElementById('fc-edit-back');
+            
+            if(currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0 && currentFlashcardIndex < currentFlashcardData.flashcards.length) {
+                const card = currentFlashcardData.flashcards[currentFlashcardIndex];
+                fcEditFront.value = card.front;
+                fcEditBack.value = card.back;
+            } else {
+                fcEditFront.value = "";
+                fcEditBack.value = "";
+            }
+            fcEditFront.focus();
+
+        } else {
+            fcStudyContainer.style.display = 'flex';
+            fcEditContainer.style.display = 'none';
+            fcModeLabel.innerText = "Study Mode";
+            
+            fcCard.classList.remove('is-flipped');
+
+            if (!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) {
+                noCardsMsg.style.display = 'block';
+                fcScene.style.display = 'none';
+                document.getElementById('fc-counter').innerText = "0 / 0";
+            } else {
+                noCardsMsg.style.display = 'none';
+                fcScene.style.display = 'block';
+                updateFlashcardDisplay();
+            }
+        }
     }
 
-    async function addFlashcard() {
-        const front = document.getElementById('new-fc-front').value.trim();
-        const back = document.getElementById('new-fc-back').value.trim();
+    function updateFlashcardDisplay() {
+        const cards = currentFlashcardData.flashcards || [];
+        if (cards.length === 0) return;
         
-        if (!front || !back) {
-            alert('Please fill in both front and back of the flashcard');
-            return;
+        if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
+        
+        const cardData = cards[currentFlashcardIndex];
+        const fcFront = document.querySelector('.fc-face-front');
+        const fcBack = document.querySelector('.fc-face-back');
+        const fcCounter = document.getElementById('fc-counter');
+        const fcCard = document.querySelector('.fc-card');
+        
+        // Render markdown
+        try {
+            fcFront.innerHTML = marked.parse(cardData.front || "...");
+            fcBack.innerHTML = marked.parse(cardData.back || "...");
+        } catch (e) {
+            // Fallback if marked not loaded
+            fcFront.textContent = cardData.front || "...";
+            fcBack.textContent = cardData.back || "...";
         }
         
-        if (!currentFlashcardData.flashcards) {
-            currentFlashcardData.flashcards = [];
+        fcCounter.textContent = `${currentFlashcardIndex + 1} / ${cards.length}`;
+        fcCard.classList.remove('is-flipped');
+    }
+
+    function navFlashcard(dir) {
+        const cards = currentFlashcardData.flashcards || [];
+        if (cards.length === 0) return;
+        currentFlashcardIndex += dir;
+        if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
+        if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
+        updateFlashcardDisplay();
+    }
+
+    function flipCard() {
+        const fcCard = document.querySelector('.fc-card');
+        fcCard.classList.toggle('is-flipped');
+    }
+
+    // Add click handler for flip card
+    document.addEventListener('DOMContentLoaded', () => {
+        const fcScene = document.getElementById('fc-scene');
+        if (fcScene) {
+            fcScene.addEventListener('click', flipCard);
         }
+    });
+
+    async function saveFlashcardOnly() {
+        if(!currentFlashcardData.flashcards) currentFlashcardData.flashcards = [];
         
-        currentFlashcardData.flashcards.push({ front, back });
+        const fcEditFront = document.getElementById('fc-edit-front');
+        const fcEditBack = document.getElementById('fc-edit-back');
+        const frontVal = fcEditFront.value;
+        const backVal = fcEditBack.value;
+
+        if (currentFlashcardData.flashcards.length > 0 && currentFlashcardIndex < currentFlashcardData.flashcards.length) {
+            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
+            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+        } else {
+            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+            currentFlashcardIndex = 0;
+        }
         await saveFlashcardData();
-        renderFlashcardList();
+        toggleFlashcardEditMode();
     }
 
-    async function deleteFlashcard(index) {
-        if (!confirm('Delete this flashcard?')) return;
+    async function saveFlashcardAndNext() {
+        if(!currentFlashcardData.flashcards) currentFlashcardData.flashcards = [];
         
-        currentFlashcardData.flashcards.splice(index, 1);
+        const fcEditFront = document.getElementById('fc-edit-front');
+        const fcEditBack = document.getElementById('fc-edit-back');
+        const frontVal = fcEditFront.value;
+        const backVal = fcEditBack.value;
+        
+        if (currentFlashcardIndex < currentFlashcardData.flashcards.length) {
+            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
+            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+        } else {
+            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+        }
+
+        currentFlashcardData.flashcards.push({ front: "", back: "" });
+        currentFlashcardIndex = currentFlashcardData.flashcards.length - 1;
+        
+        fcEditFront.value = "";
+        fcEditBack.value = "";
+        fcEditFront.focus();
+        
         await saveFlashcardData();
-        renderFlashcardList();
     }
 
-    function editFlashcard(index) {
-        const card = currentFlashcardData.flashcards[index];
-        const front = prompt('Edit front:', card.front);
-        if (front !== null && front.trim()) {
-            card.front = front.trim();
+    async function deleteFlashcard() {
+        if(!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) return;
+        if(confirm("Delete this card?")) {
+            currentFlashcardData.flashcards.splice(currentFlashcardIndex, 1);
+            if (currentFlashcardIndex >= currentFlashcardData.flashcards.length) {
+                currentFlashcardIndex = Math.max(0, currentFlashcardData.flashcards.length - 1);
+            }
+            await saveFlashcardData();
+            isFlashcardEditMode = false;
+            renderFlashcardUI();
         }
-        const back = prompt('Edit back:', card.back);
-        if (back !== null && back.trim()) {
-            card.back = back.trim();
-        }
-        saveFlashcardData();
-        renderFlashcardList();
     }
 
     async function saveFlashcardData() {
@@ -3305,21 +3393,62 @@
             return;
         }
 
+        // Filter by search term
+        let filteredGlossary = currentGlossaryData.glossary;
+        if (searchTerm) {
+            filteredGlossary = currentGlossaryData.glossary.filter(entry => 
+                entry.term.toLowerCase().includes(searchTerm) || 
+                entry.definition.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        if (filteredGlossary.length === 0) {
+            listDiv.innerHTML = '<p style="color:#666;text-align:center;">No matching entries found.</p>';
+            return;
+        }
+        
+        // Sort alphabetically by term
+        filteredGlossary = [...filteredGlossary].sort((a, b) => 
+            a.term.toLowerCase().localeCompare(b.term.toLowerCase())
+        );
+
         listDiv.innerHTML = '';
         
-        currentGlossaryData.glossary.forEach((entry, index) => {
-            if (searchTerm && !entry.term.toLowerCase().includes(searchTerm) && !entry.definition.toLowerCase().includes(searchTerm)) {
-                return;
+        let currentLetter = '';
+        
+        filteredGlossary.forEach((entry) => {
+            // Find original index for edit/delete
+            const originalIndex = currentGlossaryData.glossary.indexOf(entry);
+            
+            // Add letter divider if first letter changes
+            const firstLetter = entry.term.charAt(0).toUpperCase();
+            if (firstLetter !== currentLetter) {
+                currentLetter = firstLetter;
+                const dividerDiv = document.createElement('div');
+                dividerDiv.className = 'glossary-letter-divider';
+                dividerDiv.textContent = currentLetter;
+                listDiv.appendChild(dividerDiv);
             }
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'glossary-item';
+            
+            // Render term as plain text, definition as markdown
+            const termHTML = escapeHtml(entry.term);
+            let definitionHTML;
+            try {
+                definitionHTML = marked.parse(entry.definition);
+            } catch (e) {
+                // Fallback if marked not loaded
+                definitionHTML = escapeHtml(entry.definition).replace(/\\n/g, '<br>');
+            }
+            
             itemDiv.innerHTML = `
-                <div class="glossary-term">${escapeHtml(entry.term)}</div>
-                <div class="glossary-definition">${escapeHtml(entry.definition)}</div>
+                <div class="glossary-term">${termHTML}</div>
+                <div class="glossary-definition">${definitionHTML}</div>
                 <div class="glossary-item-actions">
-                    <button class="glossary-item-btn" onclick="editGlossaryEntry(${index})">Edit</button>
-                    <button class="glossary-item-btn delete" onclick="deleteGlossaryEntry(${index})">Delete</button>
+                    <button class="glossary-item-btn" onclick="editGlossaryEntry(${originalIndex})">Edit</button>
+                    <button class="glossary-item-btn delete" onclick="deleteGlossaryEntry(${originalIndex})">Delete</button>
                 </div>
             `;
             listDiv.appendChild(itemDiv);
@@ -4060,6 +4189,47 @@
     // --- KEYBOARD ---
     window.addEventListener('keydown', async (e) => {
         if (e.repeat) return;
+        
+        // 1. Flashcard Mode Handlers
+        const flashcardPage = document.getElementById('flashcard-page');
+        if (flashcardPage && flashcardPage.classList.contains('active')) {
+            if (isFlashcardEditMode) {
+                if (e.key === 'Escape') {
+                    toggleFlashcardEditMode();
+                }
+                return;
+            }
+            if (e.key === 'e') { 
+                e.preventDefault(); 
+                toggleFlashcardEditMode(); 
+            }
+            if (e.code === 'Space') { 
+                e.preventDefault(); 
+                if (!e.repeat) flipCard(); 
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                navFlashcard(1);
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                navFlashcard(-1);
+            }
+            if (e.key === 'Escape') {
+                closeFlashcard();
+            }
+            return;
+        }
+        
+        // 2. Glossary Mode Handlers
+        const glossaryPage = document.getElementById('glossary-page');
+        if (glossaryPage && glossaryPage.classList.contains('active')) {
+            if (e.key === 'Escape') {
+                closeGlossary();
+            }
+            return;
+        }
+        
         if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
             e.preventDefault();
             toggleFullScreen();
@@ -4782,11 +4952,50 @@
     const flashcardPage = document.createElement('div');
     flashcardPage.id = 'flashcard-page';
     flashcardPage.innerHTML = `
-        <div class="fc-container">
-            <div class="fc-page-header">
-                <h1 id="flashcard-title">Flashcard Deck</h1>
+        <div class="fc-mode-label" id="fc-mode-label">Study Mode</div>
+
+        <div id="fc-study-container">
+            <div id="no-cards-msg" style="display:none;">Deck is empty. Press 'e' to add cards.</div>
+            
+            <div class="fc-scene" id="fc-scene">
+                <div class="fc-card">
+                    <div class="fc-face fc-face-front"></div>
+                    <div class="fc-face fc-face-back"></div>
+                </div>
             </div>
-            <div id="flashcard-list"></div>
+            
+            <div class="fc-instructions">Space to flip • 'e' to Edit</div>
+            
+            <div class="fc-controls">
+                <button class="fc-btn" onclick="navFlashcard(-1)">Previous</button>
+                <span id="fc-counter">0 / 0</span>
+                <button class="fc-btn" onclick="navFlashcard(1)">Next</button>
+                <div style="width:20px;"></div>
+                <button class="fc-btn edit-toggle" onclick="toggleFlashcardEditMode()">Edit / Add</button>
+            </div>
+        </div>
+
+        <div id="fc-edit-container">
+            <h3 style="margin-top:0; margin-bottom:15px; color:#8af;">Edit Flashcard</h3>
+            
+            <div class="fc-edit-field">
+                <label>Front (Question)</label>
+                <textarea class="fc-edit-textarea" id="fc-edit-front" placeholder="Type question here (Markdown supported)..."></textarea>
+            </div>
+            
+            <div class="fc-edit-field">
+                <label>Back (Answer)</label>
+                <textarea class="fc-edit-textarea" id="fc-edit-back" placeholder="Type answer here (Markdown supported)..."></textarea>
+            </div>
+            
+            <div class="fc-edit-controls">
+                <button class="fc-btn del-btn" onclick="deleteFlashcard()">Delete Card</button>
+                <div>
+                     <button class="fc-btn" onclick="toggleFlashcardEditMode()">Cancel / View</button>
+                     <button class="fc-btn add-btn" onclick="saveFlashcardAndNext()">Save & Add New</button>
+                     <button class="fc-btn" onclick="saveFlashcardOnly()" style="border-color:#8af; color:#8af;">Save Changes</button>
+                </div>
+            </div>
         </div>
     `;
     document.body.appendChild(flashcardPage);
