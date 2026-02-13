@@ -426,12 +426,53 @@
     </div>
 
     <div id="toolbar">
-        <button class="tool-btn active" id="btn-pen" title="Pen Tool (P)">Pen</button>
-        <button class="tool-btn" id="btn-eraser" title="Eraser Tool (E)">Eraser</button>
-        <button class="tool-btn" id="btn-select" title="Select Tool (S)">Select</button>
+        <button class="tool-btn" id="btn-select" title="Select Tool (S)">
+            <svg id="selection" xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 20 20" width="20" height="20" style="display:block;">
+                <defs>
+                    <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
+                </defs>
+                <path id="Path_2318" class="cls-1" d="M.3,0C.13,0,0,.13,0,.3V19.7c0,.16,.13,.3,.3,.3,.08,0,.15-.03,.21-.09l5.73-5.74h7.7c.16,0,.3-.13,.3-.3,0-.08-.03-.15-.09-.21L.51,.09C.45,.03,.37,0,.3,0Z"/>
+            </svg>
+        </button>
+        <button class="tool-btn active" id="btn-pen" title="Pen Tool (P)">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
+                <style type="text/css">
+                    .st0{fill-rule:evenodd;clip-rule:evenodd;fill:#6E6E6E;}
+                </style>
+                <g id="Smock_Draw_Lg_N_2x" transform="translate(1404)">
+                    <path id="Path_2153" class="st0" d="M-1392.4,3.7l-9.7,9.6c-0.1,0.1-0.1,0.2-0.2,0.3l-1.7,5.8c0,0.3,0.2,0.5,0.5,0.5c0,0,0,0,0,0
+                    c0.2,0,4.9-1.5,5.8-1.7c0.1,0,0.2-0.1,0.3-0.2l9.6-9.6L-1392.4,3.7z M-1398.1,17.1c-1.4,0.4-3.1,0.9-4.2,1.3l1.3-4.2
+                    C-1401.1,14.2-1398.1,17.1-1398.1,17.1z"/>
+                    <path id="Path_2154" class="st0" d="M-1384.2,3.8l-3.6-3.6c-0.1-0.1-0.3-0.2-0.5-0.2h0c-0.2,0-0.4,0.1-0.6,0.2l-2.6,2.6l4.7,4.7
+                    l2.6-2.6c0.1-0.2,0.2-0.3,0.2-0.6C-1384,4.2-1384.1,4-1384.2,3.8L-1384.2,3.8z"/>
+                </g>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-eraser" title="Eraser Tool (E)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
+                <defs>
+                    <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
+                </defs>
+                <path id="Path_2160" class="cls-1" d="M19.83,8.06L11.94,.17c-.23-.23-.61-.23-.84,0L3.07,8.21c-.23,.23-.23,.61,0,.84l.42,.42L.35,12.6c-.46,.46-.46,1.21,0,1.68l5.37,5.37c.46,.46,1.21,.46,1.68,0l3.14-3.14,.42,.42c.23,.23,.61,.23,.84,0l8.03-8.03c.23-.23,.23-.61,0-.84ZM6.56,18.82L1.18,13.44l3.14-3.14,5.37,5.37-3.14,3.14Z"/>
+            </svg>
+        </button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">↶</button>
-        <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)">↷</button>
+        <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
+                <defs>
+                    <style>.cls-undo{fill:#6E6E6F;}</style>
+                </defs>
+                <path class="cls-undo" d="M19.9,13.6l-2.3,0.8c0,0-1.1-4.1-5.5-5.1c-4.2-1-6.7,1.6-6.7,1.6l3.5,3.5H0.1V5.7l3.5,3.4c0.2-0.2,1-1,2.5-1.7c2-0.9,4.3-1.1,6.5-0.6C15,7.4,18.5,9.4,19.9,13.6z"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
+                <defs>
+                    <style>.cls-redo{fill:#6E6E6F;}</style>
+                </defs>
+                <path class="cls-redo" d="M.1,13.56l2.34.78A7.64,7.64,0,0,1,8,9.24a7.44,7.44,0,0,1,6.74,1.6l-3.5,3.5H19.9V5.66L16.45,9.11a9.05,9.05,0,0,0-2.54-1.67,10.17,10.17,0,0,0-6.5-.59A10.39,10.39,0,0,0,.1,13.56Z"/>
+            </svg>
+        </button>
         <div class="separator"></div>
         <button class="tool-btn" id="btn-new" title="New (Ctrl+N)">New</button>
         <button class="tool-btn" id="btn-save" title="Save (Ctrl+S)">Save</button>
@@ -604,20 +645,35 @@
     }
 
     function drawGrid(context) {
-        const width = canvas.width / (window.devicePixelRatio || 1) / camera.z;
-        const height = canvas.height / (window.devicePixelRatio || 1) / camera.z;
-        const startX = Math.floor(-camera.x / camera.z / CONFIG.gridSize) * CONFIG.gridSize;
-        const startY = Math.floor(-camera.y / camera.z / CONFIG.gridSize) * CONFIG.gridSize;
-        
-        context.fillStyle = '#222';
-        
-        for (let x = startX; x < startX + width + CONFIG.gridSize * 2; x += CONFIG.gridSize) {
-            for (let y = startY; y < startY + height + CONFIG.gridSize * 2; y += CONFIG.gridSize) {
-                context.beginPath();
-                context.arc(x, y, CONFIG.gridDotSize / camera.z, 0, Math.PI * 2);
-                context.fill();
-            }
+        const dpr = window.devicePixelRatio || 1;
+        const viewWidth = canvas.width / dpr;
+        const viewHeight = canvas.height / dpr;
+
+        const worldLeft = -camera.x / camera.z;
+        const worldTop = -camera.y / camera.z;
+        const worldRight = worldLeft + viewWidth / camera.z;
+        const worldBottom = worldTop + viewHeight / camera.z;
+
+        const startX = Math.floor(worldLeft / CONFIG.gridSize) * CONFIG.gridSize;
+        const endX = Math.ceil(worldRight / CONFIG.gridSize) * CONFIG.gridSize;
+        const startY = Math.floor(worldTop / CONFIG.gridSize) * CONFIG.gridSize;
+        const endY = Math.ceil(worldBottom / CONFIG.gridSize) * CONFIG.gridSize;
+
+        context.strokeStyle = '#1f1f1f';
+        context.lineWidth = 1 / camera.z;
+        context.beginPath();
+
+        for (let x = startX; x <= endX; x += CONFIG.gridSize) {
+            context.moveTo(x, startY);
+            context.lineTo(x, endY);
         }
+
+        for (let y = startY; y <= endY; y += CONFIG.gridSize) {
+            context.moveTo(startX, y);
+            context.lineTo(endX, y);
+        }
+
+        context.stroke();
     }
 
     function drawStroke(context, stroke, isSelected = false) {
