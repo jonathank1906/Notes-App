@@ -934,11 +934,7 @@
                 <path class="cls-redo" d="M.1,13.56l2.34.78A7.64,7.64,0,0,1,8,9.24a7.44,7.44,0,0,1,6.74,1.6l-3.5,3.5H19.9V5.66L16.45,9.11a9.05,9.05,0,0,0-2.54-1.67,10.17,10.17,0,0,0-6.5-.59A10.39,10.39,0,0,0,.1,13.56Z"/>
             </svg>
         </button>
-        <div class="separator"></div>
-        <button class="tool-btn" id="btn-new" data-tooltip="New" data-shortcut="Ctrl+N">New</button>
-        <button class="tool-btn" id="btn-save" data-tooltip="Save" data-shortcut="Ctrl+S">Save</button>
-        <div class="separator"></div>
-        <button class="tool-btn" id="btn-fullscreen" data-tooltip="Toggle Fullscreen" data-shortcut="Shift+F">⛶</button>
+        <!-- Save and Fullscreen removed -->
     </div>
 
     <button id="help-btn" title="Keyboard Shortcuts">?</button>
@@ -993,10 +989,7 @@
                     <span class="shortcut-desc">Redo</span>
                     <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd></div>
                 </div>
-                <div class="shortcut-item">
-                    <span class="shortcut-desc">New Mindmap</span>
-                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
-                </div>
+                <!-- New Mindmap shortcut removed -->
                 <div class="shortcut-item">
                     <span class="shortcut-desc">Save</span>
                     <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></div>
@@ -3027,9 +3020,6 @@
             } else if (e.key.toLowerCase() === 'h') {
                 e.preventDefault();
                 await showHomeScreen();
-            } else if (e.key.toLowerCase() === 'n') {
-                e.preventDefault();
-                createNewMindmap();
             }
         }
     });
@@ -3467,9 +3457,9 @@
     btnUndo.onclick = performUndo;
     btnRedo.onclick = performRedo;
     btnHome.onclick = async () => await showHomeScreen();
-    btnNew.onclick = createNewMindmap;
-    btnSave.onclick = saveToFile;
-    btnFullscreen.onclick = toggleFullScreen;
+    if (btnNew) btnNew.onclick = createNewMindmap;
+    if (btnSave) btnSave.onclick = saveToFile;
+    if (btnFullscreen) btnFullscreen.onclick = toggleFullScreen;
 
     // Shortcuts dialog
     const helpBtn = document.getElementById('help-btn');
