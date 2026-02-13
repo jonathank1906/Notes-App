@@ -1039,6 +1039,66 @@
         .card.is-flipped {
             transform: rotateX(180deg) !important;
         }
+        
+        .card.slide-out-left {
+            animation: slideOutLeft 0.2s ease-in forwards;
+        }
+        
+        .card.slide-out-right {
+            animation: slideOutRight 0.2s ease-in forwards;
+        }
+        
+        .card.slide-in-left {
+            animation: slideInLeft 0.2s ease-out forwards;
+        }
+        
+        .card.slide-in-right {
+            animation: slideInRight 0.2s ease-out forwards;
+        }
+        
+        @keyframes slideOutLeft {
+            from {
+                transform: translateX(0);
+                opacity: 0.6;
+            }
+            to {
+                transform: translateX(-200px);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 0.6;
+            }
+            to {
+                transform: translateX(200px);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-200px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(200px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
 
         /* 4. CARD FACES */
         .card__face {
@@ -3435,10 +3495,38 @@
     function navFlashcard(dir) {
         const cards = currentFlashcardData.flashcards || [];
         if (cards.length === 0) return;
-        currentFlashcardIndex += dir;
-        if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
-        if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
-        updateFlashcardDisplay();
+        
+        const card = document.querySelector('.card');
+        if (!card) return;
+        
+        // Remove any existing animation classes
+        card.classList.remove('slide-out-left', 'slide-out-right', 'slide-in-left', 'slide-in-right');
+        
+        // Apply slide out animation based on direction
+        const slideOutClass = dir > 0 ? 'slide-out-left' : 'slide-out-right';
+        const slideInClass = dir > 0 ? 'slide-in-right' : 'slide-in-left';
+        
+        card.classList.add(slideOutClass);
+        
+        // Wait for slide out animation to complete, then update content and slide in
+        setTimeout(() => {
+            // Update index
+            currentFlashcardIndex += dir;
+            if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
+            if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
+            
+            // Update content
+            updateFlashcardDisplay();
+            
+            // Apply slide in animation
+            card.classList.remove(slideOutClass);
+            card.classList.add(slideInClass);
+            
+            // Clean up animation class after it completes
+            setTimeout(() => {
+                card.classList.remove(slideInClass);
+            }, 200);
+        }, 200);
     }
 
     function flipCard() {
@@ -4507,11 +4595,11 @@
                 e.preventDefault(); 
                 if (!e.repeat) flipCard(); 
             }
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 navFlashcard(1);
             }
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            if (e.key === 'ArrowLeft') {
                 e.preventDefault();
                 navFlashcard(-1);
             }
