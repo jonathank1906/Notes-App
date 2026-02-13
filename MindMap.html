@@ -1659,9 +1659,9 @@
         #qa-page.active { display: block; }
 
         .qa-container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 40px 30px;
         }
         .qa-header {
             display: flex;
@@ -1669,51 +1669,54 @@
             align-items: center;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #333;
+            border-bottom: 1px solid #2a2a2a;
         }
         .qa-header h1 { margin: 0; color: #fff; font-size: 32px; }
         .qa-add-section {
-            background: #1a1a1a;
+            background: #2a2a2a;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         .qa-input-group {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
         .qa-input {
-            flex: 1;
-            padding: 10px;
-            background: #222;
-            color: #ddd;
+            background: #1a1a1a;
             border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
             border-radius: 4px;
             font-size: 14px;
+            flex: 1;
+            min-width: 200px;
         }
         .qa-input:focus { border-color: #555; outline: none; }
         .qa-textarea {
             width: 100%;
-            padding: 10px;
-            background: #222;
-            color: #ddd;
+            min-height: 100px;
+            background: #1a1a1a;
             border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
             border-radius: 4px;
             font-size: 14px;
-            resize: vertical;
-            min-height: 80px;
-            margin-bottom: 15px;
             font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
         }
         .qa-textarea:focus { border-color: #555; outline: none; }
         .qa-add-btn {
-            padding: 10px 20px;
             background: #252;
-            color: #8f8;
             border: 1px solid #353;
+            color: #8f8;
+            padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
         .qa-add-btn:hover { background: #353; }
         .qa-search {
@@ -1722,7 +1725,7 @@
         .qa-search input {
             width: 100%;
             padding: 10px;
-            background: #222;
+            background: #1a1a1a;
             color: #ddd;
             border: 1px solid #333;
             border-radius: 4px;
@@ -1732,75 +1735,78 @@
         .qa-list {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
         }
         .qa-item {
-            background: #1a1a1a;
-            border-radius: 8px;
-            padding: 20px;
-            cursor: pointer;
+            position: relative;
+            background: #2b2b2b;
+            border: 2px solid #6a6a6a;
+            border-radius: 12px;
+            overflow: visible;
         }
         .qa-question {
-            color: #fff;
-            font-size: 16px;
+            font-size: 20px;
             font-weight: 600;
+            color: #ffffff;
         }
         .qa-question-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            padding: 5px 0;
-            transition: all 0.2s;
+            padding: 20px;
+            background: #2f2f2f;
+            border-radius: 10px;
         }
         .qa-item.open .qa-question-row {
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #333;
+            border-bottom: 2px solid #6a6a6a;
+            border-radius: 10px 10px 0 0;
         }
         .qa-carrow {
-            width: 24px;
-            height: 24px;
+            width: 44px;
+            height: 44px;
+            background: #3a3a3a;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s;
-            flex-shrink: 0;
+            cursor: pointer;
         }
         .qa-carrow svg {
             width: 16px;
             height: 16px;
-            fill: #888;
         }
         .qa-carrow.open svg {
             transform: rotate(180deg);
         }
         #qa-master-toggle {
-            padding: 8px 16px;
             background: #222;
+            border: 1px solid #444;
             color: #8af;
-            border: 1px solid #357;
+            padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
+            margin-bottom: 20px;
         }
         #qa-master-toggle:hover {
             background: #333;
         }
         .qa-answer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            color: #bbb;
+            display: none;
+            padding: 20px;
+            background: #262626;
+            color: #e5e5e5;
+            font-size: 15px;
             line-height: 1.6;
+            border-radius: 0 0 10px 10px;
         }
         .qa-answer p { margin: 5px 0; }
         .qa-answer code {
-            background: #444;
-            padding: 2px 4px;
+            background: #1a1a1a;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 0.9em;
             font-family: monospace;
+            font-size: 13px;
         }
         .qa-hover-pane.show {
             transform: translateX(80px);
@@ -1829,14 +1835,7 @@
             z-index: 5;
             pointer-events: none;
         }
-        .qa-item {
-            position: relative;
-        }
-        .qa-item:hover .qa-hover-pane {
-            transform: translateX(80px);
-            opacity: 1;
-            pointer-events: auto;
-        }
+
         .qa-hover-btn {
             width: 40px;
             height: 40px;
@@ -1884,17 +1883,18 @@
         .qa-letter-divider {
             display: flex;
             align-items: center;
-            margin: 30px 0 20px;
-            font-size: 24px;
-            font-weight: 700;
-            color: #999;
+            margin: 30px 0 20px 0;
+            color: #888;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
         }
         .qa-letter-divider::before,
         .qa-letter-divider::after {
             content: '';
             flex: 1;
             height: 1px;
-            background: #333;
+            background: #444;
         }
         .qa-letter-divider::before {
             margin-right: 15px;
@@ -4193,6 +4193,7 @@
     document.addEventListener('click', (e) => {
         const flashcardPage = document.getElementById('flashcard-page');
         const glossaryPage = document.getElementById('glossary-page');
+        const qaPage = document.getElementById('qa-page');
         
         // Handle flashcard hover panes
         if (flashcardPage && flashcardPage.classList.contains('active') && isFlashcardFullEditMode) {
@@ -4209,6 +4210,16 @@
             // Hide all glossary hover panes when clicking outside
             if (!e.target.closest('.glossary-item')) {
                 document.querySelectorAll('.glossary-hover-pane.show').forEach(pane => {
+                    pane.classList.remove('show');
+                });
+            }
+        }
+        
+        // Handle Q/A hover panes
+        if (qaPage && qaPage.classList.contains('active')) {
+            // Hide all Q/A hover panes when clicking outside
+            if (!e.target.closest('.qa-item')) {
+                document.querySelectorAll('.qa-hover-pane.show').forEach(pane => {
                     pane.classList.remove('show');
                 });
             }
@@ -4696,38 +4707,15 @@
                 const questionRow = document.createElement('div');
                 questionRow.className = 'qa-question-row';
                 
-                const question = document.createElement('div');
-                question.className = 'qa-question';
-                question.textContent = entry.question || 'Untitled';
-                
-                const arrow = document.createElement('div');
-                arrow.className = 'qa-carrow';
-                arrow.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>';
-                
-                questionRow.appendChild(question);
-                questionRow.appendChild(arrow);
-                
-                // Click to toggle
-                questionRow.onclick = () => {
-                    item.classList.toggle('open');
-                    arrow.classList.toggle('open');
-                    const def = item.querySelector('.qa-answer');
-                    if (item.classList.contains('open')) {
-                        def.style.maxHeight = def.scrollHeight + 'px';
-                    } else {
-                        def.style.maxHeight = '0';
-                    }
-                };
-                
-                const answer = document.createElement('div');
-                answer.className = 'qa-answer';
+                const questionHTML = escapeHtml(entry.question || 'Untitled');
+                let answerHTML;
                 try {
-                    answer.innerHTML = marked.parse(entry.answer || '');
+                    answerHTML = marked.parse(entry.answer || '');
                 } catch (e) {
-                    answer.textContent = entry.answer || '';
+                    answerHTML = escapeHtml(entry.answer || '').replace(/\n/g, '<br>');
                 }
                 
-                // Add hover buttons
+                // Create hover pane with edit/delete buttons
                 const hoverPane = document.createElement('div');
                 hoverPane.className = 'qa-hover-pane';
                 
@@ -4761,9 +4749,49 @@
                 hoverPane.appendChild(editBtn);
                 hoverPane.appendChild(deleteBtn);
                 
-                item.appendChild(questionRow);
-                item.appendChild(answer);
+                item.innerHTML = `
+                    <div class="qa-question-row">
+                        <span class="qa-question">${questionHTML}</span>
+                        <span class="qa-carrow" title="Show/hide answer">
+                            <svg viewBox="0 0 20 20">
+                                <polygon fill="#fff" points="20 5.79 10 15.79 0 5.79 2.34 3.45 10 11.11 17.66 3.45 20 5.79"/>
+                            </svg>
+                        </span>
+                    </div>
+
+                    <div class="qa-answer">
+                        ${answerHTML}
+                    </div>
+                `;
+                
                 item.appendChild(hoverPane);
+                
+                // Right-click to show edit/delete buttons
+                item.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    // Hide all other hover panes first
+                    document.querySelectorAll('.qa-hover-pane.show').forEach(pane => {
+                        pane.classList.remove('show');
+                    });
+                    // Show this item's hover pane
+                    hoverPane.classList.add('show');
+                });
+                
+                // Add carrow click handler
+                const carrow = item.querySelector('.qa-carrow');
+                const defDiv = item.querySelector('.qa-answer');
+                carrow.onclick = () => {
+                    if (defDiv.style.display === 'none' || !defDiv.style.display) {
+                        defDiv.style.display = 'block';
+                        carrow.classList.add('open');
+                        item.classList.add('open');
+                    } else {
+                        defDiv.style.display = 'none';
+                        carrow.classList.remove('open');
+                        item.classList.remove('open');
+                    }
+                };
+                
                 qaList.appendChild(item);
             }
         }
