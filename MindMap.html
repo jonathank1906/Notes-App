@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Infinite Mind Map</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --ui-bg: #1e1e1e;
+            --ui-border: #333;
+            --text-color: #888;
+            --accent: #ddd;
+            --btn-hover: rgba(255,255,255,0.05);
+            --btn-active: rgba(255,255,255,0.1);
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            touch-action: none; 
+            user-select: none; 
+        }
+
+        canvas {
+            display: block;
+            outline: none;
+            cursor: crosshair;
+        }
+
+        /* Floating UI Toolbar */
+        #toolbar {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            z-index: 100;
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tool-btn:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        .tool-btn.active {
+            background: var(--btn-active);
+            color: #fff;
+            border-color: #444;
+        }
+
+        .separator {
+            width: 1px;
+            background: #333;
+            margin: 0 4px;
+        }
+
+        #info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #555;
+            font-size: 12px;
+            pointer-events: none;
+            text-align: right;
+            line-height: 1.6;
+            font-family: monospace;
+        }
+        
+        kbd {
+            background: #252525;
+            border: 1px solid #333;
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #888;
+            font-size: 11px;
+        }
+
+        /* File Explorer Sidebar */
+        #file-explorer {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 320px;
+            height: 100%;
+            background: var(--ui-bg);
+            border-right: 1px solid var(--ui-border);
+            display: flex;
+            flex-direction: column;
+            z-index: 200;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        #file-explorer.open {
+            transform: translateX(0);
+        }
+
+        #explorer-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--ui-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #explorer-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        #close-explorer {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        #close-explorer:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        #explorer-nav {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--ui-border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #nav-back {
+            background: transparent;
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #nav-back:hover:not(:disabled) {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        #nav-back:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        #current-path {
+            flex: 1;
+            font-size: 12px;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #select-root {
+            background: transparent;
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        #select-root:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        #explorer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .explorer-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            margin: 4px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+
+        .explorer-item:hover {
+            background: var(--btn-hover);
+            border-color: var(--ui-border);
+        }
+
+        .explorer-item.folder {
+            color: #88c0ff;
+        }
+
+        .explorer-item.file {
+            color: var(--text-color);
+        }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .item-preview {
+            width: 40px;
+            height: 40px;
+            margin-right: 12px;
+            border-radius: 4px;
+            background: var(--bg-color);
+            border: 1px solid var(--ui-border);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .item-preview canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .item-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-meta {
+            font-size: 11px;
+            color: #666;
+        }
+
+        #empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-color);
+        }
+
+        #empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        #empty-state-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        #empty-state-desc {
+            font-size: 12px;
+            line-height: 1.6;
+            opacity: 0.7;
+        }
+
+        .explorer-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 16px;
+        }
+
+        .explorer-btn:hover {
+            background: #1976D2;
+        }
+
+        #toggle-explorer {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 99;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+        }
+
+        #toggle-explorer:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        /* File name indicator */
+        #file-name-indicator {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 99;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 250px;
+        }
+
+        #file-name-indicator .file-icon {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        #file-name-indicator .file-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: monospace;
+        }
+
+        #file-name-indicator.unsaved {
+            border-color: #ff9800;
+        }
+
+        #file-name-indicator.unsaved .file-icon {
+            color: #ff9800;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 2px solid var(--ui-border);
+            border-top: 2px solid var(--accent);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="toggle-explorer" title="Toggle File Explorer (Ctrl+E)">Files</button>
+
+    <div id="file-name-indicator">
+        <span class="file-icon">●</span>
+        <span class="file-text">untitled</span>
+    </div>
+
+    <div id="file-explorer">
+        <div id="explorer-header">
+            <div id="explorer-title">Mind Map Files</div>
+            <button id="close-explorer">×</button>
+        </div>
+        <div id="explorer-nav">
+            <button id="nav-back" disabled>← Back</button>
+            <div id="current-path">/</div>
+            <button id="select-root" title="Change Root Folder">⚙</button>
+        </div>
+        <div id="explorer-content">
+            <div id="empty-state">
+                <div id="empty-state-icon">[ ]</div>
+                <div id="empty-state-title">No Folder Selected</div>
+                <div id="empty-state-desc">Select your main mindmaps folder to get started. It will be remembered for next time.</div>
+                <button class="explorer-btn" onclick="selectRootFolder()">Select Folder</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <button class="tool-btn active" id="btn-pen" title="Pen Tool (P)">Pen</button>
+        <button class="tool-btn" id="btn-eraser" title="Eraser Tool (E)">Eraser</button>
+        <button class="tool-btn" id="btn-select" title="Select Tool (S)">Select</button>
+        <div class="separator"></div>
+        <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">↶</button>
+        <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)">↷</button>
+        <div class="separator"></div>
+        <button class="tool-btn" id="btn-new" title="New (Ctrl+N)">New</button>
+        <button class="tool-btn" id="btn-save" title="Save (Ctrl+S)">Save</button>
+        <div class="separator"></div>
+        <button class="tool-btn" id="btn-fullscreen" title="Toggle Fullscreen (Shift+F)">⛶</button>
+    </div>
+
+    <div id="info">
+        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>S</kbd> Select Tool<br>
+        <kbd>Space</kbd> + Drag to Pan • <kbd>Alt</kbd> + Scroll to Zoom<br>
+        <kbd>Delete</kbd> Remove Selection • <kbd>Esc</kbd> Deselect
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+    // --- CONFIGURATION ---
+    const CONFIG = {
+        bgColor: '#121212',
+        penColor: '#e0e0e0',
+        eraserColor: '#121212', 
+        penWidth: 2,
+        eraserWidth: 40,
+        minZoom: 0.1,
+        maxZoom: 20,
+        gridSize: 50,
+        gridDotSize: 1.5,
+        zoomSensitivity: 0.0015,
+        panSensitivity: 1.0
+    };
+
+    // --- STATE ---
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Layer Canvas (Double buffering for Ink)
+    const layerCanvas = document.createElement('canvas');
+    const layerCtx = layerCanvas.getContext('2d');
+    
+    let camera = { x: 0, y: 0, z: 1 };
+    let strokes = []; 
+    let undoStack = []; 
+    let redoStack = []; 
+    let currentStroke = null;
+    
+    let isDrawing = false;
+    let isPanning = false;
+    let isSpacePressed = false;
+    let activeTool = 'pen'; 
+    let lastMouse = { x: 0, y: 0 };
+    
+    // Selection state
+    let isSelecting = false;
+    let isMoving = false;
+    let selectionStart = null;
+    let selectionEnd = null;
+    let selectedStrokes = new Set();
+    let moveOffset = { x: 0, y: 0 };
+    let originalPositions = [];
+    
+    let animationFrameId = null;
+
+    // --- FILE EXPLORER STATE ---
+    let rootDirHandle = null;
+    let currentDirHandle = null;
+    let currentPath = [];
+    let currentFileName = 'untitled';
+    let currentFileHandle = null;
+    let hasUnsavedChanges = false;
+
+    // --- INIT ---
+    function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Resize Main Canvas
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.scale(dpr, dpr);
+
+        // Resize Layer Canvas
+        layerCanvas.width = w * dpr;
+        layerCanvas.height = h * dpr;
+        layerCtx.scale(dpr, dpr);
+
+        requestRender();
+    }
+    window.addEventListener('resize', resize);
+    
+    resize();
+
+    // --- COORDINATES ---
+    function toWorld(x, y) {
+        return {
+            x: (x - camera.x) / camera.z,
+            y: (y - camera.y) / camera.z
+        };
+    }
+
+    // --- RENDER ---
+    function requestRender() {
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(draw);
+        }
+    }
+
+    function draw() {
+        animationFrameId = null;
+
+        // 1. DRAW BACKGROUND & GRID
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
+        ctx.fillStyle = CONFIG.bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // Apply Camera to Main Context for Grid
+        ctx.save();
+        ctx.translate(camera.x, camera.y);
+        ctx.scale(camera.z, camera.z);
+        if (camera.z > 0.2) drawGrid(ctx);
+        ctx.restore();
+
+        // 2. PREPARE INK LAYER
+        layerCtx.save();
+        layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+        layerCtx.clearRect(0, 0, layerCanvas.width, layerCanvas.height);
+        layerCtx.restore();
+
+        // Apply Camera to Layer Context
+        layerCtx.save();
+        layerCtx.translate(camera.x, camera.y);
+        layerCtx.scale(camera.z, camera.z);
+        
+        layerCtx.lineCap = 'round';
+        layerCtx.lineJoin = 'round';
+
+        // Draw Strokes on Layer
+        for (let i = 0; i < strokes.length; i++) {
+            const isSelected = selectedStrokes.has(i);
+            drawStroke(layerCtx, strokes[i], isSelected);
+        }
+        if (currentStroke) {
+            drawStroke(layerCtx, currentStroke, false);
+        }
+        
+        // Draw selection rectangle
+        if (isSelecting && selectionStart && selectionEnd) {
+            const start = toWorld(selectionStart.x, selectionStart.y);
+            const end = toWorld(selectionEnd.x, selectionEnd.y);
+            layerCtx.strokeStyle = '#2196F3';
+            layerCtx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+            layerCtx.lineWidth = 2 / camera.z;
+            layerCtx.setLineDash([5 / camera.z, 5 / camera.z]);
+            layerCtx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+            layerCtx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
+            layerCtx.setLineDash([]);
+        }
+
+        layerCtx.restore();
+
+        // 3. COMPOSITE
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
+        ctx.drawImage(layerCanvas, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
+
+    function drawGrid(context) {
+        const width = canvas.width / (window.devicePixelRatio || 1) / camera.z;
+        const height = canvas.height / (window.devicePixelRatio || 1) / camera.z;
+        const startX = Math.floor(-camera.x / camera.z / CONFIG.gridSize) * CONFIG.gridSize;
+        const startY = Math.floor(-camera.y / camera.z / CONFIG.gridSize) * CONFIG.gridSize;
+        
+        context.fillStyle = '#222';
+        
+        for (let x = startX; x < startX + width + CONFIG.gridSize * 2; x += CONFIG.gridSize) {
+            for (let y = startY; y < startY + height + CONFIG.gridSize * 2; y += CONFIG.gridSize) {
+                context.beginPath();
+                context.arc(x, y, CONFIG.gridDotSize / camera.z, 0, Math.PI * 2);
+                context.fill();
+            }
+        }
+    }
+
+    function drawStroke(context, stroke, isSelected = false) {
+        if (stroke.points.length < 1) return;
+        
+        // Highlight selected strokes
+        if (isSelected) {
+            context.save();
+            context.strokeStyle = '#2196F3';
+            context.lineWidth = (stroke.width || 2) + 4 / camera.z;
+            context.globalAlpha = 0.5;
+            context.beginPath();
+            const p = stroke.points;
+            context.moveTo(p[0].x, p[0].y);
+            for (let i = 1; i < p.length; i++) {
+                context.lineTo(p[i].x, p[i].y);
+            }
+            context.stroke();
+            context.restore();
+        }
+        
+        context.beginPath();
+        context.lineWidth = stroke.width;
+
+        if (stroke.tool === 'eraser') {
+            context.globalCompositeOperation = 'destination-out';
+            context.strokeStyle = 'rgba(0,0,0,1)'; 
+        } else {
+            context.globalCompositeOperation = 'source-over';
+            context.strokeStyle = stroke.color;
+        }
+
+        const p = stroke.points;
+        
+        if (p.length === 1) {
+            if (stroke.tool !== 'eraser') context.fillStyle = stroke.color;
+            context.arc(p[0].x, p[0].y, stroke.width / 2, 0, Math.PI * 2);
+            if (stroke.tool !== 'eraser') context.fill();
+            else context.stroke(); 
+            return;
+        }
+
+        context.moveTo(p[0].x, p[0].y);
+        for (let i = 1; i < p.length - 1; i++) {
+            const midX = (p[i].x + p[i+1].x) / 2;
+            const midY = (p[i].y + p[i+1].y) / 2;
+            context.quadraticCurveTo(p[i].x, p[i].y, midX, midY);
+        }
+        context.lineTo(p[p.length-1].x, p[p.length-1].y);
+        context.stroke();
+    }
+
+    // --- ACTIONS ---
+    function performUndo() {
+        if (undoStack.length === 0) return;
+        
+        const action = undoStack.pop();
+        
+        if (action.type === 'add') {
+            // Remove the last stroke
+            const stroke = strokes.pop();
+            redoStack.push({ type: 'add', stroke: stroke });
+        } else if (action.type === 'move') {
+            // Restore original positions
+            action.moves.forEach(move => {
+                if (strokes[move.idx]) {
+                    strokes[move.idx].points = move.original.map(p => ({...p}));
+                }
+            });
+            redoStack.push(action);
+        } else if (action.type === 'delete') {
+            // Restore deleted strokes
+            action.deleted.forEach(item => {
+                strokes.splice(item.idx, 0, item.stroke);
+            });
+            redoStack.push(action);
+        }
+        
+        hasUnsavedChanges = true;
+        requestRender();
+    }
+
+    function performRedo() {
+        if (redoStack.length === 0) return;
+        
+        const action = redoStack.pop();
+        
+        if (action.type === 'add') {
+            // Re-add the stroke
+            strokes.push(action.stroke);
+            undoStack.push(action);
+        } else if (action.type === 'move') {
+            // Reapply the move
+            action.moves.forEach(move => {
+                if (strokes[move.idx]) {
+                    strokes[move.idx].points = move.modified.map(p => ({...p}));
+                }
+            });
+            undoStack.push(action);
+        } else if (action.type === 'delete') {
+            // Re-delete strokes
+            action.deleted.sort((a, b) => b.idx - a.idx).forEach(item => {
+                strokes.splice(item.idx, 1);
+            });
+            undoStack.push(action);
+        }
+        
+        hasUnsavedChanges = true;
+        requestRender();
+    }
+
+    function createNewMindmap() {
+        if (strokes.length > 0) {
+            if (!confirm('Create new mindmap? Current work will be lost if not saved.')) {
+                return;
+            }
+        }
+        strokes = [];
+        undoStack = [];
+        redoStack = [];
+        selectedStrokes.clear();
+        camera = { x: 0, y: 0, z: 1 };
+        currentFileName = 'untitled';
+        currentFileHandle = null;
+        hasUnsavedChanges = false;
+        updateFileNameIndicator();
+        requestRender();
+    }
+
+    async function saveToFile() {
+        const data = {
+            version: 1,
+            timestamp: Date.now(),
+            camera: camera,
+            strokes: strokes
+        };
+        const json = JSON.stringify(data);
+        const blob = new Blob([json], {type: 'application/json'});
+
+        // If we have a file handle and directory access, save directly
+        if (currentFileHandle && currentDirHandle) {
+            try {
+                const writable = await currentFileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                hasUnsavedChanges = false;
+                updateFileNameIndicator();
+                showNotification('Saved to ' + currentFileName);
+                return;
+            } catch (err) {
+                console.error('Save failed:', err);
+            }
+        }
+
+        // Fallback: download file
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentFileName || 'mindmap_' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function loadFromFileHandle(fileHandle) {
+        try {
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (data.strokes && Array.isArray(data.strokes)) {
+                strokes = data.strokes;
+                if (data.camera) camera = data.camera;
+                undoStack = [];
+                redoStack = [];
+                selectedStrokes.clear();
+                currentFileName = fileHandle.name;
+                currentFileHandle = fileHandle;
+                hasUnsavedChanges = false;
+                updateFileNameIndicator();
+                requestRender();
+                closeExplorer();
+                showNotification('Loaded ' + fileHandle.name);
+            } else {
+                alert('Invalid file format');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error loading file');
+        }
+    }
+
+    function showNotification(message) {
+        const notif = document.createElement('div');
+        notif.textContent = message;
+        notif.style.cssText = `
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 13px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            animation: slideDown 0.3s ease;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => {
+            notif.style.animation = 'slideUp 0.3s ease';
+            setTimeout(() => notif.remove(), 300);
+        }, 2000);
+    }
+
+    function updateFileNameIndicator() {
+        const indicator = document.getElementById('file-name-indicator');
+        const fileText = indicator.querySelector('.file-text');
+        const fileIcon = indicator.querySelector('.file-icon');
+        
+        if (currentFileHandle) {
+            fileText.textContent = currentFileName;
+            fileIcon.textContent = '●';
+            indicator.classList.remove('unsaved');
+            indicator.title = 'Saved: ' + currentFileName;
+        } else {
+            fileText.textContent = currentFileName || 'untitled';
+            fileIcon.textContent = '○';
+            indicator.classList.add('unsaved');
+            indicator.title = 'Unsaved document';
+        }
+    }
+
+    // --- FILE EXPLORER ---
+    async function initFileExplorer() {
+        // Check if File System Access API is supported
+        if (!('showDirectoryPicker' in window)) {
+            console.warn('File System Access API not supported');
+            return;
+        }
+
+        // Try to restore saved directory handle
+        try {
+            const db = await openDB();
+            const handle = await db.get('rootDirHandle');
+            if (handle) {
+                // Verify permission
+                const permission = await handle.queryPermission({ mode: 'readwrite' });
+                if (permission === 'granted') {
+                    rootDirHandle = handle;
+                    currentDirHandle = handle;
+                    await displayDirectory();
+                } else {
+                    // Request permission
+                    const newPermission = await handle.requestPermission({ mode: 'readwrite' });
+                    if (newPermission === 'granted') {
+                        rootDirHandle = handle;
+                        currentDirHandle = handle;
+                        await displayDirectory();
+                    }
+                }
+            }
+        } catch (err) {
+            console.log('Could not restore saved directory:', err);
+        }
+    }
+
+    async function selectRootFolder() {
+        try {
+            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            rootDirHandle = dirHandle;
+            currentDirHandle = dirHandle;
+            currentPath = [];
+            
+            // Save to IndexedDB
+            const db = await openDB();
+            await db.put(dirHandle, 'rootDirHandle');
+            
+            await displayDirectory();
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Error selecting folder:', err);
+                alert('Error selecting folder. Please try again.');
+            }
+        }
+    }
+
+    async function displayDirectory() {
+        const content = document.getElementById('explorer-content');
+        content.innerHTML = '<div class="spinner"></div>';
+        
+        try {
+            const items = [];
+            
+            for await (const entry of currentDirHandle.values()) {
+                items.push({
+                    name: entry.name,
+                    kind: entry.kind,
+                    handle: entry
+                });
+            }
+            
+            // Sort: folders first, then alphabetically
+            items.sort((a, b) => {
+                if (a.kind !== b.kind) {
+                    return a.kind === 'directory' ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+            });
+            
+            content.innerHTML = '';
+            
+            if (items.length === 0) {
+                content.innerHTML = `
+                    <div id="empty-state">
+                        <div id="empty-state-icon">[ ]</div>
+                        <div id="empty-state-title">Folder is Empty</div>
+                        <div id="empty-state-desc">This folder doesn't contain any files or subfolders.</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            for (const item of items) {
+                const itemEl = createExplorerItem(item);
+                content.appendChild(itemEl);
+            }
+            
+            // Update navigation
+            document.getElementById('current-path').textContent = 
+                '/' + currentPath.join('/');
+            document.getElementById('nav-back').disabled = currentPath.length === 0;
+            
+        } catch (err) {
+            console.error('Error reading directory:', err);
+            content.innerHTML = `
+                <div id="empty-state">
+                    <div id="empty-state-icon">!</div>
+                    <div id="empty-state-title">Access Error</div>
+                    <div id="empty-state-desc">Could not read folder contents. Permission may have been revoked.</div>
+                    <button class="explorer-btn" onclick="selectRootFolder()">Select Different Folder</button>
+                </div>
+            `;
+        }
+    }
+
+    function createExplorerItem(item) {
+        const div = document.createElement('div');
+        div.className = 'explorer-item ' + (item.kind === 'directory' ? 'folder' : 'file');
+        
+        if (item.kind === 'directory') {
+            div.innerHTML = `
+                <div class="item-icon"></div>
+                <div class="item-details">
+                    <div class="item-name">${escapeHtml(item.name)}</div>
+                </div>
+            `;
+            div.onclick = () => navigateIntoFolder(item);
+        } else {
+            // Check if it's a JSON file
+            if (item.name.endsWith('.json')) {
+                div.innerHTML = `
+                    <div class="item-preview" id="preview-${generateId()}"></div>
+                    <div class="item-details">
+                        <div class="item-name">${escapeHtml(item.name)}</div>
+                        <div class="item-meta">Mind Map</div>
+                    </div>
+                `;
+                
+                // Generate preview asynchronously
+                const previewEl = div.querySelector('.item-preview');
+                generatePreview(item.handle, previewEl);
+                
+                div.onclick = () => loadFromFileHandle(item.handle);
+            } else {
+                div.innerHTML = `
+                    <div class="item-icon">■</div>
+                    <div class="item-details">
+                        <div class="item-name">${escapeHtml(item.name)}</div>
+                        <div class="item-meta">File</div>
+                    </div>
+                `;
+            }
+        }
+        
+        return div;
+    }
+
+    async function navigateIntoFolder(item) {
+        currentPath.push(item.name);
+        currentDirHandle = item.handle;
+        await displayDirectory();
+    }
+
+    async function navigateBack() {
+        if (currentPath.length === 0) return;
+        
+        currentPath.pop();
+        
+        // Navigate back through handles
+        currentDirHandle = rootDirHandle;
+        for (const folderName of currentPath) {
+            currentDirHandle = await currentDirHandle.getDirectoryHandle(folderName);
+        }
+        
+        await displayDirectory();
+    }
+
+    async function generatePreview(fileHandle, previewEl) {
+        try {
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (!data.strokes || data.strokes.length === 0) {
+                previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:10px;">Empty</div>';
+                return;
+            }
+            
+            // Create a small canvas for preview
+            const previewCanvas = document.createElement('canvas');
+            previewCanvas.width = 80;
+            previewCanvas.height = 80;
+            const previewCtx = previewCanvas.getContext('2d');
+            
+            // Calculate bounds of all strokes
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const stroke of data.strokes) {
+                for (const pt of stroke.points) {
+                    minX = Math.min(minX, pt.x);
+                    minY = Math.min(minY, pt.y);
+                    maxX = Math.max(maxX, pt.x);
+                    maxY = Math.max(maxY, pt.y);
+                }
+            }
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const scale = Math.min(70 / width, 70 / height) || 1;
+            const offsetX = 40 - (minX + width / 2) * scale;
+            const offsetY = 40 - (minY + height / 2) * scale;
+            
+            // Draw background
+            previewCtx.fillStyle = CONFIG.bgColor;
+            previewCtx.fillRect(0, 0, 80, 80);
+            
+            // Draw strokes
+            previewCtx.save();
+            previewCtx.translate(offsetX, offsetY);
+            previewCtx.scale(scale, scale);
+            previewCtx.lineCap = 'round';
+            previewCtx.lineJoin = 'round';
+            
+            for (const stroke of data.strokes) {
+                if (stroke.points.length < 1) continue;
+                
+                previewCtx.beginPath();
+                previewCtx.strokeStyle = stroke.color || CONFIG.penColor;
+                previewCtx.lineWidth = (stroke.width || CONFIG.penWidth) / scale;
+                
+                const p = stroke.points;
+                previewCtx.moveTo(p[0].x, p[0].y);
+                for (let i = 1; i < p.length; i++) {
+                    previewCtx.lineTo(p[i].x, p[i].y);
+                }
+                previewCtx.stroke();
+            }
+            
+            previewCtx.restore();
+            
+            previewEl.appendChild(previewCanvas);
+            
+        } catch (err) {
+            console.error('Preview generation failed:', err);
+            previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:18px;">?</div>';
+        }
+    }
+
+    function toggleExplorer() {
+        const explorer = document.getElementById('file-explorer');
+        explorer.classList.toggle('open');
+    }
+
+    function closeExplorer() {
+        document.getElementById('file-explorer').classList.remove('open');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    let idCounter = 0;
+    function generateId() {
+        return 'id-' + (idCounter++);
+    }
+
+    // IndexedDB helpers
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('MindMapDB', 1);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve({
+                db: request.result,
+                get: (key) => {
+                    return new Promise((res, rej) => {
+                        const transaction = request.result.transaction(['fileSystem'], 'readonly');
+                        const store = transaction.objectStore('fileSystem');
+                        const getRequest = store.get(key);
+                        getRequest.onsuccess = () => res(getRequest.result);
+                        getRequest.onerror = () => rej(getRequest.error);
+                    });
+                },
+                put: (value, key) => {
+                    return new Promise((res, rej) => {
+                        const transaction = request.result.transaction(['fileSystem'], 'readwrite');
+                        const store = transaction.objectStore('fileSystem');
+                        const putRequest = store.put(value, key);
+                        putRequest.onsuccess = () => res();
+                        putRequest.onerror = () => rej(putRequest.error);
+                    });
+                }
+            });
+            
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('fileSystem')) {
+                    db.createObjectStore('fileSystem');
+                }
+            };
+        });
+    }
+
+
+
+    // --- BEFOREUNLOAD WARNING ---
+    window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = ''; // Required for Chrome
+            return ''; // Required for some browsers
+        }
+    });
+
+    // --- INPUT ---
+    canvas.addEventListener('pointerdown', (e) => {
+        canvas.setPointerCapture(e.pointerId);
+        lastMouse = { x: e.clientX, y: e.clientY };
+
+        if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
+            isPanning = true;
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (e.button === 0) {
+            if (activeTool === 'select') {
+                const pos = toWorld(e.clientX, e.clientY);
+                
+                // Check if clicking on a selected stroke to move it
+                if (selectedStrokes.size > 0 && isPointNearSelectedStrokes(pos.x, pos.y)) {
+                    isMoving = true;
+                    canvas.style.cursor = 'move';
+                    moveOffset = { x: pos.x, y: pos.y };
+                    // Store original positions for undo
+                    originalPositions = [];
+                    selectedStrokes.forEach(idx => {
+                        originalPositions.push({
+                            idx: idx,
+                            points: strokes[idx].points.map(p => ({...p}))
+                        });
+                    });
+                } else {
+                    // Start new selection
+                    selectedStrokes.clear();
+                    isSelecting = true;
+                    selectionStart = { x: e.clientX, y: e.clientY };
+                    selectionEnd = { x: e.clientX, y: e.clientY };
+                }
+                requestRender();
+            } else {
+                isDrawing = true;
+                const pos = toWorld(e.clientX, e.clientY);
+                
+                currentStroke = {
+                    tool: activeTool,
+                    points: [{ x: pos.x, y: pos.y }],
+                    color: CONFIG.penColor,
+                    width: activeTool === 'pen' ? CONFIG.penWidth : (CONFIG.eraserWidth / camera.z)
+                };
+                requestRender();
+            }
+        }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        const curr = { x: e.clientX, y: e.clientY };
+
+        if (isPanning) {
+            const dx = curr.x - lastMouse.x;
+            const dy = curr.y - lastMouse.y;
+            camera.x += dx;
+            camera.y += dy;
+            lastMouse = curr;
+            requestRender();
+            return;
+        }
+        
+        if (isSelecting) {
+            selectionEnd = { x: e.clientX, y: e.clientY };
+            requestRender();
+            return;
+        }
+        
+        if (isMoving) {
+            const pos = toWorld(e.clientX, e.clientY);
+            const dx = pos.x - moveOffset.x;
+            const dy = pos.y - moveOffset.y;
+            
+            // Move all selected strokes
+            selectedStrokes.forEach(idx => {
+                strokes[idx].points.forEach(pt => {
+                    pt.x += dx;
+                    pt.y += dy;
+                });
+            });
+            
+            moveOffset = pos;
+            requestRender();
+            return;
+        }
+
+        if (isDrawing) {
+            const pos = toWorld(e.clientX, e.clientY);
+            const lastPt = currentStroke.points[currentStroke.points.length - 1];
+            const dist = Math.hypot(pos.x - lastPt.x, pos.y - lastPt.y);
+            
+            if (dist > 0.5 / camera.z) {
+                currentStroke.points.push({ x: pos.x, y: pos.y });
+                requestRender();
+            }
+        }
+    });
+
+    const endAction = () => {
+        if (isPanning) {
+            isPanning = false;
+            updateCursor();
+        }
+        if (isSelecting) {
+            isSelecting = false;
+            // Select strokes within rectangle
+            if (selectionStart && selectionEnd) {
+                const start = toWorld(selectionStart.x, selectionStart.y);
+                const end = toWorld(selectionEnd.x, selectionEnd.y);
+                const rect = normalizeRect(start.x, start.y, end.x, end.y);
+                
+                selectedStrokes.clear();
+                strokes.forEach((stroke, idx) => {
+                    if (strokeIntersectsRect(stroke, rect)) {
+                        selectedStrokes.add(idx);
+                    }
+                });
+            }
+            selectionStart = null;
+            selectionEnd = null;
+            updateCursor();
+        }
+        if (isMoving) {
+            isMoving = false;
+            
+            // Create undo entry for the move
+            const moveAction = {
+                type: 'move',
+                moves: originalPositions.map(orig => ({
+                    idx: orig.idx,
+                    original: orig.points,
+                    modified: strokes[orig.idx].points.map(p => ({...p}))
+                }))
+            };
+            undoStack.push(moveAction);
+            redoStack = [];
+            
+            hasUnsavedChanges = true;
+            updateCursor();
+        }
+        if (isDrawing) {
+            isDrawing = false;
+            if (currentStroke && currentStroke.points.length > 0) {
+                strokes.push(currentStroke);
+                
+                // Add to undo stack
+                undoStack.push({ type: 'add', stroke: currentStroke });
+                redoStack = [];
+                
+                currentStroke = null;
+                hasUnsavedChanges = true;
+            }
+        }
+        requestRender();
+    };
+
+    canvas.addEventListener('pointerup', endAction);
+    canvas.addEventListener('pointerleave', endAction);
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.altKey) {
+            const delta = -e.deltaY;
+            const zoomFactor = Math.exp(delta * CONFIG.zoomSensitivity);
+            const newZoom = Math.min(Math.max(camera.z * zoomFactor, CONFIG.minZoom), CONFIG.maxZoom);
+            const mouseBefore = toWorld(e.clientX, e.clientY);
+            camera.z = newZoom;
+            const mouseAfter = toWorld(e.clientX, e.clientY);
+            camera.x += (mouseAfter.x - mouseBefore.x) * camera.z;
+            camera.y += (mouseAfter.y - mouseBefore.y) * camera.z;
+        } else if (e.ctrlKey) {
+            camera.x -= e.deltaY * CONFIG.panSensitivity;
+        } else {
+            camera.x -= e.deltaX * CONFIG.panSensitivity;
+            camera.y -= e.deltaY * CONFIG.panSensitivity;
+        }
+        requestRender();
+    }, { passive: false });
+
+    // --- KEYBOARD ---
+    window.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+            e.preventDefault();
+            toggleFullScreen();
+        }
+        if (e.code === 'Space') {
+            isSpacePressed = true;
+            if (!isDrawing && !isSelecting && !isMoving) canvas.style.cursor = 'grab';
+        }
+        if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey) setTool('eraser');
+        if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey) setTool('pen');
+        if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) setTool('select');
+        if (e.key === 'Delete' && selectedStrokes.size > 0) {
+            e.preventDefault();
+            deleteSelectedStrokes();
+        }
+        if (e.key === 'Escape') {
+            selectedStrokes.clear();
+            requestRender();
+        }
+        
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) performRedo();
+                else performUndo();
+            } else if (e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                performRedo();
+            } else if (e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                saveToFile();
+            } else if (e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                toggleExplorer();
+            } else if (e.key.toLowerCase() === 'n') {
+                e.preventDefault();
+                createNewMindmap();
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            isSpacePressed = false;
+            if (!isPanning && !isDrawing && !isSelecting && !isMoving) {
+                updateCursor();
+            }
+        }
+    });
+    
+    // --- SELECTION HELPER FUNCTIONS ---
+    function normalizeRect(x1, y1, x2, y2) {
+        return {
+            x: Math.min(x1, x2),
+            y: Math.min(y1, y2),
+            width: Math.abs(x2 - x1),
+            height: Math.abs(y2 - y1)
+        };
+    }
+    
+    function strokeIntersectsRect(stroke, rect) {
+        for (const pt of stroke.points) {
+            if (pt.x >= rect.x && pt.x <= rect.x + rect.width &&
+                pt.y >= rect.y && pt.y <= rect.y + rect.height) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    function isPointNearSelectedStrokes(x, y) {
+        const threshold = 20 / camera.z;
+        for (const idx of selectedStrokes) {
+            const stroke = strokes[idx];
+            for (const pt of stroke.points) {
+                const dist = Math.hypot(pt.x - x, pt.y - y);
+                if (dist < threshold) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    function deleteSelectedStrokes() {
+        if (selectedStrokes.size === 0) return;
+        
+        // Store deleted strokes for undo
+        const deleted = [];
+        selectedStrokes.forEach(idx => {
+            deleted.push({
+                idx: idx,
+                stroke: JSON.parse(JSON.stringify(strokes[idx])) // Deep clone
+            });
+        });
+        
+        // Sort indices in descending order to avoid index shifting issues
+        const indices = Array.from(selectedStrokes).sort((a, b) => b - a);
+        indices.forEach(idx => {
+            strokes.splice(idx, 1);
+        });
+        
+        // Add to undo stack
+        undoStack.push({ type: 'delete', deleted: deleted });
+        redoStack = [];
+        
+        selectedStrokes.clear();
+        hasUnsavedChanges = true;
+        requestRender();
+    }
+    
+    function updateCursor() {
+        if (isSpacePressed) {
+            canvas.style.cursor = 'grab';
+        } else if (activeTool === 'pen') {
+            canvas.style.cursor = 'crosshair';
+        } else if (activeTool === 'eraser') {
+            canvas.style.cursor = 'cell';
+        } else if (activeTool === 'select') {
+            canvas.style.cursor = 'default';
+        }
+    }
+
+    // --- UI ---
+    const btnPen = document.getElementById('btn-pen');
+    const btnEraser = document.getElementById('btn-eraser');
+    const btnSelect = document.getElementById('btn-select');
+    const btnUndo = document.getElementById('btn-undo');
+    const btnRedo = document.getElementById('btn-redo');
+    const btnNew = document.getElementById('btn-new');
+    const btnSave = document.getElementById('btn-save');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const toggleExplorerBtn = document.getElementById('toggle-explorer');
+    const closeExplorerBtn = document.getElementById('close-explorer');
+    const navBackBtn = document.getElementById('nav-back');
+    const selectRootBtn = document.getElementById('select-root');
+
+    function setTool(tool) {
+        activeTool = tool;
+        btnPen.classList.remove('active');
+        btnEraser.classList.remove('active');
+        btnSelect.classList.remove('active');
+        
+        if (tool === 'pen') {
+            btnPen.classList.add('active');
+            canvas.style.cursor = 'crosshair';
+        } else if (tool === 'eraser') {
+            btnEraser.classList.add('active');
+            canvas.style.cursor = 'cell';
+        } else if (tool === 'select') {
+            btnSelect.classList.add('active');
+            canvas.style.cursor = 'default';
+        }
+    }
+
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    }
+
+    btnPen.onclick = () => setTool('pen');
+    btnEraser.onclick = () => setTool('eraser');
+    btnSelect.onclick = () => setTool('select');
+    btnUndo.onclick = performUndo;
+    btnRedo.onclick = performRedo;
+    btnNew.onclick = createNewMindmap;
+    btnSave.onclick = saveToFile;
+    btnFullscreen.onclick = toggleFullScreen;
+    toggleExplorerBtn.onclick = toggleExplorer;
+    closeExplorerBtn.onclick = closeExplorer;
+    navBackBtn.onclick = navigateBack;
+    selectRootBtn.onclick = selectRootFolder;
+
+    // Initialize file explorer
+    initFileExplorer();
+    
+    // Initialize file name indicator
+    updateFileNameIndicator();
+
+    // Add CSS animation for notifications
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(0); opacity: 1; }
+            to { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+
+</script>
+</body>
+</html>
