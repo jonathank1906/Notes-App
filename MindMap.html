@@ -335,7 +335,7 @@
 
         /* Subjects Sidebar */
         #subjects-sidebar {
-            width: 220px;
+            width: 260px;
             background: #1a1a1a;
             border-right: 1px solid var(--ui-border);
             display: flex;
@@ -344,20 +344,39 @@
         }
 
         #sidebar-header {
-            padding: 20px 16px;
-            border-bottom: 1px solid var(--ui-border);
+            padding: 20px 20px 16px 20px;
+            border-bottom: none;
+        }
+
+        #sidebar-notes-item {
+            margin: 16px -12px 20px -12px;
+        }
+
+        #sidebar-divider {
+            display: none;
+        }
+
+        #sidebar-subjects-section {
+            padding: 20px 20px 0 20px;
         }
 
         #sidebar-title {
-            font-size: 24px;
+            font-size: 14px;
             font-weight: 600;
-            color: var(--accent);
-            margin-bottom: 16px;
+            color: var(--text-color);
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        #sidebar-search-wrapper {
+            position: relative;
+            width: 100%;
+            margin: 0 -12px;
         }
 
         #sidebar-search {
-            width: 100%;
-            padding: 8px 12px;
+            width: 244px;
+            padding: 10px 36px 10px 12px;
             background: #2a2a2a;
             border: 1px solid var(--ui-border);
             border-radius: 6px;
@@ -365,10 +384,28 @@
             font-size: 14px;
             outline: none;
             cursor: text;
+            box-sizing: border-box;
         }
 
         #sidebar-search:focus {
             border-color: #555;
+        }
+
+        #sidebar-search-icon {
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        #sidebar-search-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--text-color);
         }
 
         #subjects-list {
@@ -377,13 +414,15 @@
         }
 
         .subject-item {
-            padding: 12px 16px;
+            padding: 12px 12px;
+            margin: 2px 8px;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 12px;
             color: var(--text-color);
-            transition: background 0.15s ease;
+            transition: all 0.15s ease;
+            border-radius: 8px;
             border-left: 3px solid transparent;
         }
 
@@ -393,9 +432,9 @@
         }
 
         .subject-item.active {
-            background: var(--btn-active);
-            color: var(--accent);
-            border-left-color: var(--accent);
+            background: #2d3139;
+            color: #ffffff;
+            border-left-color: transparent;
         }
 
         .subject-color {
@@ -414,6 +453,12 @@
         .subject-count {
             font-size: 12px;
             color: #666;
+            font-weight: 400;
+        }
+
+        .subject-item.active .subject-count {
+            color: #ffffff;
+            font-weight: 600;
         }
 
         /* Notes Content Area */
@@ -426,7 +471,7 @@
 
         #content-header {
             padding: 20px 32px;
-            border-bottom: 1px solid var(--ui-border);
+            border-bottom: none;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
@@ -510,11 +555,6 @@
             font-weight: 600;
             color: var(--accent);
             margin-bottom: 12px;
-        }
-
-        #content-meta {
-            font-size: 14px;
-            color: var(--text-color);
         }
 
         #btn-new-note {
@@ -771,8 +811,28 @@
     <div id="home-screen">
         <div id="subjects-sidebar">
             <div id="sidebar-header">
+                <div id="sidebar-search-wrapper">
+                    <input id="sidebar-search" type="text" placeholder="Search...">
+                    <div id="sidebar-search-icon">
+                        <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div id="sidebar-notes-item" class="subject-item">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                        <rect x="3" y="2" width="10" height="12" rx="1" stroke="#888" stroke-width="1.5" fill="none"/>
+                        <line x1="5" y1="5" x2="11" y2="5" stroke="#888" stroke-width="1.2"/>
+                        <line x1="5" y1="7.5" x2="11" y2="7.5" stroke="#888" stroke-width="1.2"/>
+                        <line x1="5" y1="10" x2="9" y2="10" stroke="#888" stroke-width="1.2"/>
+                    </svg>
+                    <div class="subject-name">Notes</div>
+                    <div class="subject-count">0</div>
+                </div>
+            </div>
+            <div id="sidebar-divider"></div>
+            <div id="sidebar-subjects-section">
                 <div id="sidebar-title">Subjects</div>
-                <input id="sidebar-search" type="text" placeholder="Search...">
             </div>
             <div id="subjects-list">
                 <!-- Subjects will be dynamically generated -->
@@ -781,8 +841,7 @@
         <div id="notes-content">
             <div id="content-header">
                 <div id="content-header-left">
-                    <div id="content-title">All Notes</div>
-                    <div id="content-meta"><span id="notes-count">0</span> notes</div>
+                    <div id="content-title">Notes</div>
                 </div>
                 <div id="content-header-right">
                     <button id="btn-view-switcher" onclick="event.stopPropagation(); toggleViewMenu()">
@@ -1995,14 +2054,7 @@
                 }
             }
             
-            if (rootFiles.length > 0) {
-                subjects.unshift({
-                    name: 'UIUC',
-                    handle: rootDirHandle,
-                    count: rootFiles.length,
-                    color: getSubjectColor(-1)
-                });
-            }
+            // Do not inject a default "UIUC" subject here.
             
             allSubjects = subjects;
             displaySubjects();
@@ -2035,29 +2087,36 @@
         const subjectsList = document.getElementById('subjects-list');
         subjectsList.innerHTML = '';
         
-        // Add "All Notes" option
-        const allNotesItem = document.createElement('div');
-        allNotesItem.className = 'subject-item' + (activeSubject === null ? ' active' : '');
-        allNotesItem.innerHTML = `
-            <div class="subject-color" style="background:#888;"></div>
-            <div class="subject-name">All Notes</div>
-            <div class="subject-count">${getAllNotesCount()}</div>
-        `;
-        allNotesItem.onclick = async () => {
-            activeSubject = null;
-            await loadAllNotes();
-            displaySubjects();
-        };
-        subjectsList.appendChild(allNotesItem);
+        // Update Notes item (above divider)
+        const notesItem = document.getElementById('sidebar-notes-item');
+        if (notesItem) {
+            const isActive = activeSubject === null;
+            notesItem.className = 'subject-item' + (isActive ? ' active' : '');
+            const countEl = notesItem.querySelector('.subject-count');
+            if (countEl) {
+                if (isActive) {
+                    countEl.textContent = getAllNotesCount();
+                    countEl.style.display = '';
+                } else {
+                    countEl.style.display = 'none';
+                }
+            }
+            notesItem.onclick = async () => {
+                activeSubject = null;
+                await loadAllNotes();
+                displaySubjects();
+            };
+        }
         
         // Add subject items
         for (const subject of allSubjects) {
+            const isActive = activeSubject === subject;
             const subjectItem = document.createElement('div');
-            subjectItem.className = 'subject-item' + (activeSubject === subject ? ' active' : '');
+            subjectItem.className = 'subject-item' + (isActive ? ' active' : '');
             subjectItem.innerHTML = `
                 <div class="subject-color" style="background:${subject.color};"></div>
                 <div class="subject-name">${escapeHtml(subject.name)}</div>
-                <div class="subject-count">${subject.count}</div>
+                ${isActive ? `<div class="subject-count">${subject.count}</div>` : ''}
             `;
             subjectItem.onclick = async () => {
                 activeSubject = subject;
@@ -2187,9 +2246,6 @@
     async function displayNotes(notes) {
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
-        const notesCount = document.getElementById('notes-count');
-        
-        notesCount.textContent = notes.length;
         
         if (notes.length === 0) {
             notesGrid.innerHTML = '';
@@ -2219,7 +2275,7 @@
         
         const preview = document.createElement('div');
         preview.className = 'note-preview';
-        preview.innerHTML = '<div class="note-preview-empty">📝</div>';
+        preview.innerHTML = '';
         
         const info = document.createElement('div');
         info.className = 'note-info';
@@ -2358,8 +2414,10 @@
 
         try {
             // Generate a default filename with timestamp
-            const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-            const defaultName = `Note_${timestamp}.json`;
+            const date = new Date();
+            const options = { month: 'short', day: 'numeric', year: 'numeric' };
+            const formattedDate = date.toLocaleDateString('en-US', options);
+            const defaultName = `Note ${formattedDate}.json`;
             
             // Create new file
             const fileHandle = await currentDirHandle.getFileHandle(defaultName, { create: true });
@@ -3462,10 +3520,6 @@
                     card.style.display = 'none';
                 }
             });
-            
-            // Update notes count
-            const visibleCount = Array.from(noteCards).filter(card => card.style.display !== 'none').length;
-            document.getElementById('notes-count').textContent = visibleCount;
         });
     }
     
