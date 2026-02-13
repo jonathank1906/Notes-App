@@ -983,18 +983,103 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background: #0e0e0e;
+            color: #ffffff;
             z-index: 100;
-            overflow-y: auto;
-            flex-direction: column;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        }
+        #flashcard-page.active { 
+            display: flex;
             justify-content: center;
             align-items: center;
         }
-        #flashcard-page.active { display: flex; }
+
+        /* 2. THE SCENE */
+        .scene {
+            width: 600px;
+            height: 400px;
+            perspective: 1000px;
+            perspective-origin: center center;
+            transform-style: preserve-3d;
+            margin: 20px;
+            cursor: pointer;
+            
+            /* Prevent highlight on click */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* 3. THE CARD OBJECT */
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+            transform-style: preserve-3d;
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        .card.is-flipped {
+            transform: rotateX(180deg) !important;
+        }
+
+        /* 4. CARD FACES */
+        .card__face {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            border-radius: 1rem;
+            background: #2b2b2b; 
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            text-align: center;
+            font-size: 2rem;
+            line-height: 1.5;
+            font-weight: 400;
+            backface-visibility: hidden; /* Hides the back when flipped */
+            -webkit-backface-visibility: hidden;
+            overflow: auto;
+            transform: translateZ(0);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card__face--front {
+            transform: rotateX(0deg) translateZ(0.1px);
+        }
+
+        .card__face--back {
+            transform: rotateX(180deg) translateZ(0.1px);
+        }
+
+        /* Instructions text */
+        .instructions {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #6e6e6e;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            user-select: none;
+        }
 
         .fc-mode-label {
+            display: none;
             position: absolute;
             top: 80px;
             left: 20px;
@@ -1005,38 +1090,8 @@
             letter-spacing: 1px;
         }
 
-        /* --- STUDY MODE --- */
-        #fc-study-container { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; justify-content: center; }
-        
-        .fc-scene {
-            width: 600px; height: 400px; perspective: 1000px; margin: 20px; cursor: pointer;
-            -webkit-user-select: none; user-select: none;
-        }
-        .fc-card {
-            width: 100%; height: 100%; position: relative;
-            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
-            transform-style: preserve-3d;
-        }
-        .fc-card.is-flipped { transform: rotateX(180deg); }
-        .fc-face {
-            position: absolute; width: 100%; height: 100%; border-radius: 1rem;
-            background: #2b2b2b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-            display: flex; justify-content: center; align-items: center;
-            padding: 2rem; text-align: center; font-size: 2rem; line-height: 1.5; font-weight: 400;
-            backface-visibility: hidden; -webkit-backface-visibility: hidden;
-        }
-        .fc-face-back { transform: rotateX(180deg); color: #fff; }
-        .fc-face-front { color: #fff; }
-
-        .fc-instructions {
-            margin-top: 1rem; color: #6e6e6e; font-size: 0.875rem; font-weight: 700;
-            letter-spacing: 0.05em; text-transform: uppercase; user-select: none;
-        }
-        .fc-controls {
-            display: flex; gap: 15px; align-items: center; margin-top: 20px;
-        }
         .fc-btn {
-            background: #222; border: 1px solid #444; color: #ccc; padding: 8px 16px; 
+            background: #222; border: 1px solid #444; color: #ccc; padding: 8px 16px;
             border-radius: 4px; cursor: pointer; font-size: 14px;
         }
         .fc-btn:hover { background: #333; color: white; }
@@ -1045,14 +1100,29 @@
         #no-cards-msg { color: #666; font-style: italic; margin-bottom: 20px; }
 
         /* --- EDIT MODE --- */
-        #fc-edit-container { display: none; flex-direction: column; max-width: 700px; width: 90%; }
+        #fc-edit-container { 
+            display: none; 
+            flex-direction: column; 
+            max-width: 700px; 
+            width: 90%; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
         .fc-edit-field { margin-bottom: 20px; }
-        .fc-edit-field label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
+        .fc-edit-field label { 
+            font-size: 12px; 
+            color: #888; 
+            margin-bottom: 5px; 
+            font-weight: bold;
+            display: block;
+        }
         .fc-edit-textarea {
             width: 100%; min-height: 150px; background: #1a1a1a; border: 1px solid #333;
             color: #ddd; padding: 10px; border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;
         }
-        .fc-edit-textarea:focus { border-color: #555; }
+        .fc-edit-textarea:focus { border-color: #555; outline: none; }
         .fc-edit-controls { display: flex; justify-content: space-between; align-items: center; }
         .fc-btn.add-btn { color: #8f8; border-color: #353; }
         .fc-btn.del-btn { color: #f88; border-color: #533; }
@@ -1285,11 +1355,11 @@
                                 Note
                             </div>
                             <div class="new-note-option" onclick="createNewNote('flashcard')">
-                                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H7v2h4v4z"/></svg>
+                                <svg viewBox="0 0 20 20"><path d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/><path d="M3.05,4.62A2,2,0,0,1,4.11,3.48a2,2,0,0,1,1.55-.06l5.68,2.07-8.63.06Z"/><path d="M6.5,1.57,7.16.93A1.82,1.82,0,0,1,8.58.31,2,2,0,0,1,10,.92L13.13,4Z"/><path fill="none" fill-rule="evenodd" d="M3.41,9.54H16.59v8.1H3.41Z"/></svg>
                                 Flashcard Deck
                             </div>
                             <div class="new-note-option" onclick="createNewNote('glossary')">
-                                <svg viewBox="0 0 24 24"><path d="M21 5h-7l-2-2H3c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 11H3V5h7.17l2 2H21v9zM9 10v 2h10v-2H9zm0 4v2h10v-2H9z"/></svg>
+                                <svg viewBox="0 0 20 20"><path d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg>
                                 Glossary
                             </div>
                         </div>
@@ -2875,14 +2945,12 @@
             
             // Handle different note types
             if (data.type === 'flashcard') {
-                const count = data.flashcards ? data.flashcards.length : 0;
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="110" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/><path fill="#fff" d="M3.05,4.62A2,2,0,0,1,4.11,3.48a2,2,0,0,1,1.55-.06l5.68,2.07-8.63.06Z"/><path fill="#fff" d="M6.5,1.57,7.16.93A1.82,1.82,0,0,1,8.58.31,2,2,0,0,1,10,.92L13.13,4Z"/><path fill="none" fill-rule="evenodd" d="M3.41,9.54H16.59v8.1H3.41Z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} card${count !== 1 ? 's' : ''}</div></div>`;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="110" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/><path fill="#fff" d="M3.05,4.62A2,2,0,0,1,4.11,3.48a2,2,0,0,1,1.55-.06l5.68,2.07-8.63.06Z"/><path fill="#fff" d="M6.5,1.57,7.16.93A1.82,1.82,0,0,1,8.58.31,2,2,0,0,1,10,.92L13.13,4Z"/><path fill="none" fill-rule="evenodd" d="M3.41,9.54H16.59v8.1H3.41Z"/></svg></div>`;
                 return;
             }
             
             if (data.type === 'glossary') {
-                const count = data.glossary ? data.glossary.length : 0;
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="90" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} term${count !== 1 ? 's' : ''}</div></div>`;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="110" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg></div>`;
                 return;
             }
             
@@ -3182,25 +3250,21 @@
     }
 
     function renderFlashcardUI() {
-        const fcStudyContainer = document.getElementById('fc-study-container');
+        const scene = document.querySelector('.scene');
         const fcEditContainer = document.getElementById('fc-edit-container');
-        const fcModeLabel = document.getElementById('fc-mode-label');
-        const fcScene = document.getElementById('fc-scene');
-        const noCardsMsg = document.getElementById('no-cards-msg');
-        const fcCard = document.querySelector('.fc-card');
+        const card = document.querySelector('.card');
         
         if (isFlashcardEditMode) {
-            fcStudyContainer.style.display = 'none';
+            if (scene) scene.style.display = 'none';
             fcEditContainer.style.display = 'flex';
-            fcModeLabel.innerText = "Edit Mode";
             
             const fcEditFront = document.getElementById('fc-edit-front');
             const fcEditBack = document.getElementById('fc-edit-back');
             
             if(currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0 && currentFlashcardIndex < currentFlashcardData.flashcards.length) {
-                const card = currentFlashcardData.flashcards[currentFlashcardIndex];
-                fcEditFront.value = card.front;
-                fcEditBack.value = card.back;
+                const cardData = currentFlashcardData.flashcards[currentFlashcardIndex];
+                fcEditFront.value = cardData.front;
+                fcEditBack.value = cardData.back;
             } else {
                 fcEditFront.value = "";
                 fcEditBack.value = "";
@@ -3208,19 +3272,16 @@
             fcEditFront.focus();
 
         } else {
-            fcStudyContainer.style.display = 'flex';
+            if (scene) scene.style.display = 'block';
             fcEditContainer.style.display = 'none';
-            fcModeLabel.innerText = "Study Mode";
             
-            fcCard.classList.remove('is-flipped');
+            if (card) card.classList.remove('is-flipped');
 
             if (!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) {
-                noCardsMsg.style.display = 'block';
-                fcScene.style.display = 'none';
-                document.getElementById('fc-counter').innerText = "0 / 0";
+                // Show empty message - could add this later
+                if (scene) scene.style.display = 'none';
             } else {
-                noCardsMsg.style.display = 'none';
-                fcScene.style.display = 'block';
+                if (scene) scene.style.display = 'block';
                 updateFlashcardDisplay();
             }
         }
@@ -3233,10 +3294,9 @@
         if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
         
         const cardData = cards[currentFlashcardIndex];
-        const fcFront = document.querySelector('.fc-face-front');
-        const fcBack = document.querySelector('.fc-face-back');
-        const fcCounter = document.getElementById('fc-counter');
-        const fcCard = document.querySelector('.fc-card');
+        const fcFront = document.querySelector('.card__face--front');
+        const fcBack = document.querySelector('.card__face--back');
+        const fcCard = document.querySelector('.card');
         
         // Render markdown
         try {
@@ -3248,7 +3308,6 @@
             fcBack.textContent = cardData.back || "...";
         }
         
-        fcCounter.textContent = `${currentFlashcardIndex + 1} / ${cards.length}`;
         fcCard.classList.remove('is-flipped');
     }
 
@@ -3262,15 +3321,16 @@
     }
 
     function flipCard() {
-        const fcCard = document.querySelector('.fc-card');
-        fcCard.classList.toggle('is-flipped');
+        const card = document.querySelector('.card');
+        if (!card) return;
+        card.classList.toggle('is-flipped');
     }
 
     // Add click handler for flip card
     document.addEventListener('DOMContentLoaded', () => {
-        const fcScene = document.getElementById('fc-scene');
-        if (fcScene) {
-            fcScene.addEventListener('click', flipCard);
+        const scene = document.querySelector('.scene');
+        if (scene) {
+            scene.addEventListener('click', flipCard);
         }
     });
 
@@ -4952,28 +5012,14 @@
     const flashcardPage = document.createElement('div');
     flashcardPage.id = 'flashcard-page';
     flashcardPage.innerHTML = `
-        <div class="fc-mode-label" id="fc-mode-label">Study Mode</div>
-
-        <div id="fc-study-container">
-            <div id="no-cards-msg" style="display:none;">Deck is empty. Press 'e' to add cards.</div>
-            
-            <div class="fc-scene" id="fc-scene">
-                <div class="fc-card">
-                    <div class="fc-face fc-face-front"></div>
-                    <div class="fc-face fc-face-back"></div>
-                </div>
-            </div>
-            
-            <div class="fc-instructions">Space to flip • 'e' to Edit</div>
-            
-            <div class="fc-controls">
-                <button class="fc-btn" onclick="navFlashcard(-1)">Previous</button>
-                <span id="fc-counter">0 / 0</span>
-                <button class="fc-btn" onclick="navFlashcard(1)">Next</button>
-                <div style="width:20px;"></div>
-                <button class="fc-btn edit-toggle" onclick="toggleFlashcardEditMode()">Edit / Add</button>
+        <div class="scene">
+            <div class="card">
+                <div class="card__face card__face--front"></div>
+                <div class="card__face card__face--back"></div>
             </div>
         </div>
+
+        <div class="instructions">Space or Click to flip</div>
 
         <div id="fc-edit-container">
             <h3 style="margin-top:0; margin-bottom:15px; color:#8af;">Edit Flashcard</h3>
