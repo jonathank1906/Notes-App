@@ -1110,10 +1110,33 @@
         const drawWidth = screenWidth / camera.z;
         const drawHeight = screenHeight / camera.z;
         
+        // Draw selection highlight if selected
+        if (isSelected) {
+            context.save();
+            context.strokeStyle = '#2196F3';
+            context.lineWidth = 4 / camera.z;
+            context.globalAlpha = 0.5;
+            
+            const radius = 8;
+            context.beginPath();
+            context.moveTo(drawX + radius, drawY);
+            context.lineTo(drawX + drawWidth - radius, drawY);
+            context.quadraticCurveTo(drawX + drawWidth, drawY, drawX + drawWidth, drawY + radius);
+            context.lineTo(drawX + drawWidth, drawY + drawHeight - radius);
+            context.quadraticCurveTo(drawX + drawWidth, drawY + drawHeight, drawX + drawWidth - radius, drawY + drawHeight);
+            context.lineTo(drawX + radius, drawY + drawHeight);
+            context.quadraticCurveTo(drawX, drawY + drawHeight, drawX, drawY + drawHeight - radius);
+            context.lineTo(drawX, drawY + radius);
+            context.quadraticCurveTo(drawX, drawY, drawX + radius, drawY);
+            context.closePath();
+            context.stroke();
+            context.restore();
+        }
+        
         // Draw box background
         context.fillStyle = 'rgba(30, 30, 30, 0.95)';
         context.strokeStyle = isSelected ? '#888' : '#555';
-        context.lineWidth = isSelected ? 2 : 1.5;
+        context.lineWidth = isSelected ? 2 / camera.z : 1.5 / camera.z;
         
         // Draw rounded rectangle
         const radius = 8;
@@ -2332,10 +2355,7 @@
                 
                 selectedTextBoxes.clear();
                 textBoxes.forEach((textBox, idx) => {
-                    if (isPointInTextBox(rect.x, rect.y, textBox) ||
-                        isPointInTextBox(rect.x + rect.width, rect.y, textBox) ||
-                        isPointInTextBox(rect.x, rect.y + rect.height, textBox) ||
-                        isPointInTextBox(rect.x + rect.width, rect.y + rect.height, textBox)) {
+                    if (textBoxIntersectsRect(textBox, rect)) {
                         selectedTextBoxes.add(idx);
                     }
                 });
@@ -2649,6 +2669,24 @@
             }
         }
         return false;
+    }
+    
+    function textBoxIntersectsRect(textBox, rect) {
+        // Check if two rectangles intersect
+        const box = {
+            x: textBox.x,
+            y: textBox.y,
+            width: textBox.width,
+            height: textBox.height
+        };
+        
+        // Rectangles don't intersect if one is completely to the left/right/above/below the other
+        if (box.x + box.width < rect.x || rect.x + rect.width < box.x ||
+            box.y + box.height < rect.y || rect.y + rect.height < box.y) {
+            return false;
+        }
+        
+        return true;
     }
     
     function isPointNearSelectedStrokes(x, y) {
