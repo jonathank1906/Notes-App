@@ -4227,17 +4227,53 @@
     }
 
     function editGlossaryEntry(index) {
+        if (!currentGlossaryData || !currentGlossaryData.glossary) return;
+        if (index < 0 || index >= currentGlossaryData.glossary.length) return;
+        
+        const modal = document.getElementById('glossary-edit-modal');
+        const termInput = document.getElementById('glossary-modal-term');
+        const defTextarea = document.getElementById('glossary-modal-def');
+        
         const entry = currentGlossaryData.glossary[index];
-        const term = prompt('Edit term:', entry.term);
-        if (term !== null && term.trim()) {
-            entry.term = term.trim();
+        termInput.value = entry.term || '';
+        defTextarea.value = entry.definition || '';
+        
+        // Store the index for saving later
+        modal.dataset.editIndex = index;
+        
+        modal.style.display = 'flex';
+        termInput.focus();
+    }
+    
+    function closeGlossaryEditModal() {
+        const modal = document.getElementById('glossary-edit-modal');
+        modal.style.display = 'none';
+        delete modal.dataset.editIndex;
+    }
+    
+    async function saveGlossaryEditModal() {
+        const modal = document.getElementById('glossary-edit-modal');
+        const termInput = document.getElementById('glossary-modal-term');
+        const defTextarea = document.getElementById('glossary-modal-def');
+        const index = parseInt(modal.dataset.editIndex);
+        
+        if (isNaN(index) || !currentGlossaryData || !currentGlossaryData.glossary) return;
+        if (index < 0 || index >= currentGlossaryData.glossary.length) return;
+        
+        const termVal = termInput.value.trim();
+        const defVal = defTextarea.value.trim();
+        
+        if (!termVal) {
+            alert('Term cannot be empty');
+            return;
         }
-        const definition = prompt('Edit definition:', entry.definition);
-        if (definition !== null && definition.trim()) {
-            entry.definition = definition.trim();
-        }
-        saveGlossaryData();
+        
+        currentGlossaryData.glossary[index].term = termVal;
+        currentGlossaryData.glossary[index].definition = defVal;
+        
+        await saveGlossaryData();
         renderGlossaryList();
+        closeGlossaryEditModal();
     }
 
     async function saveGlossaryData() {
@@ -4926,6 +4962,19 @@
         
         requestRender();
     }, { passive: false });
+
+    // Add keyboard shortcut for glossary edit modal
+    document.addEventListener('keydown', (e) => {
+        const glossaryModal = document.getElementById('glossary-edit-modal');
+        if (glossaryModal && glossaryModal.style.display === 'flex') {
+            if (e.key === 'Escape') {
+                closeGlossaryEditModal();
+            } else if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                saveGlossaryEditModal();
+            }
+        }
+    });
 
     // --- KEYBOARD ---
     window.addEventListener('keydown', async (e) => {
@@ -5789,6 +5838,28 @@
             </div>
             
             <div class="glossary-list" id="glossary-list"></div>
+        </div>
+        
+        <!-- Glossary Edit Modal -->
+        <div id="glossary-edit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;">
+            <div class="fc-modal-content">
+                <div class="fc-modal-header">
+                    <div class="fc-modal-title">Edit Glossary Entry</div>
+                    <button class="fc-modal-close" onclick="closeGlossaryEditModal()">×</button>
+                </div>
+                <div class="fc-edit-field">
+                    <label>Term</label>
+                    <input type="text" id="glossary-modal-term" class="glossary-input" style="width:100%;">
+                </div>
+                <div class="fc-edit-field">
+                    <label>Definition</label>
+                    <textarea id="glossary-modal-def" class="fc-edit-textarea" rows="8"></textarea>
+                </div>
+                <div class="fc-modal-actions">
+                    <button class="fc-btn" onclick="closeGlossaryEditModal()">Cancel</button>
+                    <button class="fc-btn" onclick="saveGlossaryEditModal()" style="border-color:#8f8; color:#8f8;">Save (Ctrl+Enter)</button>
+                </div>
+            </div>
         </div>
     `;
     document.body.appendChild(glossaryPage);
