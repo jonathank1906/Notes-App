@@ -108,10 +108,10 @@
         }
 
         .custom-tooltip.right::before {
-            right: -12px;
+            left: -12px;
             top: 50%;
-            transform: translateY(-50%) rotate(180deg);
-            border-left-color: #22262d;
+            transform: translateY(-50%);
+            border-right-color: #22262d;
         }
 
         .tooltip-shortcut {
@@ -488,15 +488,20 @@
         }
 
         #btn-view-switcher {
-            background: transparent;
-            border: 1px solid var(--ui-border);
+            background: #1a1a1a;
+            border: 1.5px solid #3a3a3a;
             color: var(--text-color);
-            padding: 10px 12px;
-            border-radius: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
+            line-height: 1;
+            letter-spacing: 2px;
             transition: all 0.15s ease;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #btn-view-switcher:hover {
@@ -901,7 +906,7 @@
                 </div>
                 <div id="content-header-right">
                     <button id="btn-view-switcher" onclick="event.stopPropagation(); toggleViewMenu()">
-                        ⋮
+                        •••
                         <div id="view-menu" onclick="event.stopPropagation()">
                             <div class="view-option active" onclick="setView('grid')">
                                 <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
