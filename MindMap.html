@@ -1404,22 +1404,63 @@
             gap: 15px;
         }
         .glossary-item {
-            background: #2a2a2a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 20px;
+            background: #2b2b2b;
+            border: 2px solid #6a6a6a;
+            border-radius: 12px;
+            overflow: hidden;
         }
-        .glossary-item:hover { border-color: #444; background: #2f2f2f; }
         .glossary-term {
-            font-size: 18px;
-            font-weight: bold;
-            color: #fff;
-            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        .glossary-term-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            background: #2f2f2f;
+        }
+        .glossary-item.open .glossary-term-row {
+            border-bottom: 2px solid #6a6a6a;
+        }
+        .glossary-carrow {
+            width: 44px;
+            height: 44px;
+            background: #3a3a3a;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .glossary-carrow svg {
+            width: 16px;
+            height: 16px;
+        }
+        .glossary-carrow.open svg {
+            transform: rotate(180deg);
+        }
+        #glossary-master-toggle {
+            background: #222;
+            border: 1px solid #444;
+            color: #8af;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        #glossary-master-toggle:hover {
+            background: #333;
         }
         .glossary-definition {
-            color: #ddd;
+            display: none;
+            padding: 20px;
+            background: #262626;
+            color: #e5e5e5;
+            font-size: 15px;
             line-height: 1.6;
-            font-size: 14px;
         }
         .glossary-definition p { margin: 5px 0; }
         .glossary-definition code {
@@ -1428,11 +1469,6 @@
             border-radius: 3px;
             font-family: monospace;
             font-size: 13px;
-        }
-        .glossary-item-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
         }
         .glossary-item-btn {
             background: #222;
@@ -1444,8 +1480,6 @@
             font-size: 12px;
         }
         .glossary-item-btn:hover { background: #333; color: #fff; }
-        .glossary-item-btn.delete { color: #f88; border-color: #533; }
-        .glossary-item-btn.delete:hover { background: #300; }
         .glossary-letter-divider {
             display: flex;
             align-items: center;
@@ -3785,11 +3819,37 @@
         
         let currentLetter = '';
         
+        // Add master show/hide button
+        let masterBtn = document.getElementById('glossary-master-toggle');
+        if (!masterBtn) {
+            masterBtn = document.createElement('button');
+            masterBtn.id = 'glossary-master-toggle';
+            masterBtn.className = 'glossary-item-btn';
+            masterBtn.style.marginBottom = '20px';
+            masterBtn.textContent = 'Show All Definitions';
+            masterBtn.dataset.state = 'hidden';
+            masterBtn.onclick = () => {
+                const allDefs = document.querySelectorAll('.glossary-definition');
+                const allCarrows = document.querySelectorAll('.glossary-carrow');
+                if (masterBtn.dataset.state === 'hidden') {
+                    allDefs.forEach(d => d.style.display = 'block');
+                    allCarrows.forEach(c => c.classList.add('open'));
+                    masterBtn.textContent = 'Hide All Definitions';
+                    masterBtn.dataset.state = 'shown';
+                } else {
+                    allDefs.forEach(d => d.style.display = 'none');
+                    allCarrows.forEach(c => c.classList.remove('open'));
+                    masterBtn.textContent = 'Show All Definitions';
+                    masterBtn.dataset.state = 'hidden';
+                }
+            };
+            listDiv.parentNode.insertBefore(masterBtn, listDiv);
+        }
+        masterBtn.style.display = filteredGlossary.length === 0 ? 'none' : 'inline-block';
+        masterBtn.textContent = masterBtn.dataset.state === 'shown' ? 'Hide All Definitions' : 'Show All Definitions';
+
         filteredGlossary.forEach((entry) => {
-            // Find original index for edit/delete
             const originalIndex = currentGlossaryData.glossary.indexOf(entry);
-            
-            // Add letter divider if first letter changes
             const firstLetter = entry.term.charAt(0).toUpperCase();
             if (firstLetter !== currentLetter) {
                 currentLetter = firstLetter;
@@ -3798,28 +3858,43 @@
                 dividerDiv.textContent = currentLetter;
                 listDiv.appendChild(dividerDiv);
             }
-            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'glossary-item';
-            
-            // Render term as plain text, definition as markdown
             const termHTML = escapeHtml(entry.term);
             let definitionHTML;
             try {
                 definitionHTML = marked.parse(entry.definition);
             } catch (e) {
-                // Fallback if marked not loaded
-                definitionHTML = escapeHtml(entry.definition).replace(/\\n/g, '<br>');
+                definitionHTML = escapeHtml(entry.definition).replace(/\n/g, '<br>');
             }
-            
             itemDiv.innerHTML = `
-                <div class="glossary-term">${termHTML}</div>
-                <div class="glossary-definition">${definitionHTML}</div>
-                <div class="glossary-item-actions">
-                    <button class="glossary-item-btn" onclick="editGlossaryEntry(${originalIndex})">Edit</button>
-                    <button class="glossary-item-btn delete" onclick="deleteGlossaryEntry(${originalIndex})">Delete</button>
+                <div class="glossary-term-row">
+                    <span class="glossary-term">${termHTML}</span>
+                    <span class="glossary-carrow" title="Show/hide definition">
+                        <svg viewBox="0 0 20 20">
+                            <polygon fill="#fff" points="20 5.79 10 15.79 0 5.79 2.34 3.45 10 11.11 17.66 3.45 20 5.79"/>
+                        </svg>
+                    </span>
+                </div>
+
+                <div class="glossary-definition">
+                    ${definitionHTML}
                 </div>
             `;
+            // Add carrow click handler
+            const carrow = itemDiv.querySelector('.glossary-carrow');
+            const defDiv = itemDiv.querySelector('.glossary-definition');
+            carrow.onclick = () => {
+                if (defDiv.style.display === 'none' || !defDiv.style.display) {
+                    defDiv.style.display = 'block';
+                    carrow.classList.add('open');
+                    itemDiv.classList.add('open');
+                } else {
+                    defDiv.style.display = 'none';
+                    carrow.classList.remove('open');
+                    itemDiv.classList.remove('open');
+                }
+            };
             listDiv.appendChild(itemDiv);
         });
     }
