@@ -432,7 +432,7 @@
         }
 
         .subject-item.active {
-            background: #2d3139;
+            background: #2a2a2a;
             color: #ffffff;
             border-left-color: transparent;
         }
@@ -743,35 +743,31 @@
         }
 
         #empty-notes-state-icon {
-            font-size: 64px;
-            color: #333;
-            margin-bottom: 16px;
+            display: none;
         }
 
         #empty-notes-state-title {
-            font-size: 20px;
-            color: var(--accent);
-            margin-bottom: 8px;
+            display: none;
         }
 
         #empty-notes-state-desc {
             font-size: 14px;
+            margin-bottom: 24px;
         }
 
         .select-folder-btn {
-            background: #2196F3;
-            color: white;
+            background: #444;
+            color: #f0f0f0;
             border: none;
             padding: 12px 24px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            margin-top: 24px;
         }
 
         .select-folder-btn:hover {
-            background: #1976D2;
+              background: #222;
         }
 
         /* Canvas Container */
@@ -864,6 +860,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Center the select folder button */
+        .select-folder-btn {
+            display: block;
+            margin: 24px auto 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -930,10 +932,8 @@
                 <!-- Notes will be dynamically generated -->
             </div>
             <div id="empty-notes-state" style="display: none;">
-                <div id="empty-notes-state-icon">📝</div>
-                <div id="empty-notes-state-title">No Notes Yet</div>
                 <div id="empty-notes-state-desc">Select your notes folder to get started</div>
-                <button class="select-folder-btn" onclick="selectRootFolder()">Select Folder</button>
+                <button class="select-folder-btn" onclick="selectRootFolder()">Open Folder</button>
             </div>
         </div>
     </div>
@@ -2101,8 +2101,18 @@
     }
 
     function showEmptyState() {
+        // This is called when no folder is selected at all
         document.getElementById('notes-grid').innerHTML = '';
-        document.getElementById('empty-notes-state').style.display = 'block';
+        const emptyState = document.getElementById('empty-notes-state');
+        emptyState.style.display = 'block';
+        
+        // Show folder selection UI
+        document.getElementById('empty-notes-state-desc').textContent = 'Select your notes folder to get started';
+        const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
+        if (selectFolderBtn) {
+            selectFolderBtn.style.display = 'block';
+        }
+        
         document.getElementById('subjects-list').innerHTML = '<div style="padding:16px;color:#666;text-align:center;font-size:12px;">No folder selected</div>';
         // Hide the + New button when no folder is selected
         updateNewNoteButtonVisibility();
@@ -2159,17 +2169,8 @@
     }
 
     function getSubjectColor(index) {
-        const colors = [
-            '#4CAF50', // Green  
-            '#E91E63', // Pink
-            '#2196F3', // Blue
-            '#FF9800', // Orange
-            '#9C27B0', // Purple
-            '#00BCD4', // Cyan
-            '#FFEB3B', // Yellow
-            '#795548'  // Brown
-        ];
-        return colors[index % colors.length];
+        // Greyscale theme - return grey for all subjects
+        return '#666666';
     }
 
     function displaySubjects() {
@@ -2282,7 +2283,6 @@
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
         
-        notesGrid.innerHTML = '<div class="spinner" style="grid-column: 1 / -1; margin: 40px auto;"></div>';
         emptyState.style.display = 'none';
         
         document.getElementById('content-title').textContent = 'All Notes';
@@ -2318,7 +2318,6 @@
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
         
-        notesGrid.innerHTML = '<div class="spinner" style="grid-column: 1 / -1; margin: 40px auto;"></div>';
         emptyState.style.display = 'none';
         
         document.getElementById('content-title').textContent = subject.name;
@@ -2353,8 +2352,16 @@
         const emptyState = document.getElementById('empty-notes-state');
         
         if (notes.length === 0) {
+            // Folder is selected but no notes in this subject
             notesGrid.innerHTML = '';
             emptyState.style.display = 'block';
+            
+            // Show "Click New to create a note" message, hide select folder button
+            document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
+            const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
+            if (selectFolderBtn) {
+                selectFolderBtn.style.display = 'none';
+            }
             return;
         }
         
