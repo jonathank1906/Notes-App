@@ -3731,13 +3731,35 @@
         modal.classList.add('show');
         frontTextarea.focus();
     }
+    
+    // Open edit modal for specific card from full edit mode
+    function openEditModalForCard(index) {
+        if (!currentFlashcardData || !currentFlashcardData.flashcards) return;
+        if (index < 0 || index >= currentFlashcardData.flashcards.length) return;
+        
+        const modal = document.getElementById('fc-edit-modal');
+        const frontTextarea = document.getElementById('fc-modal-front');
+        const backTextarea = document.getElementById('fc-modal-back');
+        
+        const card = currentFlashcardData.flashcards[index];
+        frontTextarea.value = card.front || '';
+        backTextarea.value = card.back || '';
+        
+        // Store the index for saving later
+        modal.dataset.editIndex = index;
+        
+        modal.classList.add('show');
+        frontTextarea.focus();
+    }
 
     function closeEditModal() {
         const modal = document.getElementById('fc-edit-modal');
         modal.classList.remove('show');
+        delete modal.dataset.editIndex;
     }
 
     async function saveEditModal() {
+        const modal = document.getElementById('fc-edit-modal');
         const frontTextarea = document.getElementById('fc-modal-front');
         const backTextarea = document.getElementById('fc-modal-back');
         
@@ -3753,18 +3775,31 @@
             return;
         }
         
-        if (currentFlashcardIndex < currentFlashcardData.flashcards.length) {
-            // Update existing card
-            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
-            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+        // Check if editing from full edit mode (has editIndex)
+        const editIndex = modal.dataset.editIndex;
+        if (editIndex !== undefined) {
+            const index = parseInt(editIndex);
+            if (index >= 0 && index < currentFlashcardData.flashcards.length) {
+                currentFlashcardData.flashcards[index].front = frontVal;
+                currentFlashcardData.flashcards[index].back = backVal;
+            }
+            await saveFlashcardData();
+            renderFullEditList(); // Refresh the full edit list
+            closeEditModal();
         } else {
-            // Add new card
-            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+            // Editing from practice mode
+            if (currentFlashcardIndex < currentFlashcardData.flashcards.length) {
+                // Update existing card
+                currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
+                currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+            } else {
+                // Add new card
+                currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+            }
+            await saveFlashcardData();
+            updateFlashcardDisplay();
+            closeEditModal();
         }
-        
-        await saveFlashcardData();
-        updateFlashcardDisplay();
-        closeEditModal();
     }
 
     function renderFullEditList() {
@@ -3780,6 +3815,7 @@
             const cardItem = document.createElement('div');
             cardItem.className = 'fc-card-item';
             cardItem.dataset.index = index;
+            cardItem.style.cursor = 'default';
             
             // Create hover pane with edit/delete buttons
             const hoverPane = document.createElement('div');
@@ -3787,36 +3823,72 @@
             
             const editBtn = document.createElement('button');
             editBtn.className = 'fc-card-hover-btn edit';
-            editBtn.textContent = 'Edit';
+            editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+            editBtn.title = 'Edit';
             editBtn.onclick = (e) => {
                 e.stopPropagation();
-                toggleCardEdit(index);
+                hoverPane.classList.remove('show');
+                openEditModalForCard(index);
             };
             
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'fc-card-hover-btn delete';
-            deleteBtn.textContent = 'Delete';
+            deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+            deleteBtn.title = 'Delete';
             deleteBtn.onclick = (e) => {
                 e.stopPropagation();
+                hoverPane.classList.remove('show');
                 deleteCardInFullEdit(index);
             };
             
             hoverPane.appendChild(editBtn);
             hoverPane.appendChild(deleteBtn);
             
-            cardItem.innerHTML = `
-                <div class="fc-card-fields">
-                    <div class="fc-edit-field">
-                        <label>Front (Question)</label>
-                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="front" readonly>${escapeHtml(card.front || '')}</textarea>
-                    </div>
-                    <div class="fc-edit-field">
-                        <label>Back (Answer)</label>
-                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="back" readonly>${escapeHtml(card.back || '')}</textarea>
-                    </div>
-                </div>
-            `;
+            // Create card content with markdown rendering
+            const cardFields = document.createElement('div');
+            cardFields.className = 'fc-card-fields';
             
+            const frontField = document.createElement('div');
+            frontField.className = 'fc-edit-field';
+            const frontLabel = document.createElement('label');
+            frontLabel.textContent = 'Front (Question)';
+            frontLabel.style.color = '#8af';
+            frontLabel.style.fontWeight = '600';
+            const frontContent = document.createElement('div');
+            frontContent.className = 'fc-face';
+            frontContent.style.color = '#e0e0e0';
+            frontContent.style.padding = '8px 0';
+            frontContent.style.minHeight = '40px';
+            try {
+                frontContent.innerHTML = marked.parse(card.front || '');
+            } catch (e) {
+                frontContent.textContent = card.front || '';
+            }
+            frontField.appendChild(frontLabel);
+            frontField.appendChild(frontContent);
+            
+            const backField = document.createElement('div');
+            backField.className = 'fc-edit-field';
+            const backLabel = document.createElement('label');
+            backLabel.textContent = 'Back (Answer)';
+            backLabel.style.color = '#8af';
+            backLabel.style.fontWeight = '600';
+            const backContent = document.createElement('div');
+            backContent.className = 'fc-face';
+            backContent.style.color = '#e0e0e0';
+            backContent.style.padding = '8px 0';
+            backContent.style.minHeight = '40px';
+            try {
+                backContent.innerHTML = marked.parse(card.back || '');
+            } catch (e) {
+                backContent.textContent = card.back || '';
+            }
+            backField.appendChild(backLabel);
+            backField.appendChild(backContent);
+            
+            cardFields.appendChild(frontField);
+            cardFields.appendChild(backField);
+            cardItem.appendChild(cardFields);
             cardItem.appendChild(hoverPane);
             
             // Right-click to show edit/delete buttons
@@ -3824,7 +3896,9 @@
                 e.preventDefault();
                 // Hide all other hover panes first
                 document.querySelectorAll('.fc-card-hover-pane.show').forEach(pane => {
-                    pane.classList.remove('show');
+                    if (pane !== hoverPane) {
+                        pane.classList.remove('show');
+                    }
                 });
                 // Show this card's hover pane
                 hoverPane.classList.add('show');
@@ -3832,47 +3906,11 @@
             
             container.appendChild(cardItem);
         });
-        
-        // Add input listeners to auto-save when editing
-        const textareas = container.querySelectorAll('.fc-edit-textarea');
-        textareas.forEach(textarea => {
-            textarea.addEventListener('input', debounce(() => {
-                const index = parseInt(textarea.dataset.index);
-                const side = textarea.dataset.side;
-                if (currentFlashcardData.flashcards[index]) {
-                    currentFlashcardData.flashcards[index][side] = textarea.value;
-                    saveFlashcardData();
-                }
-            }, 500));
-        });
     }
     
-    function toggleCardEdit(index) {
-        const cardItem = document.querySelector(`.fc-card-item[data-index="${index}"]`);
-        if (!cardItem) return;
-        
-        const textareas = cardItem.querySelectorAll('.fc-edit-textarea');
-        const isEditing = cardItem.classList.contains('editing');
-        
-        if (isEditing) {
-            // Disable editing
-            cardItem.classList.remove('editing');
-            textareas.forEach(ta => ta.readOnly = true);
-        } else {
-            // Disable editing on all other cards first
-            document.querySelectorAll('.fc-card-item.editing').forEach(item => {
-                item.classList.remove('editing');
-                item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
-            });
-            
-            // Enable editing on this card
-            cardItem.classList.add('editing');
-            textareas.forEach(ta => ta.readOnly = false);
-            textareas[0].focus();
-        }
-    }
+    // Removed - no longer needed as we use modal for editing
     
-    // Click outside handler to deactivate edit mode and hide hover panes
+    // Click outside handler to hide hover panes
     document.addEventListener('click', (e) => {
         const flashcardPage = document.getElementById('flashcard-page');
         const glossaryPage = document.getElementById('glossary-page');
@@ -3896,21 +3934,6 @@
                 });
             }
         }
-        
-        // Check if click is outside any card item or on a non-editable area (for flashcards)
-        if (flashcardPage && flashcardPage.classList.contains('active') && isFlashcardFullEditMode) {
-            const clickedInside = e.target.closest('.fc-card-item');
-            const clickedOnButton = e.target.closest('.fc-card-hover-btn, .fc-btn, .fc-mode-toggle');
-            const clickedOnTextarea = e.target.closest('.fc-edit-textarea');
-            
-            if (!clickedInside || (clickedInside && !clickedOnTextarea && !clickedOnButton)) {
-                // Deactivate all editing
-                document.querySelectorAll('.fc-card-item.editing').forEach(item => {
-                    item.classList.remove('editing');
-                    item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
-                });
-            }
-        }
     });
 
     async function addNewCardInFullEdit() {
@@ -3921,17 +3944,9 @@
         await saveFlashcardData();
         renderFullEditList();
         
-        // Scroll to bottom and focus on new card
-        const flashcardPage = document.getElementById('flashcard-page');
-        const container = document.getElementById('fc-full-edit-list');
+        // Open modal for the new card
         setTimeout(() => {
-            if (flashcardPage) {
-                flashcardPage.scrollTop = flashcardPage.scrollHeight;
-            }
-            const textareas = container.querySelectorAll('.fc-edit-textarea');
-            if (textareas.length > 0) {
-                textareas[textareas.length - 2].focus(); // Focus on front of new card
-            }
+            openEditModalForCard(currentFlashcardData.flashcards.length - 1);
         }, 100);
     }
 
