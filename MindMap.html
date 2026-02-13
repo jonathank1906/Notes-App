@@ -634,6 +634,8 @@
             overflow: hidden;
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative; /* Add this */
+            z-index: 1; /* Add this */
         }
 
         #notes-grid.list-view .note-card {
@@ -950,18 +952,18 @@
 
         /* New Note Dropdown Menu */
         #new-note-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            margin-top: 5px;
+            position: fixed; /* fixed so it's in viewport stacking context */
+            top: 0;
+            left: 0;
             background: #1e1e1e;
             border: 1px solid #333;
             border-radius: 6px;
             min-width: 180px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
             display: none;
-            z-index: 1000;
+            z-index: 2147483647; /* ensure on top of everything */
             overflow: hidden;
+            pointer-events: auto;
         }
         #new-note-menu.show { display: block; }
         .new-note-option {
@@ -2056,28 +2058,6 @@
                             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                         </svg>
                         New
-                        <div id="new-note-menu" onclick="event.stopPropagation()">
-                            <div class="new-note-option" onclick="createNewNote('note')">
-                                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6z"/></svg>
-                                Note
-                            </div>
-                            <div class="new-note-option" onclick="createNewNote('flashcard')">
-                                <svg viewBox="0 0 20 20"><path d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/><path d="M3.05,4.62A2,2,0,0,1,4.11,3.48a2,2,0,0,1,1.55-.06l5.68,2.07-8.63.06Z"/><path d="M6.5,1.57,7.16.93A1.82,1.82,0,0,1,8.58.31,2,2,0,0,1,10,.92L13.13,4Z"/><path fill="none" fill-rule="evenodd" d="M3.41,9.54H16.59v8.1H3.41Z"/></svg>
-                                Flashcard Deck
-                            </div>
-                            <div class="new-note-option" onclick="createNewNote('glossary')">
-                                <svg viewBox="0 0 20 20"><path d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg>
-                                Glossary
-                            </div>
-                            <div class="new-note-option" onclick="createNewNote('qa')">
-                                <svg viewBox="118 218 370 370"><path fill="currentColor" d="M262.9,239.9c64,0,116,41.9,116,93.6h12.2c0-58.1-57.5-105.9-128.2-105.9s-128.2,47.7-128.2,106.2c0,28.2,12.2,55.1,34.3,74.4l-26.3,45.9c-1.2,2.1-0.9,5.2,0.6,7c1.2,1.2,2.8,2.1,4.6,2.1c0.9,0,1.5,0,2.1-0.3l69.8-28.2c6.4,1.8,12.9,3.1,19.6,4l1.5-12.2c-6.7-0.9-13.5-2.4-19.6-4.3c-1.2-0.3-2.8-0.3-4,0.3L162.2,445l19.9-35.2c1.5-2.8,0.9-6.1-1.5-8c-21.4-17.1-33.7-41.9-33.7-68.2C146.9,282.2,198.9,239.9,262.9,239.9z M450.1,516.6c17.7-15.9,27.2-36.1,27.2-59.4c0-50.2-49-92.7-106.8-92.7S263.8,407,263.8,457.2c0,51.1,46.5,94.2,101.9,94.2l0,0c14.1,0,27.8-2.8,41-8.3l55.1,20.8c0.6,0.3,1.5,0.3,2.1,0.3c1.8,0,3.4-0.6,4.6-2.1c1.8-1.8,2.1-4.6,0.9-7L450.1,516.6z M408.8,530.6c-0.6-0.3-1.5-0.3-2.1-0.3c-0.9,0-1.8,0.3-2.4,0.6c-12.2,5.5-25.1,8.3-38.2,8.3l0,0c-48.7,0-89.4-37.6-89.4-81.7c0-43.5,43.1-80.2,94.2-80.2s94.2,36.7,94.2,80.2c0,21.1-8.9,38.9-26.3,52.9c-2.1,1.8-3.1,4.9-1.5,7.7l14.7,29.1L408.8,530.6z"/></svg>
-                                Q/A
-                            </div>
-                            <div class="new-note-option" onclick="createNewNote('todo')">
-                                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-                                To Do List
-                            </div>
-                        </div>
                     </button>
                 </div>
             </div>
@@ -2269,6 +2249,30 @@
                     <div class="shortcut-keys"><kbd>Esc</kbd></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- New Note Dropdown appended to body for stable stacking/context -->
+    <div id="new-note-menu" onclick="event.stopPropagation()" aria-hidden="true">
+        <div class="new-note-option" onclick="createNewNote('note')">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6z"/></svg>
+            Note
+        </div>
+        <div class="new-note-option" onclick="createNewNote('flashcard')">
+            <svg viewBox="0 0 20 20"><path d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/></svg>
+            Flashcard Deck
+        </div>
+        <div class="new-note-option" onclick="createNewNote('glossary')">
+            <svg viewBox="0 0 20 20"><path d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg>
+            Glossary
+        </div>
+        <div class="new-note-option" onclick="createNewNote('qa')">
+            <svg viewBox="118 218 370 370"><path fill="currentColor" d="M262.9,239.9c64,0,116,41.9,116,93.6h12.2c0-58.1-57.5-105.9-128.2-105.9s-128.2,47.7-128.2,106.2c0,28.2,12.2,55.1,34.3,74.4l-26.3,45.9c-1.2,2.1-0.9,5.2,0.6,7c1.2,1.2,2.8,2.1,4.6,2.1c0.9,0,1.5,0,2.1-0.3l69.8-28.2c6.4,1.8,12.9,3.1,19.6,4l1.5-12.2c-6.7-0.9-13.5-2.4-19.6-4.3c-1.2-0.3-2.8-0.3-4,0.3L162.2,445l19.9-35.2c1.5-2.8,0.9-6.1-1.5-8c-21.4-17.1-33.7-41.9-33.7-68.2C146.9,282.2,198.9,239.9,262.9,239.9z M450.1,516.6c17.7-15.9,27.2-36.1,27.2-59.4c0-50.2-49-92.7-106.8-92.7S263.8,407,263.8,457.2c0,51.1,46.5,94.2,101.9,94.2l0,0c14.1,0,27.8-2.8,41-8.3l55.1,20.8c0.6,0.3,1.5,0.3,2.1,0.3c1.8,0,3.4-0.6,4.6-2.1c1.8-1.8,2.1-4.6,0.9-7L450.1,516.6z M408.8,530.6c-0.6-0.3-1.5-0.3-2.1-0.3c-0.9,0-1.8,0.3-2.4,0.6c-12.2,5.5-25.1,8.3-38.2,8.3l0,0c-48.7,0-89.4-37.6-89.4-81.7c0-43.5,43.1-80.2,94.2-80.2s94.2,36.7,94.2,80.2c0,21.1-8.9,38.9-26.3,52.9c-2.1,1.8-3.1,4.9-1.5,7.7l14.7,29.1L408.8,530.6z"/></svg>
+            Q/A
+        </div>
+        <div class="new-note-option" onclick="createNewNote('todo')">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            To Do List
         </div>
     </div>
 
@@ -3783,19 +3787,52 @@
     // --- NEW NOTE DROPDOWN MENU ---
     function toggleNewNoteMenu(event) {
         event.stopPropagation();
+        const btn = document.getElementById('btn-new-note');
         const menu = document.getElementById('new-note-menu');
-        menu.classList.toggle('show');
-        
-        if (menu.classList.contains('show')) {
-            setTimeout(() => {
-                document.addEventListener('click', closeNewNoteMenu);
-            }, 0);
+        if (!menu || !btn) return;
+
+        // If opening, position the menu relative to the button and show it
+        if (!menu.classList.contains('show')) {
+            // show invisibly to measure
+            menu.classList.add('show');
+            menu.style.visibility = 'hidden';
+
+            // small delay to ensure DOM flow
+            requestAnimationFrame(() => {
+                const rect = btn.getBoundingClientRect();
+                const mw = menu.offsetWidth;
+                const mh = menu.offsetHeight;
+
+                // Try to align right edges by default
+                let left = rect.right - mw;
+                let top = rect.bottom + 6;
+
+                // If overflowing to left, clamp
+                if (left < 8) left = 8;
+                // If overflowing bottom, open above the button
+                if (top + mh > window.innerHeight - 8) {
+                    top = rect.top - mh - 6;
+                }
+                if (top < 8) top = 8;
+
+                menu.style.left = `${Math.round(left)}px`;
+                menu.style.top = `${Math.round(top)}px`;
+                menu.style.visibility = '';
+
+                // close when clicking outside
+                setTimeout(() => document.addEventListener('click', closeNewNoteMenu), 0);
+            });
+        } else {
+            closeNewNoteMenu();
         }
     }
-    
+
     function closeNewNoteMenu() {
         const menu = document.getElementById('new-note-menu');
+        if (!menu) return;
         menu.classList.remove('show');
+        menu.style.left = '';
+        menu.style.top = '';
         document.removeEventListener('click', closeNewNoteMenu);
     }
 
