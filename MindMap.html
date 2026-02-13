@@ -1227,6 +1227,7 @@
     let allSubjects = [];
     let activeSubject = null;
     let currentView = 'grid'; // 'grid' or 'list'
+    let allNotesLoaded = false; // Track if notes have been loaded into DOM
 
     // --- INIT ---
     function resize() {
@@ -2110,7 +2111,10 @@
             
             displaySubjects();
             
-            // Reload notes based on active subject
+            // Reload notes into DOM (fresh load from disk)
+            allNotesLoaded = false;
+            
+            // Display appropriate view
             if (activeSubject === null) {
                 await loadAllNotes();
             } else {
@@ -2151,6 +2155,8 @@
                     rootDirHandle = handle;
                     currentDirHandle = handle;
                     await loadSubjects();
+                    activeSubject = null;
+                    await loadAllNotes();
                 } else {
                     // Request permission
                     const newPermission = await handle.requestPermission({ mode: 'readwrite' });
@@ -2158,6 +2164,8 @@
                         rootDirHandle = handle;
                         currentDirHandle = handle;
                         await loadSubjects();
+                        activeSubject = null;
+                        await loadAllNotes();
                     } else {
                         showEmptyState();
                     }
@@ -2227,11 +2235,11 @@
             // Do not inject a default "UIUC" subject here.
             
             allSubjects = subjects;
-            displaySubjects();
             
-            // Load all notes by default
-            activeSubject = null;
-            await loadAllNotes();
+            // Invalidate notes cache so they'll be reloaded from disk
+            allNotesLoaded = false;
+            
+            displaySubjects();
             
         } catch (err) {
             console.error('Error loading subjects:', err);
@@ -2354,10 +2362,74 @@
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
         
-        emptyState.style.display = 'none';
-        
         document.getElementById('content-title').textContent = 'All Notes';
         
+        // Load notes into DOM if not already loaded
+        if (!allNotesLoaded) {
+            await loadNotesIntoDom();
+        }
+        
+        // Show all cards
+        const allCards = notesGrid.querySelectorAll('.note-card');
+        let visibleCount = 0;
+        allCards.forEach(card => {
+            card.style.display = '';
+            visibleCount++;
+        });
+        
+        // Handle empty state
+        if (visibleCount === 0) {
+            emptyState.style.display = 'block';
+            document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
+            const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
+            if (selectFolderBtn) selectFolderBtn.style.display = 'none';
+        } else {
+            emptyState.style.display = 'none';
+        }
+    }
+
+    async function loadNotesForSubject(subject) {
+        const notesGrid = document.getElementById('notes-grid');
+        const emptyState = document.getElementById('empty-notes-state');
+        
+        document.getElementById('content-title').textContent = subject.name;
+        
+        // Load notes into DOM if not already loaded
+        if (!allNotesLoaded) {
+            await loadNotesIntoDom();
+        }
+        
+        // Show only cards that match this subject
+        const allCards = notesGrid.querySelectorAll('.note-card');
+        let visibleCount = 0;
+        allCards.forEach(card => {
+            if (card.dataset.subject === subject.name) {
+                card.style.display = '';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Handle empty state
+        if (visibleCount === 0) {
+            emptyState.style.display = 'block';
+            document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
+            const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
+            if (selectFolderBtn) selectFolderBtn.style.display = 'none';
+        } else {
+            emptyState.style.display = 'none';
+        }
+    }
+
+    async function loadNotesIntoDom() {
+        const notesGrid = document.getElementById('notes-grid');
+        const emptyState = document.getElementById('empty-notes-state');
+        
+        // Clear existing cards
+        notesGrid.innerHTML = '';
+        
+        // Collect all notes from all subjects
         const allNotes = [];
         
         for (const subject of allSubjects) {
@@ -2383,64 +2455,6 @@
         // Sort by name
         allNotes.sort((a, b) => a.name.localeCompare(b.name));
         
-        displayNotes(allNotes);
-    }
-
-    async function loadNotesForSubject(subject) {
-        const notesGrid = document.getElementById('notes-grid');
-        const emptyState = document.getElementById('empty-notes-state');
-        
-        emptyState.style.display = 'none';
-        
-        document.getElementById('content-title').textContent = subject.name;
-        
-        const notes = [];
-        
-        try {
-            for await (const entry of subject.handle.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                    const file = await entry.getFile();
-                    notes.push({
-                        handle: entry,
-                        dirHandle: subject.handle,
-                        name: entry.name.replace('.json', ''),
-                        subject: subject.name,
-                        color: subject.color,
-                        date: file.lastModified
-                    });
-                }
-            }
-        } catch (err) {
-            console.error('Error loading notes:', err);
-        }
-        
-        // Sort by name
-        notes.sort((a, b) => a.name.localeCompare(b.name));
-        
-        displayNotes(notes);
-    }
-
-    async function displayNotes(notes) {
-        const notesGrid = document.getElementById('notes-grid');
-        const emptyState = document.getElementById('empty-notes-state');
-        
-        if (notes.length === 0) {
-            // Folder is selected but no notes in this subject
-            notesGrid.innerHTML = '';
-            emptyState.style.display = 'block';
-            
-            // Show "Click New to create a note" message, hide select folder button
-            document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
-            const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
-            if (selectFolderBtn) {
-                selectFolderBtn.style.display = 'none';
-            }
-            return;
-        }
-        
-        emptyState.style.display = 'none';
-        notesGrid.innerHTML = '';
-        
         // Apply current view
         if (currentView === 'list') {
             notesGrid.classList.add('list-view');
@@ -2448,15 +2462,20 @@
             notesGrid.classList.remove('list-view');
         }
         
-        for (const note of notes) {
+        // Create and add all cards to DOM
+        for (const note of allNotes) {
             const card = createNoteCard(note);
             notesGrid.appendChild(card);
         }
+        
+        allNotesLoaded = true;
     }
 
     function createNoteCard(note) {
         const card = document.createElement('div');
         card.className = 'note-card';
+        card.dataset.subject = note.subject; // Add subject data attribute for filtering
+        card.dataset.noteName = note.name; // Add name for identification
         
         const preview = document.createElement('div');
         preview.className = 'note-preview';
@@ -2675,7 +2694,12 @@
             const db = await openDB();
             await db.put(dirHandle, 'rootDirHandle');
             
+            // Invalidate notes cache
+            allNotesLoaded = false;
+            
             await loadSubjects();
+            activeSubject = null;
+            await loadAllNotes();
         } catch (err) {
             if (err.name !== 'AbortError') {
                 console.error('Error selecting folder:', err);
@@ -2817,6 +2841,9 @@
             }
             
             displaySubjects();
+            
+            // Reload notes into DOM (fresh load from disk after delete)
+            allNotesLoaded = false;
             
             // Refresh the display
             if (activeSubject) {
