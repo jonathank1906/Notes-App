@@ -558,22 +558,43 @@
         }
 
         #btn-new-note {
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 12px 20px;
+            background: white;
+            color: #1a1a1a;
+            border: 1px solid #e0e0e0;
+            padding: 7px 14px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-            transition: background 0.15s ease;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            line-height: 1;
+            vertical-align: middle;
         }
 
         #btn-new-note:hover {
-            background: #1976D2;
+            background: #f5f5f5;
+            border-color: #d0d0d0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            transform: translateY(-1px);
+        }
+
+        #btn-new-note:active {
+            transform: translateY(0);
+            background: #ebebeb;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+
+        #btn-new-note svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            display: block;
+            flex-shrink: 0;
         }
 
         #notes-grid {
@@ -663,7 +684,7 @@
         }
 
         .note-info {
-            padding: 16px;
+            padding: 8px 16px;
             cursor: pointer;
         }
 
@@ -693,7 +714,7 @@
         }
 
         #notes-grid:not(.list-view) .note-title {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         #notes-grid.list-view .note-title {
@@ -857,7 +878,12 @@
                             </div>
                         </div>
                     </button>
-                    <button id="btn-new-note" onclick="createNewNote()">+ New</button>
+                    <button id="btn-new-note" onclick="createNewNote()">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        New
+                    </button>
                 </div>
             </div>
             <div id="notes-grid">
@@ -1906,27 +1932,9 @@
     }
 
     function showNotification(message) {
-        const notif = document.createElement('div');
-        notif.textContent = message;
-        notif.style.cssText = `
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2196F3;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 13px;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            animation: slideDown 0.3s ease;
-        `;
-        document.body.appendChild(notif);
-        setTimeout(() => {
-            notif.style.animation = 'slideUp 0.3s ease';
-            setTimeout(() => notif.remove(), 300);
-        }, 2000);
+        // Notifications have been disabled per user request.
+        // This function intentionally does nothing to suppress transient UI notifications.
+        return;
     }
 
     function updateFileNameIndicator() {
