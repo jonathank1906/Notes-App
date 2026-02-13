@@ -866,6 +866,51 @@
             display: block;
             margin: 24px auto 0 auto;
         }
+
+        /* Context Menu */
+        #context-menu {
+            position: fixed;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 6px 0;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+            z-index: 10001;
+            display: none;
+            min-width: 160px;
+        }
+
+        #context-menu.show {
+            display: block;
+        }
+
+        .context-menu-item {
+            padding: 10px 16px;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .context-menu-item:hover {
+            background: var(--btn-hover);
+            color: var(--accent);
+        }
+
+        .context-menu-item svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background: #333;
+            margin: 6px 0;
+        }
     </style>
 </head>
 <body>
@@ -935,6 +980,23 @@
                 <div id="empty-notes-state-desc">Select your notes folder to get started</div>
                 <button class="select-folder-btn" onclick="selectRootFolder()">Open Folder</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu">
+        <div class="context-menu-item" id="context-rename">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+            Rename
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" id="context-delete">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Delete
         </div>
     </div>
 
@@ -2296,6 +2358,7 @@
                         const file = await entry.getFile();
                         allNotes.push({
                             handle: entry,
+                            dirHandle: subject.handle,
                             name: entry.name.replace('.json', ''),
                             subject: subject.name,
                             color: subject.color,
@@ -2330,6 +2393,7 @@
                     const file = await entry.getFile();
                     notes.push({
                         handle: entry,
+                        dirHandle: subject.handle,
                         name: entry.name.replace('.json', ''),
                         subject: subject.name,
                         color: subject.color,
@@ -2419,9 +2483,18 @@
         // Generate preview asynchronously
         generateNotePreview(note.handle, preview);
         
-        card.onclick = async () => {
+        card.onclick = async (e) => {
+            // Don't open if context menu was just shown
+            if (e.button !== 0) return;
             await openNote(note.handle);
         };
+        
+        // Add context menu support
+        card.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showContextMenu(e.clientX, e.clientY, note);
+        });
         
         return card;
     }
@@ -2531,16 +2604,17 @@
         }
 
         try {
-            // Generate a default filename with timestamp
+            // Generate a default filename with date and time (HH.mm) for uniqueness
             const date = new Date();
             const options = { month: 'short', day: 'numeric', year: 'numeric' };
             const formattedDate = date.toLocaleDateString('en-US', options);
-            const defaultName = `Note ${formattedDate}.json`;
-            
+            const formattedTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.');
+            const defaultName = `Note ${formattedDate} ${formattedTime}.json`;
+
             // Create new file in the active subject's directory
             const targetDirHandle = activeSubject.handle;
             const fileHandle = await targetDirHandle.getFileHandle(defaultName, { create: true });
-            
+
             // Create blank mindmap data
             const blankData = {
                 version: '1.0',
@@ -2549,16 +2623,16 @@
                 strokes: [],
                 textBoxes: []
             };
-            
+
             // Write to file
             const writable = await fileHandle.createWritable();
             await writable.write(JSON.stringify(blankData));
             await writable.close();
-            
+
             // Set as current file
             currentFileHandle = fileHandle;
             currentFileName = defaultName;
-            
+
             // Initialize blank canvas
             strokes = [];
             textBoxes = [];
@@ -2569,11 +2643,11 @@
             editingTextBox = null;
             camera = { x: 0, y: 0, z: 1 };
             hasUnsavedChanges = false;
-            
+
             // Show canvas for drawing
             showCanvas();
             requestRender();
-            
+
             showNotification(`Created ${defaultName}`);
         } catch (err) {
             console.error('Error creating new note:', err);
@@ -2598,6 +2672,133 @@
                 console.error('Error selecting folder:', err);
                 alert('Error selecting folder. Please try again.');
             }
+        }
+    }
+
+    // --- CONTEXT MENU ---
+    let contextMenuNote = null;
+
+    function showContextMenu(x, y, note) {
+        contextMenuNote = note;
+        const contextMenu = document.getElementById('context-menu');
+        
+        // Position the menu, adjusting if it would go off-screen
+        const menuWidth = 160;
+        const menuHeight = 100; // approximate
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        let left = x;
+        let top = y;
+        
+        // Adjust horizontal position if menu would overflow
+        if (left + menuWidth > viewportWidth) {
+            left = viewportWidth - menuWidth - 10;
+        }
+        
+        // Adjust vertical position if menu would overflow
+        if (top + menuHeight > viewportHeight) {
+            top = viewportHeight - menuHeight - 10;
+        }
+        
+        contextMenu.style.left = left + 'px';
+        contextMenu.style.top = top + 'px';
+        contextMenu.classList.add('show');
+        
+        // Close menu when clicking anywhere
+        setTimeout(() => {
+            document.addEventListener('click', hideContextMenu);
+        }, 0);
+    }
+
+    function hideContextMenu() {
+        const contextMenu = document.getElementById('context-menu');
+        contextMenu.classList.remove('show');
+        document.removeEventListener('click', hideContextMenu);
+        contextMenuNote = null;
+    }
+
+    async function renameNote() {
+        if (!contextMenuNote) return;
+        
+        const oldName = contextMenuNote.name;
+        const newName = prompt('Enter new name:', oldName);
+        
+        if (!newName || newName.trim() === '' || newName === oldName) {
+            return;
+        }
+        
+        const sanitizedName = newName.trim();
+        const newFileName = sanitizedName + '.json';
+        const oldFileName = oldName + '.json';
+        
+        try {
+            const dirHandle = contextMenuNote.dirHandle;
+            
+            // Check if file with new name already exists
+            try {
+                await dirHandle.getFileHandle(newFileName, { create: false });
+                alert('A file with this name already exists.');
+                return;
+            } catch (err) {
+                // File doesn't exist, good to proceed
+            }
+            
+            // Read the content of the old file
+            const file = await contextMenuNote.handle.getFile();
+            const content = await file.text();
+            
+            // Create new file with new name
+            const newFileHandle = await dirHandle.getFileHandle(newFileName, { create: true });
+            const writable = await newFileHandle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            
+            // Delete old file
+            await dirHandle.removeEntry(oldFileName);
+            
+            // Refresh the display
+            if (activeSubject) {
+                await loadNotesForSubject(activeSubject);
+            } else {
+                await loadAllNotes();
+            }
+            
+            // Reload subjects to update counts
+            await loadSubjects();
+            
+        } catch (err) {
+            console.error('Error renaming note:', err);
+            alert('Failed to rename note: ' + err.message);
+        }
+    }
+
+    async function deleteNote() {
+        if (!contextMenuNote) return;
+        
+        const noteName = contextMenuNote.name;
+        const fileName = noteName + '.json';
+        const confirmed = confirm(`Are you sure you want to delete "${noteName}"?\n\nThis action cannot be undone.`);
+        
+        if (!confirmed) return;
+        
+        try {
+            const dirHandle = contextMenuNote.dirHandle;
+            await dirHandle.removeEntry(fileName);
+            
+            // Refresh the display
+            if (activeSubject) {
+                await loadNotesForSubject(activeSubject);
+            } else {
+                await loadAllNotes();
+            }
+            
+            // Reload subjects to update counts
+            await loadSubjects();
+            
+        } catch (err) {
+            console.error('Error deleting note:', err);
+            alert('Failed to delete note: ' + err.message);
         }
     }
 
@@ -3115,6 +3316,14 @@
             deleteSelectedStrokes();
         }
         if (e.key === 'Escape') {
+            // Close context menu if open
+            const contextMenu = document.getElementById('context-menu');
+            if (contextMenu && contextMenu.classList.contains('show')) {
+                hideContextMenu();
+                requestRender();
+                return;
+            }
+            
             // Finish editing text box if active
             if (editingTextBox !== null) {
                 finishEditingTextBox();
@@ -3648,6 +3857,19 @@
     
     // Initialize custom tooltips
     initCustomTooltips();
+    
+    // Initialize context menu handlers
+    document.getElementById('context-rename').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await renameNote();
+        hideContextMenu();
+    });
+    
+    document.getElementById('context-delete').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await deleteNote();
+        hideContextMenu();
+    });
     
     function initCustomTooltips() {
         const tooltipElements = document.querySelectorAll('[data-tooltip]');
