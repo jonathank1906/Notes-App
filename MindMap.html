@@ -66,51 +66,62 @@
         }
 
         /* Beautiful Custom Tooltips for Tool Buttons */
-        .tool-btn::before,
-        .tool-btn::after {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.15s ease, transform 0.15s ease;
-            z-index: 10000;
-        }
-
-        .tool-btn::before {
-            content: attr(data-tooltip);
-            top: calc(100% + 12px);
-            left: 50%;
-            transform: translateX(-50%) translateY(-4px);
-            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+        /* Modern Pill-Style Tooltips */
+        .custom-tooltip {
+            position: fixed;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #22262d;
             color: #ffffff;
-            padding: 8px 14px;
-            border-radius: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
             font-size: 13px;
             font-weight: 500;
+            line-height: 1;
             white-space: nowrap;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
-                        0 2px 8px rgba(0, 0, 0, 0.3),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                        0 0 0 1px rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            letter-spacing: 0.3px;
-            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
-        .tool-btn::after {
-            content: '';
-            top: calc(100% + 4px);
-            left: 50%;
-            transform: translateX(-50%) translateY(-4px);
-            border: 6px solid transparent;
-            border-bottom-color: #2d2d2d;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-        }
-
-        .tool-btn:hover::before,
-        .tool-btn:hover::after {
+        .custom-tooltip.show {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
-            transition-delay: 0.15s;
+        }
+
+        .custom-tooltip::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 6px solid transparent;
+        }
+
+        .custom-tooltip.bottom::before {
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-bottom-color: #22262d;
+        }
+
+        .custom-tooltip.right::before {
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-right-color: #22262d;
+        }
+
+        .tooltip-shortcut {
+            background: #4a4f5d;
+            padding: 5px 9px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+            letter-spacing: 0.3px;
         }
 
         /* Text editing textarea */
@@ -166,24 +177,142 @@
         }
 
         #info {
+            display: none;
+        }
+
+        /* Help Button */
+        #help-btn {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            color: #555;
-            font-size: 12px;
-            pointer-events: none;
-            text-align: right;
-            line-height: 1.6;
-            font-family: monospace;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 10px 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            z-index: 99;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #help-btn:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+            transform: scale(1.05);
+        }
+
+        /* Shortcuts Dialog */
+        #shortcuts-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #shortcuts-dialog.open {
+            display: flex;
+        }
+
+        #shortcuts-content {
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        #shortcuts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--ui-border);
+        }
+
+        #shortcuts-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        #close-shortcuts {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 24px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+        #close-shortcuts:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        .shortcut-section {
+            margin-bottom: 24px;
+        }
+
+        .shortcut-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .shortcut-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .shortcut-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            color: var(--text-color);
+        }
+
+        .shortcut-desc {
+            font-size: 13px;
+        }
+
+        .shortcut-keys {
+            display: flex;
+            gap: 4px;
+            align-items: center;
         }
         
         kbd {
             background: #252525;
             border: 1px solid #333;
-            padding: 2px 5px;
+            padding: 4px 7px;
             border-radius: 4px;
             color: #888;
             font-size: 11px;
+            line-height: 1;
         }
 
         /* File Explorer Sidebar */
@@ -429,43 +558,7 @@
             z-index: 10000;
         }
 
-        #toggle-explorer::before {
-            content: attr(data-tooltip);
-            top: 50%;
-            left: calc(100% + 12px);
-            transform: translateY(-50%) translateX(-4px);
-            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-            color: #ffffff;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            white-space: nowrap;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
-                        0 2px 8px rgba(0, 0, 0, 0.3),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                        0 0 0 1px rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            letter-spacing: 0.3px;
-            backdrop-filter: blur(10px);
-        }
-
-        #toggle-explorer::after {
-            content: '';
-            top: 50%;
-            left: calc(100% + 4px);
-            transform: translateY(-50%) translateX(-4px);
-            border: 6px solid transparent;
-            border-right-color: #2d2d2d;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-        }
-
-        #toggle-explorer:hover::before,
-        #toggle-explorer:hover::after {
-            opacity: 1;
-            transform: translateY(-50%) translateX(0);
-            transition-delay: 0.15s;
-        }
+        /* Remove old explorer tooltip styles - now using custom tooltip system */
 
         #toggle-explorer:hover {
             color: var(--accent);
@@ -530,7 +623,7 @@
 </head>
 <body>
 
-    <button id="toggle-explorer" data-tooltip="Toggle File Explorer (Ctrl+E)">Files</button>
+    <button id="toggle-explorer" data-tooltip="Toggle File Explorer" data-shortcut="Ctrl+E">Files</button>
 
     <div id="file-name-indicator">
         <span class="file-icon">●</span>
@@ -558,7 +651,7 @@
     </div>
 
     <div id="toolbar">
-        <button class="tool-btn" id="btn-select" data-tooltip="Select Tool (V)">
+        <button class="tool-btn" id="btn-select" data-tooltip="Select Tool" data-shortcut="V">
             <svg id="selection" xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
@@ -566,7 +659,7 @@
                 <path id="Path_2318" class="cls-1" d="M.3,0C.13,0,0,.13,0,.3V19.7c0,.16,.13,.3,.3,.3,.08,0,.15-.03,.21-.09l5.73-5.74h7.7c.16,0,.3-.13,.3-.3,0-.08-.03-.15-.09-.21L.51,.09C.45,.03,.37,0,.3,0Z"/>
             </svg>
         </button>
-        <button class="tool-btn active" id="btn-pen" data-tooltip="Pen Tool (B)">
+        <button class="tool-btn active" id="btn-pen" data-tooltip="Pen Tool" data-shortcut="B">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <style type="text/css">
                     .st0{fill-rule:evenodd;clip-rule:evenodd;fill:#6E6E6E;}
@@ -580,7 +673,7 @@
                 </g>
             </svg>
         </button>
-        <button class="tool-btn" id="btn-eraser" data-tooltip="Eraser Tool (E)">
+        <button class="tool-btn" id="btn-eraser" data-tooltip="Eraser Tool" data-shortcut="E">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-1{fill:#6e6e6e;fill-rule:evenodd;isolation:isolate;}</style>
@@ -589,7 +682,7 @@
             </svg>
         </button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-undo" data-tooltip="Undo (Ctrl+Z)">
+        <button class="tool-btn" id="btn-undo" data-tooltip="Undo" data-shortcut="Ctrl+Z">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-undo{fill:#6E6E6F;}</style>
@@ -597,7 +690,7 @@
                 <path class="cls-undo" d="M19.9,13.6l-2.3,0.8c0,0-1.1-4.1-5.5-5.1c-4.2-1-6.7,1.6-6.7,1.6l3.5,3.5H0.1V5.7l3.5,3.4c0.2-0.2,1-1,2.5-1.7c2-0.9,4.3-1.1,6.5-0.6C15,7.4,18.5,9.4,19.9,13.6z"/>
             </svg>
         </button>
-        <button class="tool-btn" id="btn-redo" data-tooltip="Redo (Ctrl+Y)">
+        <button class="tool-btn" id="btn-redo" data-tooltip="Redo" data-shortcut="Ctrl+Y">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <defs>
                     <style>.cls-redo{fill:#6E6E6F;}</style>
@@ -606,16 +699,97 @@
             </svg>
         </button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-new" data-tooltip="New (Ctrl+N)">New</button>
-        <button class="tool-btn" id="btn-save" data-tooltip="Save (Ctrl+S)">Save</button>
+        <button class="tool-btn" id="btn-new" data-tooltip="New" data-shortcut="Ctrl+N">New</button>
+        <button class="tool-btn" id="btn-save" data-tooltip="Save" data-shortcut="Ctrl+S">Save</button>
         <div class="separator"></div>
-        <button class="tool-btn" id="btn-fullscreen" data-tooltip="Toggle Fullscreen (Shift+F)">⛶</button>
+        <button class="tool-btn" id="btn-fullscreen" data-tooltip="Toggle Fullscreen" data-shortcut="Shift+F">⛶</button>
     </div>
 
-    <div id="info">
-        <kbd>Ctrl</kbd>+<kbd>E</kbd> File Explorer • <kbd>V</kbd> Select • <kbd>B</kbd> Pen • <kbd>E</kbd> Eraser<br>
-        <kbd>Space</kbd> + Drag to Pan • <kbd>Alt</kbd> + Scroll to Zoom<br>
-        <kbd>Delete</kbd> Remove Selection • <kbd>Esc</kbd> Deselect • <kbd>Double-click</kbd> Add Text
+    <button id="help-btn" title="Keyboard Shortcuts">?</button>
+
+    <div id="shortcuts-dialog">
+        <div id="shortcuts-content">
+            <div id="shortcuts-header">
+                <div id="shortcuts-title">Keyboard Shortcuts</div>
+                <button id="close-shortcuts">×</button>
+            </div>
+            <div class="shortcut-section">
+                <div class="shortcut-section-title">Tools</div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Select Tool</span>
+                    <div class="shortcut-keys"><kbd>V</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Pen Tool</span>
+                    <div class="shortcut-keys"><kbd>B</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Eraser Tool</span>
+                    <div class="shortcut-keys"><kbd>E</kbd></div>
+                </div>
+            </div>
+            <div class="shortcut-section">
+                <div class="shortcut-section-title">Navigation</div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Pan Canvas</span>
+                    <div class="shortcut-keys"><kbd>Space</kbd> + Drag</div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Zoom In/Out</span>
+                    <div class="shortcut-keys"><kbd>Alt</kbd> + Scroll</div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Pan Horizontally</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + Scroll</div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Pan Vertically</span>
+                    <div class="shortcut-keys">Scroll</div>
+                </div>
+            </div>
+            <div class="shortcut-section">
+                <div class="shortcut-section-title">Actions</div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Undo</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Redo</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">New Mindmap</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Save</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">File Explorer</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>E</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Toggle Fullscreen</span>
+                    <div class="shortcut-keys"><kbd>Shift</kbd> + <kbd>F</kbd></div>
+                </div>
+            </div>
+            <div class="shortcut-section">
+                <div class="shortcut-section-title">Selection & Text</div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Add Text Box</span>
+                    <div class="shortcut-keys">Double-click</div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Delete Selection</span>
+                    <div class="shortcut-keys"><kbd>Delete</kbd></div>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Deselect All</span>
+                    <div class="shortcut-keys"><kbd>Esc</kbd></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <textarea id="text-editor"></textarea>
@@ -2795,11 +2969,124 @@
     navBackBtn.onclick = navigateBack;
     selectRootBtn.onclick = selectRootFolder;
 
+    // Shortcuts dialog
+    const helpBtn = document.getElementById('help-btn');
+    const shortcutsDialog = document.getElementById('shortcuts-dialog');
+    const closeShortcuts = document.getElementById('close-shortcuts');
+
+    helpBtn.onclick = () => {
+        shortcutsDialog.classList.add('open');
+    };
+
+    closeShortcuts.onclick = () => {
+        shortcutsDialog.classList.remove('open');
+    };
+
+    // Close dialog when clicking outside
+    shortcutsDialog.onclick = (e) => {
+        if (e.target === shortcutsDialog) {
+            shortcutsDialog.classList.remove('open');
+        }
+    };
+
+    // Close dialog with Escape key
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && shortcutsDialog.classList.contains('open')) {
+            shortcutsDialog.classList.remove('open');
+            e.stopPropagation();
+        }
+    }, true);
+
     // Initialize file explorer
     initFileExplorer();
     
     // Initialize file name indicator
     updateFileNameIndicator();
+    
+    // Initialize custom tooltips
+    initCustomTooltips();
+    
+    function initCustomTooltips() {
+        const tooltipElements = document.querySelectorAll('[data-tooltip]');
+        let currentTooltip = null;
+        let hideTimeout = null;
+        
+        // Helper to remove any existing tooltips
+        function removeAllTooltips() {
+            const existingTooltips = document.querySelectorAll('.custom-tooltip');
+            existingTooltips.forEach(tooltip => {
+                if (tooltip.parentNode) {
+                    tooltip.parentNode.removeChild(tooltip);
+                }
+            });
+            currentTooltip = null;
+        }
+        
+        tooltipElements.forEach(element => {
+            element.addEventListener('mouseenter', (e) => {
+                clearTimeout(hideTimeout);
+                
+                // Remove any existing tooltips immediately
+                removeAllTooltips();
+                
+                const action = element.getAttribute('data-tooltip');
+                const shortcut = element.getAttribute('data-shortcut');
+                
+                if (!action) return;
+                
+                // Create tooltip element
+                const tooltip = document.createElement('div');
+                tooltip.className = 'custom-tooltip';
+                
+                const actionSpan = document.createElement('span');
+                actionSpan.textContent = action;
+                tooltip.appendChild(actionSpan);
+                
+                if (shortcut) {
+                    const shortcutSpan = document.createElement('span');
+                    shortcutSpan.className = 'tooltip-shortcut';
+                    shortcutSpan.textContent = shortcut;
+                    tooltip.appendChild(shortcutSpan);
+                }
+                
+                document.body.appendChild(tooltip);
+                
+                // Position the tooltip
+                const rect = element.getBoundingClientRect();
+                const tooltipRect = tooltip.getBoundingClientRect();
+                
+                // Determine position based on element
+                if (element.id === 'toggle-explorer') {
+                    // Position to the right of the explorer button
+                    tooltip.classList.add('right');
+                    tooltip.style.left = (rect.right + 12) + 'px';
+                    tooltip.style.top = (rect.top + rect.height / 2 - tooltipRect.height / 2) + 'px';
+                } else {
+                    // Position below for toolbar items
+                    tooltip.classList.add('bottom');
+                    tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
+                    tooltip.style.top = (rect.bottom + 12) + 'px';
+                }
+                
+                // Show tooltip with delay
+                setTimeout(() => {
+                    tooltip.classList.add('show');
+                }, 150);
+                
+                currentTooltip = tooltip;
+            });
+            
+            element.addEventListener('mouseleave', () => {
+                if (currentTooltip) {
+                    const tooltip = currentTooltip;
+                    tooltip.classList.remove('show');
+                    hideTimeout = setTimeout(() => {
+                        removeAllTooltips();
+                    }, 150);
+                }
+            });
+        });
+    }
 
     // Add CSS animation for notifications
     const style = document.createElement('style');
