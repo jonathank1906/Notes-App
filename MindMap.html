@@ -315,293 +315,437 @@
             line-height: 1;
         }
 
-        /* File Explorer Sidebar */
-        #file-explorer {
+        /* Home Screen */
+        #home-screen {
             position: fixed;
-            left: 0;
             top: 0;
-            width: 320px;
+            left: 0;
+            width: 100%;
             height: 100%;
-            background: var(--ui-bg);
+            background: var(--bg-color);
+            z-index: 1000;
+            display: flex;
+            flex-direction: row;
+            cursor: default;
+        }
+
+        #home-screen.hidden {
+            display: none;
+        }
+
+        /* Subjects Sidebar */
+        #subjects-sidebar {
+            width: 220px;
+            background: #1a1a1a;
             border-right: 1px solid var(--ui-border);
             display: flex;
             flex-direction: column;
-            z-index: 200;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
+            overflow-y: auto;
         }
 
-        #file-explorer.open {
-            transform: translateX(0);
-        }
-
-        #explorer-header {
-            padding: 16px;
+        #sidebar-header {
+            padding: 20px 16px;
             border-bottom: 1px solid var(--ui-border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
 
-        #explorer-title {
-            font-size: 14px;
+        #sidebar-title {
+            font-size: 24px;
             font-weight: 600;
             color: var(--accent);
+            margin-bottom: 16px;
         }
 
-        #close-explorer {
-            background: transparent;
-            border: none;
-            color: var(--text-color);
-            cursor: pointer;
-            font-size: 20px;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-
-        #close-explorer:hover {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #explorer-nav {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--ui-border);
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        #nav-back {
-            background: transparent;
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        #nav-back:hover:not(:disabled) {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #nav-back:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        #current-path {
-            flex: 1;
-            font-size: 12px;
-            color: var(--text-color);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        #select-root {
-            background: transparent;
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        #select-root:hover {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #explorer-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
-
-        .explorer-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 12px;
-            margin: 4px 0;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            border: 1px solid transparent;
-        }
-
-        .explorer-item:hover {
-            background: var(--btn-hover);
-            border-color: var(--ui-border);
-        }
-
-        .explorer-item.folder {
-            color: #88c0ff;
-        }
-
-        .explorer-item.file {
-            color: var(--text-color);
-        }
-
-        .item-icon {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 12px;
-            font-size: 24px;
-            flex-shrink: 0;
-        }
-
-        .item-preview {
-            width: 40px;
-            height: 40px;
-            margin-right: 12px;
-            border-radius: 4px;
-            background: var(--bg-color);
-            border: 1px solid var(--ui-border);
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-
-        .item-preview canvas {
+        #sidebar-search {
             width: 100%;
-            height: 100%;
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: 1px solid var(--ui-border);
+            border-radius: 6px;
+            color: var(--accent);
+            font-size: 14px;
+            outline: none;
+            cursor: text;
         }
 
-        .item-details {
+        #sidebar-search:focus {
+            border-color: #555;
+        }
+
+        #subjects-list {
             flex: 1;
-            min-width: 0;
+            padding: 8px 0;
         }
 
-        .item-name {
-            font-size: 13px;
+        .subject-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-color);
+            transition: background 0.15s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .subject-item:hover {
+            background: var(--btn-hover);
+            color: var(--accent);
+        }
+
+        .subject-item.active {
+            background: var(--btn-active);
+            color: var(--accent);
+            border-left-color: var(--accent);
+        }
+
+        .subject-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .subject-name {
+            flex: 1;
+            font-size: 14px;
             font-weight: 500;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        .item-meta {
-            font-size: 11px;
+        .subject-count {
+            font-size: 12px;
             color: #666;
         }
 
-        #empty-state {
-            text-align: center;
-            padding: 60px 20px;
+        /* Notes Content Area */
+        #notes-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        #content-header {
+            padding: 20px 32px;
+            border-bottom: 1px solid var(--ui-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        #content-header-left {
+            flex: 1;
+        }
+
+        #content-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #btn-view-switcher {
+            background: transparent;
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        #btn-view-switcher:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        #view-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            z-index: 1000;
+            display: none;
+            min-width: 150px;
+        }
+
+        #view-menu.show {
+            display: block;
+        }
+
+        .view-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+            color: var(--text-color);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .view-option:hover {
+            background: var(--btn-hover);
+            color: var(--accent);
+        }
+
+        .view-option.active {
+            background: var(--btn-active);
+            color: var(--accent);
+        }
+
+        .view-option svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        #content-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        #content-meta {
+            font-size: 14px;
             color: var(--text-color);
         }
 
-        #empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        #empty-state-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        #empty-state-desc {
-            font-size: 12px;
-            line-height: 1.6;
-            opacity: 0.7;
-        }
-
-        .explorer-btn {
+        #btn-new-note {
             background: #2196F3;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 12px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            margin-top: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s ease;
         }
 
-        .explorer-btn:hover {
+        #btn-new-note:hover {
             background: #1976D2;
         }
 
-        #toggle-explorer {
+        #notes-grid {
+            padding: 32px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 24px;
+            align-content: start;
+        }
+
+        #notes-grid.list-view {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 0;
+        }
+
+        .note-card {
+            background: #1a1a1a;
+            border: 1px solid var(--ui-border);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #notes-grid.list-view .note-card {
+            border-radius: 0;
+            border: none;
+            border-bottom: 1px solid var(--ui-border);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 16px 32px;
+            background: transparent;
+        }
+
+        #notes-grid.list-view .note-card:hover {
+            transform: none;
+            box-shadow: none;
+            background: var(--btn-hover);
+            border-bottom-color: var(--ui-border);
+        }
+
+        .note-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            border-color: #555;
+        }
+
+        .note-preview {
+            width: 100%;
+            height: 200px;
+            background: #0a0a0a;
+            border-bottom: 1px solid var(--ui-border);
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+
+        #notes-grid.list-view .note-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            border: 1px solid var(--ui-border);
+            border-bottom: 1px solid var(--ui-border);
+            flex-shrink: 0;
+        }
+
+        .note-preview canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .note-preview-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #444;
+            font-size: 48px;
+        }
+
+        #notes-grid.list-view .note-preview-empty {
+            font-size: 24px;
+        }
+
+        .note-info {
+            padding: 16px;
+            cursor: pointer;
+        }
+
+        #notes-grid.list-view .note-info {
+            padding: 0 20px;
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #notes-grid.list-view .note-info > div:first-child {
+            flex: 1;
+        }
+
+        #notes-grid:not(.list-view) .note-info {
+            display: block;
+        }
+
+        .note-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #notes-grid:not(.list-view) .note-title {
+            margin-bottom: 8px;
+        }
+
+        #notes-grid.list-view .note-title {
+            margin-bottom: 0;
+            font-size: 15px;
+        }
+
+        .note-date {
+            font-size: 13px;
+            color: var(--text-color);
+        }
+
+        #notes-grid.list-view .note-date {
+            font-size: 12px;
+        }
+
+        #empty-notes-state {
+            text-align: center;
+            padding: 80px 32px;
+            color: var(--text-color);
+        }
+
+        #empty-notes-state-icon {
+            font-size: 64px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        #empty-notes-state-title {
+            font-size: 20px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        #empty-notes-state-desc {
+            font-size: 14px;
+        }
+
+        .select-folder-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 24px;
+        }
+
+        .select-folder-btn:hover {
+            background: #1976D2;
+        }
+
+        /* Canvas Container */
+        #canvas-container {
             position: fixed;
-            left: 20px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #canvas-container.hidden {
+            display: none;
+        }
+
+        /* Home Button */
+        #btn-home {
+            position: fixed;
             top: 20px;
+            left: 20px;
             background: var(--ui-bg);
             border: 1px solid var(--ui-border);
             color: var(--text-color);
             padding: 10px 14px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            z-index: 99;
+            font-size: 20px;
+            z-index: 101;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
             transition: all 0.15s ease;
         }
 
-        /* Beautiful Custom Tooltip for Toggle Explorer */
-        #toggle-explorer::before,
-        #toggle-explorer::after {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.15s ease, transform 0.15s ease;
-            z-index: 10000;
-        }
-
-        /* Remove old explorer tooltip styles - now using custom tooltip system */
-
-        #toggle-explorer:hover {
+        #btn-home:hover {
             color: var(--accent);
             background: var(--btn-hover);
         }
 
-        /* File name indicator */
-        #file-name-indicator {
-            position: fixed;
-            right: 20px;
-            top: 20px;
-            background: var(--ui-bg);
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 12px;
-            z-index: 99;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            max-width: 250px;
-        }
-
-        #file-name-indicator .file-icon {
-            font-size: 14px;
-            opacity: 0.7;
-        }
-
-        #file-name-indicator .file-text {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-family: monospace;
-        }
-
-        #file-name-indicator.unsaved {
-            border-color: #ff9800;
-        }
-
-        #file-name-indicator.unsaved .file-icon {
-            color: #ff9800;
+        #btn-home.hidden {
+            display: none;
         }
 
         /* Loading spinner */
@@ -623,32 +767,65 @@
 </head>
 <body>
 
-    <button id="toggle-explorer" data-tooltip="Toggle File Explorer" data-shortcut="Ctrl+E">Files</button>
-
-    <div id="file-name-indicator">
-        <span class="file-icon">●</span>
-        <span class="file-text">untitled</span>
-    </div>
-
-    <div id="file-explorer">
-        <div id="explorer-header">
-            <div id="explorer-title">Mind Map Files</div>
-            <button id="close-explorer">×</button>
+    <!-- Home Screen -->
+    <div id="home-screen">
+        <div id="subjects-sidebar">
+            <div id="sidebar-header">
+                <div id="sidebar-title">Subjects</div>
+                <input id="sidebar-search" type="text" placeholder="Search...">
+            </div>
+            <div id="subjects-list">
+                <!-- Subjects will be dynamically generated -->
+            </div>
         </div>
-        <div id="explorer-nav">
-            <button id="nav-back" disabled>← Back</button>
-            <div id="current-path">/</div>
-            <button id="select-root" title="Change Root Folder">⚙</button>
-        </div>
-        <div id="explorer-content">
-            <div id="empty-state">
-                <div id="empty-state-icon">[ ]</div>
-                <div id="empty-state-title">No Folder Selected</div>
-                <div id="empty-state-desc">Select your main mindmaps folder to get started. It will be remembered for next time.</div>
-                <button class="explorer-btn" onclick="selectRootFolder()">Select Folder</button>
+        <div id="notes-content">
+            <div id="content-header">
+                <div id="content-header-left">
+                    <div id="content-title">All Notes</div>
+                    <div id="content-meta"><span id="notes-count">0</span> notes</div>
+                </div>
+                <div id="content-header-right">
+                    <button id="btn-view-switcher" onclick="event.stopPropagation(); toggleViewMenu()">
+                        ⋮
+                        <div id="view-menu" onclick="event.stopPropagation()">
+                            <div class="view-option active" onclick="setView('grid')">
+                                <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
+                                Grid View
+                            </div>
+                            <div class="view-option" onclick="setView('list')">
+                                <svg viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h18v2H3z"/></svg>
+                                List View
+                            </div>
+                        </div>
+                    </button>
+                    <button id="btn-new-note" onclick="createNewNote()">+ New</button>
+                </div>
+            </div>
+            <div id="notes-grid">
+                <!-- Notes will be dynamically generated -->
+            </div>
+            <div id="empty-notes-state" style="display: none;">
+                <div id="empty-notes-state-icon">📝</div>
+                <div id="empty-notes-state-title">No Notes Yet</div>
+                <div id="empty-notes-state-desc">Select your notes folder to get started</div>
+                <button class="select-folder-btn" onclick="selectRootFolder()">Select Folder</button>
             </div>
         </div>
     </div>
+
+    <!-- Canvas Container -->
+    <div id="canvas-container" class="hidden">
+        <canvas id="canvas"></canvas>
+        <textarea id="text-editor"></textarea>
+    </div>
+
+    <!-- Home Button -->
+    <button id="btn-home" data-tooltip="Home" data-shortcut="Ctrl+H">
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
+            <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
+	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
+        </svg>
+    </button>
 
     <div id="toolbar">
         <button class="tool-btn" id="btn-select" data-tooltip="Select Tool" data-shortcut="V">
@@ -766,8 +943,8 @@
                     <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></div>
                 </div>
                 <div class="shortcut-item">
-                    <span class="shortcut-desc">File Explorer</span>
-                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>E</kbd></div>
+                    <span class="shortcut-desc">Home Screen</span>
+                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>H</kbd></div>
                 </div>
                 <div class="shortcut-item">
                     <span class="shortcut-desc">Toggle Fullscreen</span>
@@ -791,9 +968,6 @@
             </div>
         </div>
     </div>
-
-    <textarea id="text-editor"></textarea>
-    <canvas id="canvas"></canvas>
 
 <script>
     // --- CONFIGURATION ---
@@ -863,6 +1037,9 @@
     let currentFileName = 'untitled';
     let currentFileHandle = null;
     let hasUnsavedChanges = false;
+    let allSubjects = [];
+    let activeSubject = null;
+    let currentView = 'grid'; // 'grid' or 'list'
 
     // --- INIT ---
     function resize() {
@@ -1596,11 +1773,13 @@
         currentFileName = 'untitled';
         currentFileHandle = null;
         hasUnsavedChanges = false;
-        updateFileNameIndicator();
         
         // Hide text editor if visible
         const textEditor = document.getElementById('text-editor');
         textEditor.style.display = 'none';
+        
+        // Show canvas for drawing
+        showCanvas();
         
         requestRender();
     }
@@ -1626,7 +1805,6 @@
                 await writable.write(blob);
                 await writable.close();
                 hasUnsavedChanges = false;
-                updateFileNameIndicator();
                 showNotification('Saved to ' + currentFileName);
                 return;
             } catch (err) {
@@ -1664,9 +1842,7 @@
                 currentFileName = fileHandle.name;
                 currentFileHandle = fileHandle;
                 hasUnsavedChanges = false;
-                updateFileNameIndicator();
                 requestRender();
-                closeExplorer();
                 showNotification('Loaded ' + fileHandle.name);
             } else {
                 alert('Invalid file format');
@@ -1702,28 +1878,47 @@
     }
 
     function updateFileNameIndicator() {
-        const indicator = document.getElementById('file-name-indicator');
-        const fileText = indicator.querySelector('.file-text');
-        const fileIcon = indicator.querySelector('.file-icon');
+        // No longer needed - kept for compatibility
+    }
+
+    // --- HOME SCREEN ---
+    async function showHomeScreen() {
+        document.getElementById('home-screen').classList.remove('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
         
-        if (currentFileHandle) {
-            fileText.textContent = currentFileName;
-            fileIcon.textContent = '●';
-            indicator.classList.remove('unsaved');
-            indicator.title = 'Saved: ' + currentFileName;
-        } else {
-            fileText.textContent = currentFileName || 'untitled';
-            fileIcon.textContent = '○';
-            indicator.classList.add('unsaved');
-            indicator.title = 'Unsaved document';
+        // Stop rendering canvas
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        
+        // Refresh the notes list and subjects
+        if (currentDirHandle) {
+            await loadSubjects();
+            displaySubjects();
+            
+            // Reload notes based on active subject
+            if (activeSubject === null) {
+                await loadAllNotes();
+            } else {
+                await loadNotesForSubject(activeSubject);
+            }
         }
     }
 
-    // --- FILE EXPLORER ---
-    async function initFileExplorer() {
+    function showCanvas() {
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.remove('hidden');
+        document.getElementById('btn-home').classList.remove('hidden');
+        requestRender();
+    }
+
+    async function initHomeScreen() {
         // Check if File System Access API is supported
         if (!('showDirectoryPicker' in window)) {
             console.warn('File System Access API not supported');
+            showEmptyState();
             return;
         }
 
@@ -1731,191 +1926,361 @@
         try {
             const db = await openDB();
             const handle = await db.get('rootDirHandle');
+            
             if (handle) {
                 // Verify permission
                 const permission = await handle.queryPermission({ mode: 'readwrite' });
                 if (permission === 'granted') {
                     rootDirHandle = handle;
                     currentDirHandle = handle;
-                    await displayDirectory();
+                    await loadSubjects();
                 } else {
                     // Request permission
                     const newPermission = await handle.requestPermission({ mode: 'readwrite' });
                     if (newPermission === 'granted') {
                         rootDirHandle = handle;
                         currentDirHandle = handle;
-                        await displayDirectory();
+                        await loadSubjects();
+                    } else {
+                        showEmptyState();
                     }
                 }
+            } else {
+                showEmptyState();
             }
         } catch (err) {
             console.log('Could not restore saved directory:', err);
+            showEmptyState();
         }
     }
 
-    async function selectRootFolder() {
+    function showEmptyState() {
+        document.getElementById('notes-grid').innerHTML = '';
+        document.getElementById('empty-notes-state').style.display = 'block';
+        document.getElementById('subjects-list').innerHTML = '<div style="padding:16px;color:#666;text-align:center;font-size:12px;">No folder selected</div>';
+    }
+
+    async function loadSubjects() {
         try {
-            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-            rootDirHandle = dirHandle;
-            currentDirHandle = dirHandle;
-            currentPath = [];
+            const subjects = [];
             
-            // Save to IndexedDB
-            const db = await openDB();
-            await db.put(dirHandle, 'rootDirHandle');
-            
-            await displayDirectory();
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                console.error('Error selecting folder:', err);
-                alert('Error selecting folder. Please try again.');
+            // Scan the root folder for subfolders (subjects)
+            for await (const entry of rootDirHandle.values()) {
+                if (entry.kind === 'directory') {
+                    const files = [];
+                    try {
+                        for await (const fileEntry of entry.values()) {
+                            if (fileEntry.kind === 'file' && fileEntry.name.endsWith('.json')) {
+                                files.push(fileEntry);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error reading folder:', entry.name, err);
+                    }
+                    
+                    subjects.push({
+                        name: entry.name,
+                        handle: entry,
+                        count: files.length,
+                        color: getSubjectColor(subjects.length)
+                    });
+                }
             }
-        }
-    }
-
-    async function displayDirectory() {
-        const content = document.getElementById('explorer-content');
-        content.innerHTML = '<div class="spinner"></div>';
-        
-        try {
-            const items = [];
             
-            for await (const entry of currentDirHandle.values()) {
-                items.push({
-                    name: entry.name,
-                    kind: entry.kind,
-                    handle: entry
+            // Also include files in root
+            const rootFiles = [];
+            for await (const entry of rootDirHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    rootFiles.push(entry);
+                }
+            }
+            
+            if (rootFiles.length > 0) {
+                subjects.unshift({
+                    name: 'UIUC',
+                    handle: rootDirHandle,
+                    count: rootFiles.length,
+                    color: getSubjectColor(-1)
                 });
             }
             
-            // Sort: folders first, then alphabetically
-            items.sort((a, b) => {
-                if (a.kind !== b.kind) {
-                    return a.kind === 'directory' ? -1 : 1;
-                }
-                return a.name.localeCompare(b.name);
-            });
+            allSubjects = subjects;
+            displaySubjects();
             
-            content.innerHTML = '';
-            
-            if (items.length === 0) {
-                content.innerHTML = `
-                    <div id="empty-state">
-                        <div id="empty-state-icon">[ ]</div>
-                        <div id="empty-state-title">Folder is Empty</div>
-                        <div id="empty-state-desc">This folder doesn't contain any files or subfolders.</div>
-                    </div>
-                `;
-                return;
-            }
-            
-            for (const item of items) {
-                const itemEl = createExplorerItem(item);
-                content.appendChild(itemEl);
-            }
-            
-            // Update navigation
-            document.getElementById('current-path').textContent = 
-                '/' + currentPath.join('/');
-            document.getElementById('nav-back').disabled = currentPath.length === 0;
+            // Load all notes by default
+            activeSubject = null;
+            await loadAllNotes();
             
         } catch (err) {
-            console.error('Error reading directory:', err);
-            content.innerHTML = `
-                <div id="empty-state">
-                    <div id="empty-state-icon">!</div>
-                    <div id="empty-state-title">Access Error</div>
-                    <div id="empty-state-desc">Could not read folder contents. Permission may have been revoked.</div>
-                    <button class="explorer-btn" onclick="selectRootFolder()">Select Different Folder</button>
-                </div>
-            `;
+            console.error('Error loading subjects:', err);
+            showEmptyState();
         }
     }
 
-    function createExplorerItem(item) {
-        const div = document.createElement('div');
-        div.className = 'explorer-item ' + (item.kind === 'directory' ? 'folder' : 'file');
+    function getSubjectColor(index) {
+        const colors = [
+            '#4CAF50', // Green  
+            '#E91E63', // Pink
+            '#2196F3', // Blue
+            '#FF9800', // Orange
+            '#9C27B0', // Purple
+            '#00BCD4', // Cyan
+            '#FFEB3B', // Yellow
+            '#795548'  // Brown
+        ];
+        return colors[index % colors.length];
+    }
+
+    function displaySubjects() {
+        const subjectsList = document.getElementById('subjects-list');
+        subjectsList.innerHTML = '';
         
-        if (item.kind === 'directory') {
-            div.innerHTML = `
-                <div class="item-icon"></div>
-                <div class="item-details">
-                    <div class="item-name">${escapeHtml(item.name)}</div>
-                </div>
+        // Add "All Notes" option
+        const allNotesItem = document.createElement('div');
+        allNotesItem.className = 'subject-item' + (activeSubject === null ? ' active' : '');
+        allNotesItem.innerHTML = `
+            <div class="subject-color" style="background:#888;"></div>
+            <div class="subject-name">All Notes</div>
+            <div class="subject-count">${getAllNotesCount()}</div>
+        `;
+        allNotesItem.onclick = async () => {
+            activeSubject = null;
+            await loadAllNotes();
+            displaySubjects();
+        };
+        subjectsList.appendChild(allNotesItem);
+        
+        // Add subject items
+        for (const subject of allSubjects) {
+            const subjectItem = document.createElement('div');
+            subjectItem.className = 'subject-item' + (activeSubject === subject ? ' active' : '');
+            subjectItem.innerHTML = `
+                <div class="subject-color" style="background:${subject.color};"></div>
+                <div class="subject-name">${escapeHtml(subject.name)}</div>
+                <div class="subject-count">${subject.count}</div>
             `;
-            div.onclick = () => navigateIntoFolder(item);
+            subjectItem.onclick = async () => {
+                activeSubject = subject;
+                await loadNotesForSubject(subject);
+                displaySubjects();
+            };
+            subjectsList.appendChild(subjectItem);
+        }
+    }
+
+    function getAllNotesCount() {
+        return allSubjects.reduce((sum, s) => sum + s.count, 0);
+    }
+
+    function toggleViewMenu() {
+        const menu = document.getElementById('view-menu');
+        menu.classList.toggle('show');
+        
+        // Close menu when clicking outside
+        if (menu.classList.contains('show')) {
+            setTimeout(() => {
+                document.addEventListener('click', closeViewMenu);
+            }, 0);
+        }
+    }
+
+    function closeViewMenu() {
+        const menu = document.getElementById('view-menu');
+        menu.classList.remove('show');
+        document.removeEventListener('click', closeViewMenu);
+    }
+
+    function setView(view) {
+        currentView = view;
+        const notesGrid = document.getElementById('notes-grid');
+        const options = document.querySelectorAll('.view-option');
+        
+        // Update grid class
+        if (view === 'list') {
+            notesGrid.classList.add('list-view');
         } else {
-            // Check if it's a JSON file
-            if (item.name.endsWith('.json')) {
-                div.innerHTML = `
-                    <div class="item-preview" id="preview-${generateId()}"></div>
-                    <div class="item-details">
-                        <div class="item-name">${escapeHtml(item.name)}</div>
-                        <div class="item-meta">Mind Map</div>
-                    </div>
-                `;
-                
-                // Generate preview asynchronously
-                const previewEl = div.querySelector('.item-preview');
-                generatePreview(item.handle, previewEl);
-                
-                div.onclick = () => loadFromFileHandle(item.handle);
-            } else {
-                div.innerHTML = `
-                    <div class="item-icon">■</div>
-                    <div class="item-details">
-                        <div class="item-name">${escapeHtml(item.name)}</div>
-                        <div class="item-meta">File</div>
-                    </div>
-                `;
+            notesGrid.classList.remove('list-view');
+        }
+        
+        // Update active state
+        options.forEach(option => {
+            option.classList.remove('active');
+            const optionView = option.textContent.includes('Grid') ? 'grid' : 'list';
+            if (optionView === view) {
+                option.classList.add('active');
+            }
+        });
+        
+        closeViewMenu();
+    }
+
+    async function loadAllNotes() {
+        const notesGrid = document.getElementById('notes-grid');
+        const emptyState = document.getElementById('empty-notes-state');
+        
+        notesGrid.innerHTML = '<div class="spinner" style="grid-column: 1 / -1; margin: 40px auto;"></div>';
+        emptyState.style.display = 'none';
+        
+        document.getElementById('content-title').textContent = 'All Notes';
+        
+        const allNotes = [];
+        
+        for (const subject of allSubjects) {
+            try {
+                for await (const entry of subject.handle.values()) {
+                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                        const file = await entry.getFile();
+                        allNotes.push({
+                            handle: entry,
+                            name: entry.name.replace('.json', ''),
+                            subject: subject.name,
+                            color: subject.color,
+                            date: file.lastModified
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading notes from', subject.name, err);
             }
         }
         
-        return div;
+        // Sort by name
+        allNotes.sort((a, b) => a.name.localeCompare(b.name));
+        
+        displayNotes(allNotes);
     }
 
-    async function navigateIntoFolder(item) {
-        currentPath.push(item.name);
-        currentDirHandle = item.handle;
-        await displayDirectory();
-    }
-
-    async function navigateBack() {
-        if (currentPath.length === 0) return;
+    async function loadNotesForSubject(subject) {
+        const notesGrid = document.getElementById('notes-grid');
+        const emptyState = document.getElementById('empty-notes-state');
         
-        currentPath.pop();
+        notesGrid.innerHTML = '<div class="spinner" style="grid-column: 1 / -1; margin: 40px auto;"></div>';
+        emptyState.style.display = 'none';
         
-        // Navigate back through handles
-        currentDirHandle = rootDirHandle;
-        for (const folderName of currentPath) {
-            currentDirHandle = await currentDirHandle.getDirectoryHandle(folderName);
+        document.getElementById('content-title').textContent = subject.name;
+        
+        const notes = [];
+        
+        try {
+            for await (const entry of subject.handle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    const file = await entry.getFile();
+                    notes.push({
+                        handle: entry,
+                        name: entry.name.replace('.json', ''),
+                        subject: subject.name,
+                        color: subject.color,
+                        date: file.lastModified
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Error loading notes:', err);
         }
         
-        await displayDirectory();
+        // Sort by name
+        notes.sort((a, b) => a.name.localeCompare(b.name));
+        
+        displayNotes(notes);
     }
 
-    async function generatePreview(fileHandle, previewEl) {
+    async function displayNotes(notes) {
+        const notesGrid = document.getElementById('notes-grid');
+        const emptyState = document.getElementById('empty-notes-state');
+        const notesCount = document.getElementById('notes-count');
+        
+        notesCount.textContent = notes.length;
+        
+        if (notes.length === 0) {
+            notesGrid.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        emptyState.style.display = 'none';
+        notesGrid.innerHTML = '';
+        
+        // Apply current view
+        if (currentView === 'list') {
+            notesGrid.classList.add('list-view');
+        } else {
+            notesGrid.classList.remove('list-view');
+        }
+        
+        for (const note of notes) {
+            const card = createNoteCard(note);
+            notesGrid.appendChild(card);
+        }
+    }
+
+    function createNoteCard(note) {
+        const card = document.createElement('div');
+        card.className = 'note-card';
+        
+        const preview = document.createElement('div');
+        preview.className = 'note-preview';
+        preview.innerHTML = '<div class="note-preview-empty">📝</div>';
+        
+        const info = document.createElement('div');
+        info.className = 'note-info';
+        
+        // Format date
+        const date = new Date(note.date);
+        const formattedDate = date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+        });
+        
+        const titleWrapper = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'note-title';
+        title.textContent = note.name;
+        titleWrapper.appendChild(title);
+        
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'note-date';
+        dateDiv.textContent = formattedDate;
+        
+        info.appendChild(titleWrapper);
+        info.appendChild(dateDiv);
+        
+        card.appendChild(preview);
+        card.appendChild(info);
+        
+        // Generate preview asynchronously
+        generateNotePreview(note.handle, preview);
+        
+        card.onclick = async () => {
+            await openNote(note.handle);
+        };
+        
+        return card;
+    }
+
+    async function generateNotePreview(fileHandle, previewEl) {
         try {
             const file = await fileHandle.getFile();
             const text = await file.text();
             const data = JSON.parse(text);
             
-            // Filter out eraser strokes
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
             if (validStrokes.length === 0 && textBoxes.length === 0) {
-                previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:10px;">Empty</div>';
                 return;
             }
             
-            // Create a small canvas for preview
+            // Clear empty state
+            previewEl.innerHTML = '';
+            
+            // Create canvas for preview
             const previewCanvas = document.createElement('canvas');
-            previewCanvas.width = 80;
-            previewCanvas.height = 80;
+            previewCanvas.width = 500;
+            previewCanvas.height = 400;
             const previewCtx = previewCanvas.getContext('2d');
             
-            // Calculate bounds of all strokes and text boxes
+            // Calculate bounds
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             for (const stroke of validStrokes) {
                 for (const pt of stroke.points) {
@@ -1934,15 +2299,15 @@
             
             const width = maxX - minX;
             const height = maxY - minY;
-            const scale = Math.min(70 / width, 70 / height) || 1;
-            const offsetX = 40 - (minX + width / 2) * scale;
-            const offsetY = 40 - (minY + height / 2) * scale;
+            const scale = Math.min(480 / width, 380 / height) || 1;
+            const offsetX = 250 - (minX + width / 2) * scale;
+            const offsetY = 200 - (minY + height / 2) * scale;
             
             // Draw background
             previewCtx.fillStyle = CONFIG.bgColor;
-            previewCtx.fillRect(0, 0, 80, 80);
+            previewCtx.fillRect(0, 0, 500, 400);
             
-            // Draw strokes and text boxes
+            // Draw content
             previewCtx.save();
             previewCtx.translate(offsetX, offsetY);
             previewCtx.scale(scale, scale);
@@ -1950,8 +2315,7 @@
             previewCtx.lineJoin = 'round';
             
             for (const stroke of validStrokes) {
-                if (stroke.points.length < 1) continue;
-                if (stroke.tool === 'eraser') continue;
+                if (stroke.points.length < 1 || stroke.tool === 'eraser') continue;
                 
                 previewCtx.beginPath();
                 previewCtx.strokeStyle = stroke.color || CONFIG.penColor;
@@ -1965,34 +2329,10 @@
                 previewCtx.stroke();
             }
             
-            // Draw text boxes
             for (const textBox of textBoxes) {
-                const { x, y, width, height, text } = textBox;
-                
-                // Draw box
+                const { x, y, width, height } = textBox;
                 previewCtx.fillStyle = 'rgba(30, 30, 30, 0.95)';
-                previewCtx.strokeStyle = '#555';
-                previewCtx.lineWidth = 1.5 / scale;
-                
-                const radius = 8 / scale;
-                previewCtx.beginPath();
-                previewCtx.moveTo(x + radius, y);
-                previewCtx.lineTo(x + width - radius, y);
-                previewCtx.quadraticCurveTo(x + width, y, x + width, y + radius);
-                previewCtx.lineTo(x + width, y + height - radius);
-                previewCtx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-                previewCtx.lineTo(x + radius, y + height);
-                previewCtx.quadraticCurveTo(x, y + height, x, y + height - radius);
-                previewCtx.lineTo(x, y + radius);
-                previewCtx.quadraticCurveTo(x, y, x + radius, y);
-                previewCtx.closePath();
-                previewCtx.fill();
-                previewCtx.stroke();
-                
-                // Draw simplified text indicator
-                previewCtx.fillStyle = '#e0e0e0';
-                previewCtx.font = `${12 / scale}px Arial`;
-                previewCtx.fillText('T', x + 5 / scale, y + 15 / scale);
+                previewCtx.fillRect(x, y, width, height);
             }
             
             previewCtx.restore();
@@ -2001,18 +2341,90 @@
             
         } catch (err) {
             console.error('Preview generation failed:', err);
-            previewEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:18px;">?</div>';
         }
     }
 
-    function toggleExplorer() {
-        const explorer = document.getElementById('file-explorer');
-        explorer.classList.toggle('open');
+    async function openNote(fileHandle) {
+        await loadFromFileHandle(fileHandle);
+        showCanvas();
     }
 
-    function closeExplorer() {
-        document.getElementById('file-explorer').classList.remove('open');
+    async function createNewNote() {
+        // Check if a folder is selected
+        if (!currentDirHandle) {
+            await selectRootFolder();
+            if (!currentDirHandle) return; // User cancelled
+        }
+
+        try {
+            // Generate a default filename with timestamp
+            const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+            const defaultName = `Note_${timestamp}.json`;
+            
+            // Create new file
+            const fileHandle = await currentDirHandle.getFileHandle(defaultName, { create: true });
+            
+            // Create blank mindmap data
+            const blankData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                camera: { x: 0, y: 0, z: 1 },
+                strokes: [],
+                textBoxes: []
+            };
+            
+            // Write to file
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(blankData));
+            await writable.close();
+            
+            // Set as current file
+            currentFileHandle = fileHandle;
+            currentFileName = defaultName;
+            
+            // Initialize blank canvas
+            strokes = [];
+            textBoxes = [];
+            undoStack = [];
+            redoStack = [];
+            selectedStrokes.clear();
+            selectedTextBoxes.clear();
+            editingTextBox = null;
+            camera = { x: 0, y: 0, z: 1 };
+            hasUnsavedChanges = false;
+            
+            // Show canvas for drawing
+            showCanvas();
+            requestRender();
+            
+            showNotification(`Created ${defaultName}`);
+        } catch (err) {
+            console.error('Error creating new note:', err);
+            alert('Error creating new note. Please try again.');
+        }
     }
+
+    async function selectRootFolder() {
+        try {
+            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            rootDirHandle = dirHandle;
+            currentDirHandle = dirHandle;
+            currentPath = [];
+            
+            // Save to IndexedDB
+            const db = await openDB();
+            await db.put(dirHandle, 'rootDirHandle');
+            
+            await loadSubjects();
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Error selecting folder:', err);
+                alert('Error selecting folder. Please try again.');
+            }
+        }
+    }
+
+
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -2504,7 +2916,7 @@
     }, { passive: false });
 
     // --- KEYBOARD ---
-    window.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', async (e) => {
         if (e.repeat) return;
         if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
             e.preventDefault();
@@ -2554,9 +2966,9 @@
             } else if (e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 saveToFile();
-            } else if (e.key.toLowerCase() === 'e') {
+            } else if (e.key.toLowerCase() === 'h') {
                 e.preventDefault();
-                toggleExplorer();
+                await showHomeScreen();
             } else if (e.key.toLowerCase() === 'n') {
                 e.preventDefault();
                 createNewMindmap();
@@ -2957,13 +3369,10 @@
     const btnSelect = document.getElementById('btn-select');
     const btnUndo = document.getElementById('btn-undo');
     const btnRedo = document.getElementById('btn-redo');
+    const btnHome = document.getElementById('btn-home');
     const btnNew = document.getElementById('btn-new');
     const btnSave = document.getElementById('btn-save');
     const btnFullscreen = document.getElementById('btn-fullscreen');
-    const toggleExplorerBtn = document.getElementById('toggle-explorer');
-    const closeExplorerBtn = document.getElementById('close-explorer');
-    const navBackBtn = document.getElementById('nav-back');
-    const selectRootBtn = document.getElementById('select-root');
 
     function setTool(tool) {
         activeTool = tool;
@@ -2999,13 +3408,10 @@
     btnSelect.onclick = () => setTool('select');
     btnUndo.onclick = performUndo;
     btnRedo.onclick = performRedo;
+    btnHome.onclick = async () => await showHomeScreen();
     btnNew.onclick = createNewMindmap;
     btnSave.onclick = saveToFile;
     btnFullscreen.onclick = toggleFullScreen;
-    toggleExplorerBtn.onclick = toggleExplorer;
-    closeExplorerBtn.onclick = closeExplorer;
-    navBackBtn.onclick = navigateBack;
-    selectRootBtn.onclick = selectRootFolder;
 
     // Shortcuts dialog
     const helpBtn = document.getElementById('help-btn');
@@ -3035,11 +3441,33 @@
         }
     }, true);
 
-    // Initialize file explorer
-    initFileExplorer();
+    // Initialize home screen
+    initHomeScreen();
     
-    // Initialize file name indicator
-    updateFileNameIndicator();
+    // Initially hide home button (we start on home screen)
+    document.getElementById('btn-home').classList.add('hidden');
+    
+    // Add search functionality
+    const sidebarSearch = document.getElementById('sidebar-search');
+    if (sidebarSearch) {
+        sidebarSearch.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const noteCards = document.querySelectorAll('.note-card');
+            
+            noteCards.forEach(card => {
+                const title = card.querySelector('.note-title').textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Update notes count
+            const visibleCount = Array.from(noteCards).filter(card => card.style.display !== 'none').length;
+            document.getElementById('notes-count').textContent = visibleCount;
+        });
+    }
     
     // Initialize custom tooltips
     initCustomTooltips();
@@ -3093,14 +3521,12 @@
                 const rect = element.getBoundingClientRect();
                 const tooltipRect = tooltip.getBoundingClientRect();
                 
-                // Determine position based on element
-                if (element.id === 'toggle-explorer') {
-                    // Position to the right of the explorer button
+                // Position to the right for home button, below for toolbar items
+                if (element.id === 'btn-home') {
                     tooltip.classList.add('right');
                     tooltip.style.left = (rect.right + 12) + 'px';
                     tooltip.style.top = (rect.top + rect.height / 2 - tooltipRect.height / 2) + 'px';
                 } else {
-                    // Position below for toolbar items
                     tooltip.classList.add('bottom');
                     tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
                     tooltip.style.top = (rect.bottom + 12) + 'px';
