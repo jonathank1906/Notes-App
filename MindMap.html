@@ -988,13 +988,24 @@
             background: #0e0e0e;
             color: #ffffff;
             z-index: 100;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            scrollbar-width: none; /* Firefox */
+        }
+        #flashcard-page::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Edge */
         }
         #flashcard-page.active { 
             display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        /* Center content in practice mode only */
+        #flashcard-page.active:not(.edit-mode) {
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         }
 
         /* 2. THE SCENE */
@@ -1077,6 +1088,9 @@
             text-transform: uppercase;
             user-select: none;
         }
+        #flashcard-page.edit-mode .instructions {
+            display: none;
+        }
 
         .fc-mode-label {
             display: none;
@@ -1096,36 +1110,140 @@
         }
         .fc-btn:hover { background: #333; color: white; }
         .fc-btn.edit-toggle { color: #8af; border-color: #357; }
+        .fc-btn.add-btn { color: #8f8; border-color: #353; }
+        .fc-btn.del-btn { color: #f88; border-color: #533; }
         #fc-counter { font-family: monospace; color: #888; }
         #no-cards-msg { color: #666; font-style: italic; margin-bottom: 20px; }
 
-        /* --- EDIT MODE --- */
-        #fc-edit-container { 
-            display: none; 
-            flex-direction: column; 
-            max-width: 700px; 
-            width: 90%; 
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* Edit Modal (popup for single card) */
+        #fc-edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
+        #fc-edit-modal.show { display: flex; }
+        .fc-modal-content {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .fc-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .fc-modal-title { font-size: 20px; color: #8af; font-weight: 600; }
+        .fc-modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .fc-modal-close:hover { color: #fff; }
+        .fc-modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Full Edit Mode */
+        #fc-full-edit-container {
+            display: none;
+            width: 90%;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #fc-full-edit-container.show { display: block; }
+        #fc-full-edit-list {
+            padding-top: 60px;
+        }
+        .fc-card-item {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .fc-card-header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .fc-card-delete {
+            background: none;
+            border: 1px solid #533;
+            color: #f88;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .fc-card-delete:hover { background: #300; }
+        .fc-card-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .fc-full-edit-actions {
+            position: fixed;
+            top: 20px;
+            left: 360px;
+            z-index: 50;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Mode Toggle Button */
+        .fc-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #8af;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 50;
+        }
+        .fc-mode-toggle:hover { background: #333; border-color: #555; }
+
+        /* Reusable Edit Field Styles */
         .fc-edit-field { margin-bottom: 20px; }
-        .fc-edit-field label { 
-            font-size: 12px; 
-            color: #888; 
-            margin-bottom: 5px; 
-            font-weight: bold;
+        .fc-edit-field label {
             display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #aaa;
+            font-weight: 600;
         }
         .fc-edit-textarea {
-            width: 100%; min-height: 150px; background: #1a1a1a; border: 1px solid #333;
-            color: #ddd; padding: 10px; border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;
+            width: 100%; height: 120px; background: #222; color: #fff; border: 1px solid #444;
+            border-radius: 5px; padding: 10px; font-size: 16px; font-family: inherit; resize: vertical;
         }
         .fc-edit-textarea:focus { border-color: #555; outline: none; }
-        .fc-edit-controls { display: flex; justify-content: space-between; align-items: center; }
-        .fc-btn.add-btn { color: #8f8; border-color: #353; }
-        .fc-btn.del-btn { color: #f88; border-color: #533; }
 
         /* Markdown Styles in Flashcard */
         .fc-face p { margin-bottom: 10px; }
@@ -3204,13 +3322,13 @@
     let currentFlashcardData = null;
     let currentFlashcardHandle = null;
     let currentFlashcardIndex = 0;
-    let isFlashcardEditMode = false;
+    let isFlashcardFullEditMode = false;
 
     function openFlashcard(fileHandle, data) {
         currentFlashcardHandle = fileHandle;
         currentFlashcardData = data;
         currentFlashcardIndex = 0;
-        isFlashcardEditMode = false;
+        isFlashcardFullEditMode = false;
         
         // Hide other screens
         document.getElementById('home-screen').classList.add('hidden');
@@ -3245,43 +3363,46 @@
     }
 
     function toggleFlashcardEditMode() {
-        isFlashcardEditMode = !isFlashcardEditMode;
+        isFlashcardFullEditMode = !isFlashcardFullEditMode;
         renderFlashcardUI();
     }
 
     function renderFlashcardUI() {
         const scene = document.querySelector('.scene');
-        const fcEditContainer = document.getElementById('fc-edit-container');
+        const fullEditContainer = document.getElementById('fc-full-edit-container');
         const card = document.querySelector('.card');
+        const modeToggle = document.querySelector('.fc-mode-toggle');
+        const flashcardPage = document.getElementById('flashcard-page');
         
-        if (isFlashcardEditMode) {
+        if (isFlashcardFullEditMode) {
+            // Full Edit Mode: Show list of all cards
             if (scene) scene.style.display = 'none';
-            fcEditContainer.style.display = 'flex';
-            
-            const fcEditFront = document.getElementById('fc-edit-front');
-            const fcEditBack = document.getElementById('fc-edit-back');
-            
-            if(currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0 && currentFlashcardIndex < currentFlashcardData.flashcards.length) {
-                const cardData = currentFlashcardData.flashcards[currentFlashcardIndex];
-                fcEditFront.value = cardData.front;
-                fcEditBack.value = cardData.back;
-            } else {
-                fcEditFront.value = "";
-                fcEditBack.value = "";
+            fullEditContainer.classList.add('show');
+            if (modeToggle) {
+                modeToggle.textContent = 'Practice Mode';
+                modeToggle.style.display = 'block';
             }
-            fcEditFront.focus();
-
+            if (flashcardPage) {
+                flashcardPage.classList.add('edit-mode');
+                flashcardPage.scrollTop = 0; // Scroll to top when entering edit mode
+            }
+            renderFullEditList();
         } else {
+            // Practice Mode: Show card with flip animation
             if (scene) scene.style.display = 'block';
-            fcEditContainer.style.display = 'none';
+            fullEditContainer.classList.remove('show');
+            if (modeToggle) {
+                modeToggle.textContent = 'Edit All Cards';
+                modeToggle.style.display = 'block'; // Show the absolute positioned button
+            }
+            if (flashcardPage) flashcardPage.classList.remove('edit-mode');
             
             if (card) card.classList.remove('is-flipped');
 
             if (!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) {
-                // Show empty message - could add this later
+                updateFlashcardDisplay();
                 if (scene) scene.style.display = 'none';
             } else {
-                if (scene) scene.style.display = 'block';
                 updateFlashcardDisplay();
             }
         }
@@ -3326,57 +3447,158 @@
         card.classList.toggle('is-flipped');
     }
 
+    // Open edit modal for current card (triggered by 'e' key)
+    function openEditModal() {
+        if (isFlashcardFullEditMode) return; // Only in practice mode
+        
+        const modal = document.getElementById('fc-edit-modal');
+        const frontTextarea = document.getElementById('fc-modal-front');
+        const backTextarea = document.getElementById('fc-modal-back');
+        
+        if (currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0) {
+            const card = currentFlashcardData.flashcards[currentFlashcardIndex];
+            frontTextarea.value = card.front || '';
+            backTextarea.value = card.back || '';
+        } else {
+            frontTextarea.value = '';
+            backTextarea.value = '';
+        }
+        
+        modal.classList.add('show');
+        frontTextarea.focus();
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('fc-edit-modal');
+        modal.classList.remove('show');
+    }
+
+    async function saveEditModal() {
+        const frontTextarea = document.getElementById('fc-modal-front');
+        const backTextarea = document.getElementById('fc-modal-back');
+        
+        if (!currentFlashcardData.flashcards) {
+            currentFlashcardData.flashcards = [];
+        }
+        
+        const frontVal = frontTextarea.value.trim();
+        const backVal = backTextarea.value.trim();
+        
+        if (!frontVal && !backVal) {
+            closeEditModal();
+            return;
+        }
+        
+        if (currentFlashcardIndex < currentFlashcardData.flashcards.length) {
+            // Update existing card
+            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
+            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+        } else {
+            // Add new card
+            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+        }
+        
+        await saveFlashcardData();
+        updateFlashcardDisplay();
+        closeEditModal();
+    }
+
+    function renderFullEditList() {
+        const container = document.getElementById('fc-full-edit-list');
+        container.innerHTML = '';
+        
+        if (!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">No flashcards yet. Click "Add New Card" to create one.</div>';
+            return;
+        }
+        
+        currentFlashcardData.flashcards.forEach((card, index) => {
+            const cardItem = document.createElement('div');
+            cardItem.className = 'fc-card-item';
+            cardItem.innerHTML = `
+                <div class="fc-card-header">
+                    <button class="fc-card-delete" onclick="deleteCardInFullEdit(${index})">Delete</button>
+                </div>
+                <div class="fc-card-fields">
+                    <div class="fc-edit-field">
+                        <label>Front (Question)</label>
+                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="front">${escapeHtml(card.front || '')}</textarea>
+                    </div>
+                    <div class="fc-edit-field">
+                        <label>Back (Answer)</label>
+                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="back">${escapeHtml(card.back || '')}</textarea>
+                    </div>
+                </div>
+            `;
+            container.appendChild(cardItem);
+        });
+        
+        // Add input listeners to auto-save
+        const textareas = container.querySelectorAll('.fc-edit-textarea');
+        textareas.forEach(textarea => {
+            textarea.addEventListener('input', debounce(() => {
+                const index = parseInt(textarea.dataset.index);
+                const side = textarea.dataset.side;
+                if (currentFlashcardData.flashcards[index]) {
+                    currentFlashcardData.flashcards[index][side] = textarea.value;
+                    saveFlashcardData();
+                }
+            }, 500));
+        });
+    }
+
+    async function addNewCardInFullEdit() {
+        if (!currentFlashcardData.flashcards) {
+            currentFlashcardData.flashcards = [];
+        }
+        currentFlashcardData.flashcards.push({ front: '', back: '' });
+        await saveFlashcardData();
+        renderFullEditList();
+        
+        // Scroll to bottom and focus on new card
+        const flashcardPage = document.getElementById('flashcard-page');
+        const container = document.getElementById('fc-full-edit-list');
+        setTimeout(() => {
+            if (flashcardPage) {
+                flashcardPage.scrollTop = flashcardPage.scrollHeight;
+            }
+            const textareas = container.querySelectorAll('.fc-edit-textarea');
+            if (textareas.length > 0) {
+                textareas[textareas.length - 2].focus(); // Focus on front of new card
+            }
+        }, 100);
+    }
+
+    async function deleteCardInFullEdit(index) {
+        if (!confirm('Delete this card?')) return;
+        currentFlashcardData.flashcards.splice(index, 1);
+        await saveFlashcardData();
+        renderFullEditList();
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
     // Add click handler for flip card
     document.addEventListener('DOMContentLoaded', () => {
         const scene = document.querySelector('.scene');
         if (scene) {
             scene.addEventListener('click', flipCard);
         }
+        
+        // Modal close handlers
+        const modal = document.getElementById('fc-edit-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeEditModal();
+            });
+        }
     });
-
-    async function saveFlashcardOnly() {
-        if(!currentFlashcardData.flashcards) currentFlashcardData.flashcards = [];
-        
-        const fcEditFront = document.getElementById('fc-edit-front');
-        const fcEditBack = document.getElementById('fc-edit-back');
-        const frontVal = fcEditFront.value;
-        const backVal = fcEditBack.value;
-
-        if (currentFlashcardData.flashcards.length > 0 && currentFlashcardIndex < currentFlashcardData.flashcards.length) {
-            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
-            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
-        } else {
-            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
-            currentFlashcardIndex = 0;
-        }
-        await saveFlashcardData();
-        toggleFlashcardEditMode();
-    }
-
-    async function saveFlashcardAndNext() {
-        if(!currentFlashcardData.flashcards) currentFlashcardData.flashcards = [];
-        
-        const fcEditFront = document.getElementById('fc-edit-front');
-        const fcEditBack = document.getElementById('fc-edit-back');
-        const frontVal = fcEditFront.value;
-        const backVal = fcEditBack.value;
-        
-        if (currentFlashcardIndex < currentFlashcardData.flashcards.length) {
-            currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
-            currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
-        } else {
-            currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
-        }
-
-        currentFlashcardData.flashcards.push({ front: "", back: "" });
-        currentFlashcardIndex = currentFlashcardData.flashcards.length - 1;
-        
-        fcEditFront.value = "";
-        fcEditBack.value = "";
-        fcEditFront.focus();
-        
-        await saveFlashcardData();
-    }
 
     async function deleteFlashcard() {
         if(!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) return;
@@ -3386,7 +3608,6 @@
                 currentFlashcardIndex = Math.max(0, currentFlashcardData.flashcards.length - 1);
             }
             await saveFlashcardData();
-            isFlashcardEditMode = false;
             renderFlashcardUI();
         }
     }
@@ -4253,15 +4474,34 @@
         // 1. Flashcard Mode Handlers
         const flashcardPage = document.getElementById('flashcard-page');
         if (flashcardPage && flashcardPage.classList.contains('active')) {
-            if (isFlashcardEditMode) {
+            // Check if edit modal is open
+            const modal = document.getElementById('fc-edit-modal');
+            const modalOpen = modal && modal.classList.contains('show');
+            
+            if (modalOpen) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeEditModal();
+                }
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEditModal();
+                }
+                return;
+            }
+            
+            if (isFlashcardFullEditMode) {
+                // Full Edit Mode handlers
                 if (e.key === 'Escape') {
                     toggleFlashcardEditMode();
                 }
                 return;
             }
+            
+            // Practice Mode handlers
             if (e.key === 'e') { 
                 e.preventDefault(); 
-                toggleFlashcardEditMode(); 
+                openEditModal();
             }
             if (e.code === 'Space') { 
                 e.preventDefault(); 
@@ -5012,6 +5252,8 @@
     const flashcardPage = document.createElement('div');
     flashcardPage.id = 'flashcard-page';
     flashcardPage.innerHTML = `
+        <button class="fc-mode-toggle" onclick="toggleFlashcardEditMode()">Edit All Cards</button>
+        
         <div class="scene">
             <div class="card">
                 <div class="card__face card__face--front"></div>
@@ -5019,27 +5261,32 @@
             </div>
         </div>
 
-        <div class="instructions">Space or Click to flip</div>
+        <div class="instructions">Space or Click to flip • Press E to edit</div>
 
-        <div id="fc-edit-container">
-            <h3 style="margin-top:0; margin-bottom:15px; color:#8af;">Edit Flashcard</h3>
-            
-            <div class="fc-edit-field">
-                <label>Front (Question)</label>
-                <textarea class="fc-edit-textarea" id="fc-edit-front" placeholder="Type question here (Markdown supported)..."></textarea>
+        <div id="fc-full-edit-container">
+            <div class="fc-full-edit-actions">
+                <button class="fc-btn add-btn" onclick="addNewCardInFullEdit()">+ Add New Card</button>
             </div>
-            
-            <div class="fc-edit-field">
-                <label>Back (Answer)</label>
-                <textarea class="fc-edit-textarea" id="fc-edit-back" placeholder="Type answer here (Markdown supported)..."></textarea>
-            </div>
-            
-            <div class="fc-edit-controls">
-                <button class="fc-btn del-btn" onclick="deleteFlashcard()">Delete Card</button>
-                <div>
-                     <button class="fc-btn" onclick="toggleFlashcardEditMode()">Cancel / View</button>
-                     <button class="fc-btn add-btn" onclick="saveFlashcardAndNext()">Save & Add New</button>
-                     <button class="fc-btn" onclick="saveFlashcardOnly()" style="border-color:#8af; color:#8af;">Save Changes</button>
+            <div id="fc-full-edit-list"></div>
+        </div>
+
+        <div id="fc-edit-modal">
+            <div class="fc-modal-content">
+                <div class="fc-modal-header">
+                    <div class="fc-modal-title">Edit Card</div>
+                    <button class="fc-modal-close" onclick="closeEditModal()">×</button>
+                </div>
+                <div class="fc-edit-field">
+                    <label>Front (Question)</label>
+                    <textarea class="fc-edit-textarea" id="fc-modal-front" placeholder="Type question here (Markdown supported)..."></textarea>
+                </div>
+                <div class="fc-edit-field">
+                    <label>Back (Answer)</label>
+                    <textarea class="fc-edit-textarea" id="fc-modal-back" placeholder="Type answer here (Markdown supported)..."></textarea>
+                </div>
+                <div class="fc-modal-actions">
+                    <button class="fc-btn" onclick="closeEditModal()">Cancel</button>
+                    <button class="fc-btn" onclick="saveEditModal()" style="border-color:#8af; color:#8af;">Save (Ctrl+Enter)</button>
                 </div>
             </div>
         </div>
