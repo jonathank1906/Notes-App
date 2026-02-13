@@ -1644,6 +1644,264 @@
         .glossary-letter-divider::after {
             margin-left: 15px;
         }
+
+        /* Q/A Page */
+        #qa-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            overflow-y: auto;
+        }
+        #qa-page.active { display: block; }
+
+        .qa-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .qa-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #333;
+        }
+        .qa-header h1 { margin: 0; color: #fff; font-size: 32px; }
+        .qa-add-section {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .qa-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .qa-input {
+            flex: 1;
+            padding: 10px;
+            background: #222;
+            color: #ddd;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .qa-input:focus { border-color: #555; outline: none; }
+        .qa-textarea {
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            color: #ddd;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        .qa-textarea:focus { border-color: #555; outline: none; }
+        .qa-add-btn {
+            padding: 10px 20px;
+            background: #252;
+            color: #8f8;
+            border: 1px solid #353;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .qa-add-btn:hover { background: #353; }
+        .qa-search {
+            margin-bottom: 20px;
+        }
+        .qa-search input {
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            color: #ddd;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .qa-search input:focus { border-color: #555; outline: none; }
+        .qa-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .qa-item {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+        }
+        .qa-question {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .qa-question-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 5px 0;
+            transition: all 0.2s;
+        }
+        .qa-item.open .qa-question-row {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        .qa-carrow {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .qa-carrow svg {
+            width: 16px;
+            height: 16px;
+            fill: #888;
+        }
+        .qa-carrow.open svg {
+            transform: rotate(180deg);
+        }
+        #qa-master-toggle {
+            padding: 8px 16px;
+            background: #222;
+            color: #8af;
+            border: 1px solid #357;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #qa-master-toggle:hover {
+            background: #333;
+        }
+        .qa-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            color: #bbb;
+            line-height: 1.6;
+        }
+        .qa-answer p { margin: 5px 0; }
+        .qa-answer code {
+            background: #444;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            font-family: monospace;
+        }
+        .qa-hover-pane.show {
+            transform: translateX(80px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .qa-hover-pane {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            right: -2px;
+            width: 80px;
+            background: #2b2b2b;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            transform: translateX(0);
+            opacity: 0;
+            transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+            border: 2px solid #6a6a6a;
+            border-left: none;
+            border-radius: 0 12px 12px 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .qa-item {
+            position: relative;
+        }
+        .qa-item:hover .qa-hover-pane {
+            transform: translateX(80px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .qa-hover-btn {
+            width: 40px;
+            height: 40px;
+            background: #3a3a3a;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .qa-hover-btn.edit:hover {
+            background: #357;
+            box-shadow: 0 0 8px rgba(136, 170, 255, 0.3);
+            border-color: #579;
+        }
+        .qa-hover-btn.delete:hover {
+            background: #533;
+            box-shadow: 0 0 8px rgba(255, 136, 136, 0.3);
+            border-color: #755;
+        }
+        .qa-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 8px;
+            transition: box-shadow 0.2s;
+            pointer-events: none;
+        }
+        .qa-item-btn {
+            padding: 8px 16px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+        .qa-item-btn:hover { background: #333; color: #fff; }
+        .qa-letter-divider {
+            display: flex;
+            align-items: center;
+            margin: 30px 0 20px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #999;
+        }
+        .qa-letter-divider::before,
+        .qa-letter-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #333;
+        }
+        .qa-letter-divider::before {
+            margin-right: 15px;
+        }
+        .qa-letter-divider::after {
+            margin-left: 15px;
+        }
     </style>
 </head>
 <body>
@@ -1715,6 +1973,10 @@
                             <div class="new-note-option" onclick="createNewNote('glossary')">
                                 <svg viewBox="0 0 20 20"><path d="M5.6,17.8h9.1c-0.1-0.2-0.2-0.5-0.2-0.7c-0.1-0.3-0.1-0.5-0.1-0.8c0-0.3,0-0.5,0.1-0.8c0-0.2,0.1-0.5,0.2-0.7 H5.6c-0.4,0-0.8,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1c0,0.4,0.1,0.8,0.4,1C4.9,17.6,5.2,17.8,5.6,17.8z M4.2,13.2 C4.4,13.1,4.6,13,4.9,13c0.2,0,0.5-0.1,0.8-0.1h10.2V2.2H5.6c-0.4,0-0.7,0.1-1,0.4c-0.3,0.3-0.4,0.6-0.4,1V13.2z M5.6,19.7 c-0.9,0-1.7-0.3-2.4-1c-0.7-0.7-1-1.5-1-2.4V3.7c0-0.9,0.3-1.7,1-2.4c0.7-0.7,1.5-1,2.4-1h10.2c0.5,0,1,0.2,1.4,0.6 c0.4,0.4,0.6,0.8,0.6,1.4v11.7c0,0.3-0.1,0.5-0.2,0.7c-0.1,0.2-0.3,0.4-0.5,0.5c-0.2,0.1-0.4,0.3-0.5,0.5c-0.1,0.2-0.2,0.5-0.2,0.7 c0,0.3,0.1,0.5,0.2,0.7c0.1,0.2,0.3,0.4,0.5,0.5c0.2,0.1,0.4,0.2,0.5,0.4c0.1,0.2,0.2,0.4,0.2,0.6v0.2c0,0.3-0.1,0.5-0.3,0.7 c-0.2,0.2-0.4,0.3-0.7,0.3H5.6z"/></svg>
                                 Glossary
+                            </div>
+                            <div class="new-note-option" onclick="createNewNote('qa')">
+                                <svg viewBox="118 218 370 370"><path fill="currentColor" d="M262.9,239.9c64,0,116,41.9,116,93.6h12.2c0-58.1-57.5-105.9-128.2-105.9s-128.2,47.7-128.2,106.2c0,28.2,12.2,55.1,34.3,74.4l-26.3,45.9c-1.2,2.1-0.9,5.2,0.6,7c1.2,1.2,2.8,2.1,4.6,2.1c0.9,0,1.5,0,2.1-0.3l69.8-28.2c6.4,1.8,12.9,3.1,19.6,4l1.5-12.2c-6.7-0.9-13.5-2.4-19.6-4.3c-1.2-0.3-2.8-0.3-4,0.3L162.2,445l19.9-35.2c1.5-2.8,0.9-6.1-1.5-8c-21.4-17.1-33.7-41.9-33.7-68.2C146.9,282.2,198.9,239.9,262.9,239.9z M450.1,516.6c17.7-15.9,27.2-36.1,27.2-59.4c0-50.2-49-92.7-106.8-92.7S263.8,407,263.8,457.2c0,51.1,46.5,94.2,101.9,94.2l0,0c14.1,0,27.8-2.8,41-8.3l55.1,20.8c0.6,0.3,1.5,0.3,2.1,0.3c1.8,0,3.4-0.6,4.6-2.1c1.8-1.8,2.1-4.6,0.9-7L450.1,516.6z M408.8,530.6c-0.6-0.3-1.5-0.3-2.1-0.3c-0.9,0-1.8,0.3-2.4,0.6c-12.2,5.5-25.1,8.3-38.2,8.3l0,0c-48.7,0-89.4-37.6-89.4-81.7c0-43.5,43.1-80.2,94.2-80.2s94.2,36.7,94.2,80.2c0,21.1-8.9,38.9-26.3,52.9c-2.1,1.8-3.1,4.9-1.5,7.7l14.7,29.1L408.8,530.6z"/></svg>
+                                Q/A
                             </div>
                         </div>
                     </button>
@@ -3308,6 +3570,11 @@
                 return;
             }
             
+            if (data.type === 'qa') {
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="110" height="110" viewBox="118 218 370 370" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M262.9,239.9c64,0,116,41.9,116,93.6h12.2c0-58.1-57.5-105.9-128.2-105.9s-128.2,47.7-128.2,106.2c0,28.2,12.2,55.1,34.3,74.4l-26.3,45.9c-1.2,2.1-0.9,5.2,0.6,7c1.2,1.2,2.8,2.1,4.6,2.1c0.9,0,1.5,0,2.1-0.3l69.8-28.2c6.4,1.8,12.9,3.1,19.6,4l1.5-12.2c-6.7-0.9-13.5-2.4-19.6-4.3c-1.2-0.3-2.8-0.3-4,0.3L162.2,445l19.9-35.2c1.5-2.8,0.9-6.1-1.5-8c-21.4-17.1-33.7-41.9-33.7-68.2C146.9,282.2,198.9,239.9,262.9,239.9z M450.1,516.6c17.7-15.9,27.2-36.1,27.2-59.4c0-50.2-49-92.7-106.8-92.7S263.8,407,263.8,457.2c0,51.1,46.5,94.2,101.9,94.2l0,0c14.1,0,27.8-2.8,41-8.3l55.1,20.8c0.6,0.3,1.5,0.3,2.1,0.3c1.8,0,3.4-0.6,4.6-2.1c1.8-1.8,2.1-4.6,0.9-7L450.1,516.6z M408.8,530.6c-0.6-0.3-1.5-0.3-2.1-0.3c-0.9,0-1.8,0.3-2.4,0.6c-12.2,5.5-25.1,8.3-38.2,8.3l0,0c-48.7,0-89.4-37.6-89.4-81.7c0-43.5,43.1-80.2,94.2-80.2s94.2,36.7,94.2,80.2c0,21.1-8.9,38.9-26.3,52.9c-2.1,1.8-3.1,4.9-1.5,7.7l14.7,29.1L408.8,530.6z"/></svg></div>`;
+                return;
+            }
+            
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
@@ -3398,6 +3665,8 @@
             openFlashcard(fileHandle, data);
         } else if (data.type === 'glossary') {
             openGlossary(fileHandle, data);
+        } else if (data.type === 'qa') {
+            openQA(fileHandle, data);
         } else {
             // Load as canvas note
             await loadFromFileHandle(fileHandle);
@@ -3440,8 +3709,8 @@
         closeNewNoteMenu();
 
         try {
-            // Check if flashcard deck or glossary already exists for this subject
-            if (type === 'flashcard' || type === 'glossary') {
+            // Check if flashcard deck, glossary, or Q/A already exists for this subject
+            if (type === 'flashcard' || type === 'glossary' || type === 'qa') {
                 const targetDirHandle = activeSubject.handle;
                 const existingFiles = [];
                 
@@ -3462,7 +3731,7 @@
                 }
                 
                 if (existingFiles.length > 0) {
-                    const typeName = type === 'flashcard' ? 'Flashcard Deck' : 'Glossary';
+                    const typeName = type === 'flashcard' ? 'Flashcard Deck' : (type === 'glossary' ? 'Glossary' : 'Q/A');
                     alert(`A ${typeName} already exists for this subject: ${existingFiles[0]}\\n\\nOnly one ${typeName} is allowed per subject. Please open the existing one instead.`);
                     return;
                 }
@@ -3491,6 +3760,14 @@
                     version: '1.0',
                     timestamp: new Date().toISOString(),
                     glossary: []
+                };
+            } else if (type === 'qa') {
+                defaultName = `Q&A.json`;
+                blankData = {
+                    type: 'qa',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    qa: []
                 };
             } else {
                 defaultName = `Note ${formattedDate} ${formattedTime}.json`;
@@ -3530,6 +3807,8 @@
                 openFlashcard(fileHandle, blankData);
             } else if (type === 'glossary') {
                 openGlossary(fileHandle, blankData);
+            } else if (type === 'qa') {
+                openQA(fileHandle, blankData);
             } else {
                 // Initialize blank canvas
                 strokes = [];
@@ -4010,6 +4289,10 @@
     let currentGlossaryData = null;
     let currentGlossaryHandle = null;
 
+    // --- Q/A FUNCTIONS ---
+    let currentQAData = null;
+    let currentQAHandle = null;
+
     function openGlossary(fileHandle, data) {
         currentGlossaryHandle = fileHandle;
         currentGlossaryData = data;
@@ -4306,6 +4589,287 @@
 
     function filterGlossary() {
         renderGlossaryList();
+    }
+
+    // --- Q/A FUNCTIONS ---
+    function openQA(fileHandle, data) {
+        currentQAHandle = fileHandle;
+        currentQAData = data;
+        
+        // Hide other screens
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('glossary-page').classList.remove('active');
+        
+        // Show Q/A page
+        document.getElementById('qa-page').classList.add('active');
+        
+        // Show back button, hide home button
+        document.getElementById('btn-back').classList.remove('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        
+        // Hide toolbar and help button
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
+        if (!currentQAData.qa) {
+            currentQAData.qa = [];
+        }
+        
+        renderQAList();
+    }
+
+    function closeQA() {
+        document.getElementById('qa-page').classList.remove('active');
+        document.getElementById('btn-back').classList.add('hidden');
+        currentQAData = null;
+        currentQAHandle = null;
+        showHomeScreen();
+    }
+
+    function renderQAList() {
+        const qaList = document.getElementById('qa-list');
+        qaList.innerHTML = '';
+        
+        if (!currentQAData || !currentQAData.qa || currentQAData.qa.length === 0) {
+            qaList.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">No Q/A entries yet. Add your first question above!</div>';
+            return;
+        }
+        
+        // Sort entries alphabetically by question
+        const sortedEntries = [...currentQAData.qa].sort((a, b) => 
+            (a.question || '').toLowerCase().localeCompare((b.question || '').toLowerCase())
+        );
+        
+        // Group by first letter
+        const grouped = {};
+        for (const entry of sortedEntries) {
+            const firstChar = (entry.question || '?')[0].toUpperCase();
+            if (!grouped[firstChar]) grouped[firstChar] = [];
+            grouped[firstChar].push(entry);
+        }
+        
+        // Add master toggle button at the top
+        const masterToggle = document.createElement('button');
+        masterToggle.id = 'qa-master-toggle';
+        masterToggle.textContent = 'Expand All';
+        masterToggle.onclick = () => {
+            const allItems = qaList.querySelectorAll('.qa-item');
+            const allClosed = Array.from(allItems).every(item => !item.classList.contains('open'));
+            
+            allItems.forEach(item => {
+                const def = item.querySelector('.qa-answer');
+                const arrow = item.querySelector('.qa-carrow');
+                
+                if (allClosed) {
+                    item.classList.add('open');
+                    arrow.classList.add('open');
+                    def.style.maxHeight = def.scrollHeight + 'px';
+                } else {
+                    item.classList.remove('open');
+                    arrow.classList.remove('open');
+                    def.style.maxHeight = '0';
+                }
+            });
+            
+            masterToggle.textContent = allClosed ? 'Collapse All' : 'Expand All';
+        };
+        qaList.appendChild(masterToggle);
+        
+        // Render entries grouped by letter
+        const letters = Object.keys(grouped).sort();
+        for (const letter of letters) {
+            // Add letter divider
+            const divider = document.createElement('div');
+            divider.className = 'qa-letter-divider';
+            divider.textContent = letter;
+            qaList.appendChild(divider);
+            
+            // Add entries for this letter
+            for (const entry of grouped[letter]) {
+                const index = currentQAData.qa.indexOf(entry);
+                const item = document.createElement('div');
+                item.className = 'qa-item';
+                
+                const questionRow = document.createElement('div');
+                questionRow.className = 'qa-question-row';
+                
+                const question = document.createElement('div');
+                question.className = 'qa-question';
+                question.textContent = entry.question || 'Untitled';
+                
+                const arrow = document.createElement('div');
+                arrow.className = 'qa-carrow';
+                arrow.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>';
+                
+                questionRow.appendChild(question);
+                questionRow.appendChild(arrow);
+                
+                // Click to toggle
+                questionRow.onclick = () => {
+                    item.classList.toggle('open');
+                    arrow.classList.toggle('open');
+                    const def = item.querySelector('.qa-answer');
+                    if (item.classList.contains('open')) {
+                        def.style.maxHeight = def.scrollHeight + 'px';
+                    } else {
+                        def.style.maxHeight = '0';
+                    }
+                };
+                
+                const answer = document.createElement('div');
+                answer.className = 'qa-answer';
+                try {
+                    answer.innerHTML = marked.parse(entry.answer || '');
+                } catch (e) {
+                    answer.textContent = entry.answer || '';
+                }
+                
+                // Add hover buttons
+                const hoverPane = document.createElement('div');
+                hoverPane.className = 'qa-hover-pane';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'qa-hover-btn edit';
+                editBtn.title = 'Edit';
+                editBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                `;
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    editQAEntry(index);
+                    hoverPane.classList.remove('show');
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'qa-hover-btn delete';
+                deleteBtn.title = 'Delete';
+                deleteBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                `;
+                deleteBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    await deleteQAEntry(index);
+                };
+                
+                hoverPane.appendChild(editBtn);
+                hoverPane.appendChild(deleteBtn);
+                
+                item.appendChild(questionRow);
+                item.appendChild(answer);
+                item.appendChild(hoverPane);
+                qaList.appendChild(item);
+            }
+        }
+    }
+
+    async function addQAEntry() {
+        const questionInput = document.getElementById('qa-question-input');
+        const answerInput = document.getElementById('qa-answer-input');
+        
+        const question = questionInput.value.trim();
+        const answer = answerInput.value.trim();
+        
+        if (!question || !answer) {
+            alert('Please enter both question and answer');
+            return;
+        }
+        
+        currentQAData.qa.push({ question, answer });
+        await saveQAData();
+        renderQAList();
+        
+        questionInput.value = '';
+        answerInput.value = '';
+        questionInput.focus();
+    }
+
+    async function deleteQAEntry(index) {
+        if (!confirm('Delete this Q/A entry?')) return;
+        currentQAData.qa.splice(index, 1);
+        await saveQAData();
+        renderQAList();
+    }
+
+    function editQAEntry(index) {
+        if (!currentQAData || !currentQAData.qa) return;
+        if (index < 0 || index >= currentQAData.qa.length) return;
+        
+        const modal = document.getElementById('qa-edit-modal');
+        const questionInput = document.getElementById('qa-modal-question');
+        const answerTextarea = document.getElementById('qa-modal-answer');
+        
+        const entry = currentQAData.qa[index];
+        questionInput.value = entry.question || '';
+        answerTextarea.value = entry.answer || '';
+        
+        modal.dataset.editIndex = index;
+        modal.style.display = 'flex';
+        questionInput.focus();
+    }
+    
+    function closeQAEditModal() {
+        const modal = document.getElementById('qa-edit-modal');
+        modal.style.display = 'none';
+        delete modal.dataset.editIndex;
+    }
+    
+    async function saveQAEditModal() {
+        const modal = document.getElementById('qa-edit-modal');
+        const index = parseInt(modal.dataset.editIndex);
+        
+        if (isNaN(index) || index < 0 || index >= currentQAData.qa.length) return;
+        
+        const questionInput = document.getElementById('qa-modal-question');
+        const answerTextarea = document.getElementById('qa-modal-answer');
+        
+        const question = questionInput.value.trim();
+        const answer = answerTextarea.value.trim();
+        
+        if (!question || !answer) {
+            alert('Please enter both question and answer');
+            return;
+        }
+        
+        currentQAData.qa[index].question = question;
+        currentQAData.qa[index].answer = answer;
+        
+        await saveQAData();
+        renderQAList();
+        closeQAEditModal();
+    }
+
+    async function saveQAData() {
+        if (!currentQAHandle || !currentQAData) return;
+        
+        currentQAData.timestamp = new Date().toISOString();
+        const json = JSON.stringify(currentQAData, null, 2);
+        const writable = await currentQAHandle.createWritable();
+        await writable.write(json);
+        await writable.close();
+    }
+
+    function filterQA() {
+        const searchInput = document.getElementById('qa-search-input');
+        const query = searchInput.value.toLowerCase();
+        const items = document.querySelectorAll('.qa-item');
+        
+        items.forEach(item => {
+            const question = item.querySelector('.qa-question').textContent.toLowerCase();
+            const answer = item.querySelector('.qa-answer').textContent.toLowerCase();
+            
+            if (question.includes(query) || answer.includes(query)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
 
     async function selectRootFolder() {
@@ -5566,6 +6130,8 @@
             closeFlashcard();
         } else if (document.getElementById('glossary-page').classList.contains('active')) {
             closeGlossary();
+        } else if (document.getElementById('qa-page').classList.contains('active')) {
+            closeQA();
         }
     };
     if (btnNew) btnNew.onclick = createNewMindmap;
@@ -5878,6 +6444,54 @@
         </div>
     `;
     document.body.appendChild(glossaryPage);
+
+    // Create Q/A page
+    const qaPage = document.createElement('div');
+    qaPage.id = 'qa-page';
+    qaPage.innerHTML = `
+        <div class="qa-container">
+            <div class="qa-header">
+                <h1 id="qa-title">Q/A</h1>
+            </div>
+            
+            <div class="qa-add-section">
+                <div class="qa-input-group">
+                    <input type="text" class="qa-input" id="qa-question-input" placeholder="Question">
+                </div>
+                <textarea class="qa-textarea" id="qa-answer-input" placeholder="Answer (Markdown supported)"></textarea>
+                <button class="qa-add-btn" onclick="addQAEntry()">Add Entry</button>
+            </div>
+            
+            <div class="qa-search">
+                <input type="text" id="qa-search-input" placeholder="Search Q/A..." oninput="filterQA()">
+            </div>
+            
+            <div class="qa-list" id="qa-list"></div>
+        </div>
+        
+        <!-- Q/A Edit Modal -->
+        <div id="qa-edit-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;">
+            <div class="fc-modal-content">
+                <div class="fc-modal-header">
+                    <div class="fc-modal-title">Edit Q/A Entry</div>
+                    <button class="fc-modal-close" onclick="closeQAEditModal()">×</button>
+                </div>
+                <div class="fc-edit-field">
+                    <label>Question</label>
+                    <input type="text" id="qa-modal-question" class="qa-input" style="width:100%;">
+                </div>
+                <div class="fc-edit-field">
+                    <label>Answer</label>
+                    <textarea id="qa-modal-answer" class="fc-edit-textarea" rows="8"></textarea>
+                </div>
+                <div class="fc-modal-actions">
+                    <button class="fc-btn" onclick="closeQAEditModal()">Cancel</button>
+                    <button class="fc-btn" onclick="saveQAEditModal()" style="border-color:#8f8; color:#8f8;">Save (Ctrl+Enter)</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(qaPage);
 
 </script>
 </body>
