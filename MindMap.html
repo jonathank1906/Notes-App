@@ -1243,6 +1243,61 @@
             padding: 20px;
             margin-bottom: 15px;
             position: relative;
+            overflow: visible; /* Allow hover pane to extend outside */
+            transition: box-shadow 0.2s;
+        }
+        .fc-card-item.editing {
+            box-shadow: 0 0 8px rgba(136, 170, 255, 0.3);
+            border-color: #579;
+        }
+        .fc-card-item:hover .fc-card-hover-pane {
+            transform: translateX(80px);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .fc-card-hover-pane {
+            position: absolute;
+            top: -2px; /* Align with card's outer top edge */
+            bottom: -2px; /* Align with card's outer bottom edge */
+            right: -2px; /* Start from behind the right edge */
+            width: 80px;
+            background: #2b2b2b; /* Match card background */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            transform: translateX(0);
+            opacity: 0;
+            transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+            border: 2px solid #6a6a6a; /* Match card border */
+            border-left: none;
+            border-radius: 0 12px 12px 0; /* Match card border-radius */
+            z-index: 5;
+            pointer-events: none;
+        }
+        .fc-card-hover-btn {
+            background: none;
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            font-size: 13px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .fc-card-hover-btn.edit:hover {
+            background: #357;
+            color: #fff;
+            border-color: #579;
+        }
+        .fc-card-hover-btn.delete:hover {
+            background: #533;
+            color: #fff;
+            border-color: #755;
         }
         .fc-card-item::before {
             content: '';
@@ -1268,8 +1323,8 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+            display: none; /* Hidden - using hover pane instead */
         }
-        .fc-card-delete:hover { background: #300; }
         .fc-card-fields {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1311,10 +1366,33 @@
             font-weight: 600;
         }
         .fc-edit-textarea {
-            width: 100%; height: 120px; background: #222; color: #fff; border: 1px solid #444;
-            border-radius: 5px; padding: 10px; font-size: 16px; font-family: inherit; resize: vertical;
+            width: 100%;
+            min-height: 80px;
+            background: #252525;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #ddd;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-        .fc-edit-textarea:focus { border-color: #555; outline: none; }
+        .fc-edit-textarea:read-only {
+            background: #1a1a1a;
+            cursor: default;
+            color: #999;
+        }
+        .fc-edit-textarea:not(:read-only) {
+            background: #252525;
+            color: #ddd;
+        }
+        .fc-edit-textarea:focus {
+            border-color: #8af;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(136, 170, 255, 0.2);
+        }
 
         /* Markdown Styles in Flashcard */
         .fc-face p { margin-bottom: 10px; }
@@ -3648,25 +3726,49 @@
         currentFlashcardData.flashcards.forEach((card, index) => {
             const cardItem = document.createElement('div');
             cardItem.className = 'fc-card-item';
+            cardItem.dataset.index = index;
+            
+            // Create hover pane with edit/delete buttons
+            const hoverPane = document.createElement('div');
+            hoverPane.className = 'fc-card-hover-pane';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'fc-card-hover-btn edit';
+            editBtn.textContent = 'Edit';
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleCardEdit(index);
+            };
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'fc-card-hover-btn delete';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteCardInFullEdit(index);
+            };
+            
+            hoverPane.appendChild(editBtn);
+            hoverPane.appendChild(deleteBtn);
+            
             cardItem.innerHTML = `
-                <div class="fc-card-header">
-                    <button class="fc-card-delete" onclick="deleteCardInFullEdit(${index})">Delete</button>
-                </div>
                 <div class="fc-card-fields">
                     <div class="fc-edit-field">
                         <label>Front (Question)</label>
-                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="front">${escapeHtml(card.front || '')}</textarea>
+                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="front" readonly>${escapeHtml(card.front || '')}</textarea>
                     </div>
                     <div class="fc-edit-field">
                         <label>Back (Answer)</label>
-                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="back">${escapeHtml(card.back || '')}</textarea>
+                        <textarea class="fc-edit-textarea" data-index="${index}" data-side="back" readonly>${escapeHtml(card.back || '')}</textarea>
                     </div>
                 </div>
             `;
+            
+            cardItem.appendChild(hoverPane);
             container.appendChild(cardItem);
         });
         
-        // Add input listeners to auto-save
+        // Add input listeners to auto-save when editing
         const textareas = container.querySelectorAll('.fc-edit-textarea');
         textareas.forEach(textarea => {
             textarea.addEventListener('input', debounce(() => {
@@ -3679,6 +3781,51 @@
             }, 500));
         });
     }
+    
+    function toggleCardEdit(index) {
+        const cardItem = document.querySelector(`.fc-card-item[data-index="${index}"]`);
+        if (!cardItem) return;
+        
+        const textareas = cardItem.querySelectorAll('.fc-edit-textarea');
+        const isEditing = cardItem.classList.contains('editing');
+        
+        if (isEditing) {
+            // Disable editing
+            cardItem.classList.remove('editing');
+            textareas.forEach(ta => ta.readOnly = true);
+        } else {
+            // Disable editing on all other cards first
+            document.querySelectorAll('.fc-card-item.editing').forEach(item => {
+                item.classList.remove('editing');
+                item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
+            });
+            
+            // Enable editing on this card
+            cardItem.classList.add('editing');
+            textareas.forEach(ta => ta.readOnly = false);
+            textareas[0].focus();
+        }
+    }
+    
+    // Click outside handler to deactivate edit mode
+    document.addEventListener('click', (e) => {
+        const flashcardPage = document.getElementById('flashcard-page');
+        if (!flashcardPage || !flashcardPage.classList.contains('active')) return;
+        if (!isFlashcardFullEditMode) return;
+        
+        // Check if click is outside any card item or on a non-editable area
+        const clickedInside = e.target.closest('.fc-card-item');
+        const clickedOnButton = e.target.closest('.fc-card-hover-btn, .fc-btn, .fc-mode-toggle');
+        const clickedOnTextarea = e.target.closest('.fc-edit-textarea');
+        
+        if (!clickedInside || (clickedInside && !clickedOnTextarea && !clickedOnButton)) {
+            // Deactivate all editing
+            document.querySelectorAll('.fc-card-item.editing').forEach(item => {
+                item.classList.remove('editing');
+                item.querySelectorAll('.fc-edit-textarea').forEach(ta => ta.readOnly = true);
+            });
+        }
+    });
 
     async function addNewCardInFullEdit() {
         if (!currentFlashcardData.flashcards) {
