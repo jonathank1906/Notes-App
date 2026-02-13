@@ -49,6 +49,10 @@
             z-index: 100;
         }
 
+        #toolbar.hidden {
+            display: none;
+        }
+
         .tool-btn {
             background: transparent;
             border: 1px solid transparent;
@@ -206,6 +210,10 @@
             color: var(--accent);
             background: var(--btn-hover);
             transform: scale(1.05);
+        }
+
+        #help-btn.hidden {
+            display: none;
         }
 
         /* Shortcuts Dialog */
@@ -579,6 +587,7 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             line-height: 1;
             vertical-align: middle;
+            position: relative;
         }
 
         #btn-new-note:hover {
@@ -810,6 +819,32 @@
             display: none;
         }
 
+        /* Back Button */
+        #btn-back {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 101;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+        }
+
+        #btn-back:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+        }
+
+        #btn-back.hidden {
+            display: none;
+        }
+
         /* Save Status Indicator */
         #btn-save-status {
             position: fixed;
@@ -911,6 +946,259 @@
             background: #333;
             margin: 6px 0;
         }
+
+        /* New Note Dropdown Menu */
+        #new-note-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 5px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            min-width: 180px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        #new-note-menu.show { display: block; }
+        .new-note-option {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: #ddd;
+            font-size: 14px;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .new-note-option:hover { background: #2a2a2a; color: #fff; }
+        .new-note-option svg { width: 16px; height: 16px; fill: currentColor; }
+
+        /* Flashcard Page */
+        #flashcard-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            z-index: 100;
+            overflow-y: auto;
+        }
+        #flashcard-page.active { display: block; }
+
+        .fc-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 30px;
+        }
+        .fc-page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .fc-page-header h1 {
+            color: #fff;
+            margin: 0;
+            font-size: 32px;
+        }
+        .fc-card {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        .fc-front, .fc-back {
+            margin-bottom: 15px;
+        }
+        .fc-front label, .fc-back label {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .fc-front-content, .fc-back-content {
+            color: #ddd;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .fc-edit-textarea {
+            width: 100%;
+            min-height: 80px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .fc-edit-textarea:focus { border-color: #555; outline: none; }
+        .fc-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .fc-btn {
+            background: #222;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .fc-btn:hover { background: #333; color: #fff; }
+        .fc-btn.add-btn { color: #8f8; border-color: #353; }
+        .fc-btn.del-btn { color: #f88; border-color: #533; }
+
+        /* Glossary Page */
+        #glossary-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            z-index: 100;
+            overflow-y: auto;
+        }
+        #glossary-page.active { display: block; }
+
+        .glossary-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 30px;
+        }
+        .glossary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .glossary-header h1 { margin: 0; color: #fff; font-size: 32px; }
+        .glossary-add-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .glossary-input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .glossary-input {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+        }
+        .glossary-input:focus { border-color: #555; outline: none; }
+        .glossary-textarea {
+            width: 100%;
+            min-height: 100px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        .glossary-textarea:focus { border-color: #555; outline: none; }
+        .glossary-add-btn {
+            background: #252;
+            border: 1px solid #353;
+            color: #8f8;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .glossary-add-btn:hover { background: #353; }
+        .glossary-search {
+            margin-bottom: 20px;
+        }
+        .glossary-search input {
+            width: 100%;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .glossary-search input:focus { border-color: #555; outline: none; }
+        .glossary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .glossary-item {
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .glossary-item:hover { border-color: #444; background: #2f2f2f; }
+        .glossary-term {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .glossary-definition {
+            color: #ddd;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        .glossary-definition p { margin: 5px 0; }
+        .glossary-definition code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .glossary-item-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .glossary-item-btn {
+            background: #222;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .glossary-item-btn:hover { background: #333; color: #fff; }
+        .glossary-item-btn.delete { color: #f88; border-color: #533; }
+        .glossary-item-btn.delete:hover { background: #300; }
     </style>
 </head>
 <body>
@@ -965,11 +1253,25 @@
                             </div>
                         </div>
                     </button>
-                    <button id="btn-new-note" onclick="createNewNote()">
+                    <button id="btn-new-note" onclick="toggleNewNoteMenu(event)">
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                         </svg>
                         New
+                        <div id="new-note-menu" onclick="event.stopPropagation()">
+                            <div class="new-note-option" onclick="createNewNote('note')">
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6z"/></svg>
+                                Note
+                            </div>
+                            <div class="new-note-option" onclick="createNewNote('flashcard')">
+                                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H7v2h4v4z"/></svg>
+                                Flashcard Deck
+                            </div>
+                            <div class="new-note-option" onclick="createNewNote('glossary')">
+                                <svg viewBox="0 0 24 24"><path d="M21 5h-7l-2-2H3c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 11H3V5h7.17l2 2H21v9zM9 10v 2h10v-2H9zm0 4v2h10v-2H9z"/></svg>
+                                Glossary
+                            </div>
+                        </div>
                     </button>
                 </div>
             </div>
@@ -1011,6 +1313,13 @@
         <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
             <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
 	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
+        </svg>
+    </button>
+
+    <!-- Back Button -->
+    <button id="btn-back" class="hidden" data-tooltip="Back" data-shortcut="Ctrl+H">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
+            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
     </button>
 
@@ -2091,6 +2400,10 @@
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
+        // Hide toolbar and help button on home screen
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
         // Stop rendering canvas
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
@@ -2131,6 +2444,11 @@
         document.getElementById('canvas-container').classList.remove('hidden');
         document.getElementById('btn-home').classList.remove('hidden');
         document.getElementById('btn-save-status').classList.remove('hidden');
+        
+        // Show toolbar and help button for canvas
+        document.getElementById('toolbar').classList.remove('hidden');
+        document.getElementById('help-btn').classList.remove('hidden');
+        
         updateSaveStatusIndicator();
         requestRender();
     }
@@ -2533,6 +2851,19 @@
             const text = await file.text();
             const data = JSON.parse(text);
             
+            // Handle different note types
+            if (data.type === 'flashcard') {
+                const count = data.flashcards ? data.flashcards.length : 0;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="40" height="40" viewBox="0 0 24 24" fill="#444"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H7v2h4v4z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} card${count !== 1 ? 's' : ''}</div></div>`;
+                return;
+            }
+            
+            if (data.type === 'glossary') {
+                const count = data.glossary ? data.glossary.length : 0;
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><svg width="40" height="40" viewBox="0 0 24 24" fill="#444"><path d="M21 5h-7l-2-2H3c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 11H3V5h7.17l2 2H21v9zM9 10v2h10v-2H9zm0 4v2h10v-2H9z"/></svg><div style="color:#666;font-size:11px;margin-top:5px;">${count} term${count !== 1 ? 's' : ''}</div></div>`;
+                return;
+            }
+            
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
@@ -2614,14 +2945,45 @@
     }
 
     async function openNote(fileHandle) {
-        await loadFromFileHandle(fileHandle);
-        showCanvas();
+        // Check note type first before loading
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (data.type === 'flashcard') {
+            openFlashcard(fileHandle, data);
+        } else if (data.type === 'glossary') {
+            openGlossary(fileHandle, data);
+        } else {
+            // Load as canvas note
+            await loadFromFileHandle(fileHandle);
+            showCanvas();
+        }
     }
 
-    async function createNewNote() {
+    // --- NEW NOTE DROPDOWN MENU ---
+    function toggleNewNoteMenu(event) {
+        event.stopPropagation();
+        const menu = document.getElementById('new-note-menu');
+        menu.classList.toggle('show');
+        
+        if (menu.classList.contains('show')) {
+            setTimeout(() => {
+                document.addEventListener('click', closeNewNoteMenu);
+            }, 0);
+        }
+    }
+    
+    function closeNewNoteMenu() {
+        const menu = document.getElementById('new-note-menu');
+        menu.classList.remove('show');
+        document.removeEventListener('click', closeNewNoteMenu);
+    }
+
+    async function createNewNote(type = 'note') {
         // Check if a specific subject is selected
         if (!activeSubject) {
-            showNotification('Please select a subject first');
+            alert('Please select a subject first');
             return;
         }
 
@@ -2630,27 +2992,77 @@
             await selectRootFolder();
             if (!currentDirHandle) return; // User cancelled
         }
+        
+        closeNewNoteMenu();
 
         try {
-            // Generate a default filename with date and time (HH.mm) for uniqueness
+            // Check if flashcard deck or glossary already exists for this subject
+            if (type === 'flashcard' || type === 'glossary') {
+                const targetDirHandle = activeSubject.handle;
+                const existingFiles = [];
+                
+                for await (const entry of targetDirHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                        try {
+                            const file = await entry.getFile();
+                            const text = await file.text();
+                            const data = JSON.parse(text);
+                            
+                            if (data.type === type) {
+                                existingFiles.push(entry.name);
+                            }
+                        } catch (err) {
+                            // Skip invalid files
+                        }
+                    }
+                }
+                
+                if (existingFiles.length > 0) {
+                    const typeName = type === 'flashcard' ? 'Flashcard Deck' : 'Glossary';
+                    alert(`A ${typeName} already exists for this subject: ${existingFiles[0]}\\n\\nOnly one ${typeName} is allowed per subject. Please open the existing one instead.`);
+                    return;
+                }
+            }
+            
+            // Generate a default filename with date and time for uniqueness
             const date = new Date();
             const options = { month: 'short', day: 'numeric', year: 'numeric' };
             const formattedDate = date.toLocaleDateString('en-US', options);
             const formattedTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.');
-            const defaultName = `Note ${formattedDate} ${formattedTime}.json`;
+            
+            let defaultName, blankData;
+            
+            if (type === 'flashcard') {
+                defaultName = `Flashcard Deck.json`;
+                blankData = {
+                    type: 'flashcard',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    flashcards: []
+                };
+            } else if (type === 'glossary') {
+                defaultName = `Glossary.json`;
+                blankData = {
+                    type: 'glossary',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    glossary: []
+                };
+            } else {
+                defaultName = `Note ${formattedDate} ${formattedTime}.json`;
+                blankData = {
+                    type: 'note',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    camera: { x: 0, y: 0, z: 1 },
+                    strokes: [],
+                    textBoxes: []
+                };
+            }
 
             // Create new file in the active subject's directory
             const targetDirHandle = activeSubject.handle;
             const fileHandle = await targetDirHandle.getFileHandle(defaultName, { create: true });
-
-            // Create blank mindmap data
-            const blankData = {
-                version: '1.0',
-                timestamp: new Date().toISOString(),
-                camera: { x: 0, y: 0, z: 1 },
-                strokes: [],
-                textBoxes: []
-            };
 
             // Write to file
             const writable = await fileHandle.createWritable();
@@ -2661,26 +3073,318 @@
             currentFileHandle = fileHandle;
             currentFileName = defaultName;
 
-            // Initialize blank canvas
-            strokes = [];
-            textBoxes = [];
-            undoStack = [];
-            redoStack = [];
-            selectedStrokes.clear();
-            selectedTextBoxes.clear();
-            editingTextBox = null;
-            camera = { x: 0, y: 0, z: 1 };
-            hasUnsavedChanges = false;
+            // Reload notes to show the new file
+            allNotesLoaded = false;
+            if (activeSubject) {
+                await loadNotesForSubject(activeSubject);
+            } else {
+                await loadAllNotes();
+            }
 
-            // Show canvas for drawing
-            showCanvas();
-            requestRender();
+            // Open the appropriate editor
+            if (type === 'flashcard') {
+                openFlashcard(fileHandle, blankData);
+            } else if (type === 'glossary') {
+                openGlossary(fileHandle, blankData);
+            } else {
+                // Initialize blank canvas
+                strokes = [];
+                textBoxes = [];
+                undoStack = [];
+                redoStack = [];
+                selectedStrokes.clear();
+                selectedTextBoxes.clear();
+                editingTextBox = null;
+                camera = { x: 0, y: 0, z: 1 };
+                hasUnsavedChanges = false;
+
+                // Show canvas for drawing
+                showCanvas();
+                requestRender();
+            }
 
             showNotification(`Created ${defaultName}`);
         } catch (err) {
             console.error('Error creating new note:', err);
             alert('Error creating new note. Please try again.');
         }
+    }
+
+    // --- FLASHCARD FUNCTIONS ---
+    let currentFlashcardData = null;
+    let currentFlashcardHandle = null;
+
+    function openFlashcard(fileHandle, data) {
+        currentFlashcardHandle = fileHandle;
+        currentFlashcardData = data;
+        
+        // Hide other screens
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('glossary-page').classList.remove('active');
+        
+        // Show flashcard page
+        document.getElementById('flashcard-page').classList.add('active');
+        
+        // Show back button, hide home button
+        document.getElementById('btn-back').classList.remove('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        
+        // Hide toolbar and help button
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
+        // Update title
+        const fileName = currentFlashcardHandle.name.replace('.json', '');
+        document.getElementById('flashcard-title').textContent = fileName;
+        
+        renderFlashcardList();
+    }
+
+    function closeFlashcard() {
+        document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('btn-back').classList.add('hidden');
+        currentFlashcardData = null;
+        currentFlashcardHandle = null;
+        showHomeScreen();
+    }
+
+    function renderFlashcardList() {
+        const listDiv = document.getElementById('flashcard-list');
+        if (!currentFlashcardData || !currentFlashcardData.flashcards) {
+            listDiv.innerHTML = '<p style="color:#666;text-align:center;">No flashcards yet. Add one below.</p>';
+            addNewFlashcardForm(listDiv);
+            return;
+        }
+
+        listDiv.innerHTML = '';
+        
+        currentFlashcardData.flashcards.forEach((card, index) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'fc-card';
+            cardDiv.innerHTML = `
+                <div class="fc-front">
+                    <label>FRONT</label>
+                    <div class="fc-front-content">${escapeHtml(card.front)}</div>
+                </div>
+                <div class="fc-back">
+                    <label>BACK</label>
+                    <div class="fc-back-content">${escapeHtml(card.back)}</div>
+                </div>
+                <div class="fc-controls">
+                    <button class="fc-btn del-btn" onclick="deleteFlashcard(${index})">Delete</button>
+                    <button class="fc-btn" onclick="editFlashcard(${index})">Edit</button>
+                </div>
+            `;
+            listDiv.appendChild(cardDiv);
+        });
+        
+        addNewFlashcardForm(listDiv);
+    }
+
+    function addNewFlashcardForm(container) {
+        const formDiv = document.createElement('div');
+        formDiv.className = 'fc-card';
+        formDiv.innerHTML = `
+            <h3 style="color:#fff;margin-top:0;">Add New Flashcard</h3>
+            <div class="fc-front">
+                <label>FRONT</label>
+                <textarea class="fc-edit-textarea" id="new-fc-front" placeholder="Question or term..."></textarea>
+            </div>
+            <div class="fc-back">
+                <label>BACK</label>
+                <textarea class="fc-edit-textarea" id="new-fc-back" placeholder="Answer or definition..."></textarea>
+            </div>
+            <div class="fc-controls">
+                <button class="fc-btn add-btn" onclick="addFlashcard()">Add Flashcard</button>
+            </div>
+        `;
+        container.appendChild(formDiv);
+    }
+
+    async function addFlashcard() {
+        const front = document.getElementById('new-fc-front').value.trim();
+        const back = document.getElementById('new-fc-back').value.trim();
+        
+        if (!front || !back) {
+            alert('Please fill in both front and back of the flashcard');
+            return;
+        }
+        
+        if (!currentFlashcardData.flashcards) {
+            currentFlashcardData.flashcards = [];
+        }
+        
+        currentFlashcardData.flashcards.push({ front, back });
+        await saveFlashcardData();
+        renderFlashcardList();
+    }
+
+    async function deleteFlashcard(index) {
+        if (!confirm('Delete this flashcard?')) return;
+        
+        currentFlashcardData.flashcards.splice(index, 1);
+        await saveFlashcardData();
+        renderFlashcardList();
+    }
+
+    function editFlashcard(index) {
+        const card = currentFlashcardData.flashcards[index];
+        const front = prompt('Edit front:', card.front);
+        if (front !== null && front.trim()) {
+            card.front = front.trim();
+        }
+        const back = prompt('Edit back:', card.back);
+        if (back !== null && back.trim()) {
+            card.back = back.trim();
+        }
+        saveFlashcardData();
+        renderFlashcardList();
+    }
+
+    async function saveFlashcardData() {
+        if (!currentFlashcardHandle) return;
+        
+        try {
+            const writable = await currentFlashcardHandle.createWritable();
+            await writable.write(JSON.stringify(currentFlashcardData));
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving flashcard:', err);
+            alert('Failed to save flashcard');
+        }
+    }
+
+    // --- GLOSSARY FUNCTIONS ---
+    let currentGlossaryData = null;
+    let currentGlossaryHandle = null;
+
+    function openGlossary(fileHandle, data) {
+        currentGlossaryHandle = fileHandle;
+        currentGlossaryData = data;
+        
+        // Hide other screens
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('flashcard-page').classList.remove('active');
+        
+        // Show glossary page
+        document.getElementById('glossary-page').classList.add('active');
+        
+        // Show back button, hide home button
+        document.getElementById('btn-back').classList.remove('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        
+        // Hide toolbar and help button
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
+        // Update title
+        const fileName = currentGlossaryHandle.name.replace('.json', '');
+        document.getElementById('glossary-title').textContent = fileName;
+        
+        renderGlossaryList();
+    }
+
+    function closeGlossary() {
+        document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('btn-back').classList.add('hidden');
+        currentGlossaryData = null;
+        currentGlossaryHandle = null;
+        showHomeScreen();
+    }
+
+    function renderGlossaryList() {
+        const listDiv = document.getElementById('glossary-list');
+        const searchTerm = document.getElementById('glossary-search-input').value.toLowerCase();
+        
+        if (!currentGlossaryData || !currentGlossaryData.glossary || currentGlossaryData.glossary.length === 0) {
+            listDiv.innerHTML = '<p style="color:#666;text-align:center;">No glossary entries yet. Add one above.</p>';
+            return;
+        }
+
+        listDiv.innerHTML = '';
+        
+        currentGlossaryData.glossary.forEach((entry, index) => {
+            if (searchTerm && !entry.term.toLowerCase().includes(searchTerm) && !entry.definition.toLowerCase().includes(searchTerm)) {
+                return;
+            }
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'glossary-item';
+            itemDiv.innerHTML = `
+                <div class="glossary-term">${escapeHtml(entry.term)}</div>
+                <div class="glossary-definition">${escapeHtml(entry.definition)}</div>
+                <div class="glossary-item-actions">
+                    <button class="glossary-item-btn" onclick="editGlossaryEntry(${index})">Edit</button>
+                    <button class="glossary-item-btn delete" onclick="deleteGlossaryEntry(${index})">Delete</button>
+                </div>
+            `;
+            listDiv.appendChild(itemDiv);
+        });
+    }
+
+    async function addGlossaryEntry() {
+        const term = document.getElementById('glossary-term-input').value.trim();
+        const definition = document.getElementById('glossary-def-input').value.trim();
+        
+        if (!term || !definition) {
+            alert('Please fill in both term and definition');
+            return;
+        }
+        
+        if (!currentGlossaryData.glossary) {
+            currentGlossaryData.glossary = [];
+        }
+        
+        currentGlossaryData.glossary.push({ term, definition });
+        await saveGlossaryData();
+        
+        document.getElementById('glossary-term-input').value = '';
+        document.getElementById('glossary-def-input').value = '';
+        
+        renderGlossaryList();
+    }
+
+    async function deleteGlossaryEntry(index) {
+        if (!confirm('Delete this glossary entry?')) return;
+        
+        currentGlossaryData.glossary.splice(index, 1);
+        await saveGlossaryData();
+        renderGlossaryList();
+    }
+
+    function editGlossaryEntry(index) {
+        const entry = currentGlossaryData.glossary[index];
+        const term = prompt('Edit term:', entry.term);
+        if (term !== null && term.trim()) {
+            entry.term = term.trim();
+        }
+        const definition = prompt('Edit definition:', entry.definition);
+        if (definition !== null && definition.trim()) {
+            entry.definition = definition.trim();
+        }
+        saveGlossaryData();
+        renderGlossaryList();
+    }
+
+    async function saveGlossaryData() {
+        if (!currentGlossaryHandle) return;
+        
+        try {
+            const writable = await currentGlossaryHandle.createWritable();
+            await writable.write(JSON.stringify(currentGlossaryData));
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving glossary:', err);
+            alert('Failed to save glossary');
+        }
+    }
+
+    function filterGlossary() {
+        renderGlossaryList();
     }
 
     async function selectRootFolder() {
@@ -3414,7 +4118,14 @@
                 saveToFile();
             } else if (e.key.toLowerCase() === 'h') {
                 e.preventDefault();
-                await showHomeScreen();
+                // Check if on flashcard or glossary page
+                if (document.getElementById('flashcard-page').classList.contains('active')) {
+                    closeFlashcard();
+                } else if (document.getElementById('glossary-page').classList.contains('active')) {
+                    closeGlossary();
+                } else {
+                    await showHomeScreen();
+                }
             }
         }
     });
@@ -3854,6 +4565,15 @@
     btnUndo.onclick = performUndo;
     btnRedo.onclick = performRedo;
     btnHome.onclick = async () => await showHomeScreen();
+    const btnBack = document.getElementById('btn-back');
+    if (btnBack) btnBack.onclick = () => {
+        // Close whichever page is active
+        if (document.getElementById('flashcard-page').classList.contains('active')) {
+            closeFlashcard();
+        } else if (document.getElementById('glossary-page').classList.contains('active')) {
+            closeGlossary();
+        }
+    };
     if (btnNew) btnNew.onclick = createNewMindmap;
     if (btnSave) btnSave.onclick = saveToFile;
     if (btnFullscreen) btnFullscreen.onclick = toggleFullScreen;
@@ -3891,7 +4611,12 @@
     
     // Initially hide home button and save status (we start on home screen)
     document.getElementById('btn-home').classList.add('hidden');
+    document.getElementById('btn-back').classList.add('hidden');
     document.getElementById('btn-save-status').classList.add('hidden');
+    
+    // Initially hide toolbar and help button (only show on canvas)
+    document.getElementById('toolbar').classList.add('hidden');
+    document.getElementById('help-btn').classList.add('hidden');
     
     // Add search functionality
     const sidebarSearch = document.getElementById('sidebar-search');
@@ -4052,6 +4777,45 @@
     dropOverlay.id = 'drop-overlay';
     dropOverlay.innerHTML = '<div id="drop-message">Drop JSON file to open</div>';
     document.body.appendChild(dropOverlay);
+
+    // Create flashcard page
+    const flashcardPage = document.createElement('div');
+    flashcardPage.id = 'flashcard-page';
+    flashcardPage.innerHTML = `
+        <div class="fc-container">
+            <div class="fc-page-header">
+                <h1 id="flashcard-title">Flashcard Deck</h1>
+            </div>
+            <div id="flashcard-list"></div>
+        </div>
+    `;
+    document.body.appendChild(flashcardPage);
+
+    // Create glossary page
+    const glossaryPage = document.createElement('div');
+    glossaryPage.id = 'glossary-page';
+    glossaryPage.innerHTML = `
+        <div class="glossary-container">
+            <div class="glossary-header">
+                <h1 id="glossary-title">Glossary</h1>
+            </div>
+            
+            <div class="glossary-add-section">
+                <div class="glossary-input-group">
+                    <input type="text" class="glossary-input" id="glossary-term-input" placeholder="Term">
+                </div>
+                <textarea class="glossary-textarea" id="glossary-def-input" placeholder="Definition (Markdown supported)"></textarea>
+                <button class="glossary-add-btn" onclick="addGlossaryEntry()">Add Entry</button>
+            </div>
+            
+            <div class="glossary-search">
+                <input type="text" id="glossary-search-input" placeholder="Search glossary..." oninput="filterGlossary()">
+            </div>
+            
+            <div class="glossary-list" id="glossary-list"></div>
+        </div>
+    `;
+    document.body.appendChild(glossaryPage);
 
 </script>
 </body>
