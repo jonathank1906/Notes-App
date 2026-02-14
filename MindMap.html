@@ -725,25 +725,32 @@
             font-size: 24px;
         }
 
+        /* --- REPLACE THE OLD .note-info CSS WITH THIS --- */
         .note-info {
-            padding: 8px 16px;
+            padding: 12px 16px;
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        #notes-grid.list-view .note-info {
-            padding: 0 20px;
-            flex: 1;
+        .note-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
         }
 
-        #notes-grid.list-view .note-info > div:first-child {
-            flex: 1;
-        }
-
-        #notes-grid:not(.list-view) .note-info {
-            display: block;
+        .note-subject-pill {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--accent);
+            white-space: nowrap;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
 
         .note-title {
@@ -753,15 +760,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-        }
-
-        #notes-grid:not(.list-view) .note-title {
-            margin-bottom: 4px;
-        }
-
-        #notes-grid.list-view .note-title {
-            margin-bottom: 0;
-            font-size: 15px;
+            width: 100%;
         }
 
         .note-date {
@@ -769,6 +768,27 @@
             color: var(--text-color);
         }
 
+        /* List view overrides */
+        #notes-grid.list-view .note-info {
+            padding: 0 20px;
+            flex-direction: row;
+            align-items: center;
+            flex: 1;
+            gap: 24px;
+        }
+
+        #notes-grid.list-view .note-title {
+            margin-bottom: 0;
+            font-size: 15px;
+            flex: 1;
+        }
+
+        #notes-grid.list-view .note-meta {
+            width: auto;
+            gap: 24px;
+            justify-content: flex-end;
+        }
+        
         #notes-grid.list-view .note-date {
             font-size: 12px;
         }
@@ -2531,7 +2551,7 @@
     let isDrawing = false;
     let isPanning = false;
     let isSpacePressed = false;
-    let activeTool = 'pen'; 
+    let activeTool = 'select'; 
     let lastMouse = { x: 0, y: 0 };
     let currentMouseWorld = { x: 0, y: 0 }; // Current mouse position in world coordinates
     
@@ -3938,6 +3958,7 @@
         preview.className = 'note-preview';
         preview.innerHTML = '';
         
+        // --- THIS SECTION IS UPDATED --- //
         const info = document.createElement('div');
         info.className = 'note-info';
         
@@ -3949,18 +3970,30 @@
             year: 'numeric' 
         });
         
-        const titleWrapper = document.createElement('div');
+        // Top row: Title only (gets 100% width)
         const title = document.createElement('div');
         title.className = 'note-title';
         title.textContent = note.name;
-        titleWrapper.appendChild(title);
+        title.title = note.name; // Adds a tooltip if it's still too long!
+        
+        // Bottom row: Date and Pill
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'note-meta';
         
         const dateDiv = document.createElement('div');
         dateDiv.className = 'note-date';
         dateDiv.textContent = formattedDate;
         
-        info.appendChild(titleWrapper);
-        info.appendChild(dateDiv);
+        const subjectPill = document.createElement('div');
+        subjectPill.className = 'note-subject-pill';
+        subjectPill.textContent = note.subject;
+        
+        metaDiv.appendChild(dateDiv);
+        metaDiv.appendChild(subjectPill);
+        
+        info.appendChild(title);
+        info.appendChild(metaDiv);
+        // --- END OF UPDATED SECTION --- //
         
         card.appendChild(preview);
         card.appendChild(info);
@@ -7409,6 +7442,9 @@
         </div>
     `;
     document.body.appendChild(linearNotesPage);
+
+    // Set default tool to select
+    setTool('select');
 
 </script>
 </body>
