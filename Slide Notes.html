@@ -103,13 +103,6 @@
         input:checked + .slider { background-color: #2196F3; }
         input:checked + .slider:before { transform: translateX(16px); }
 
-        /* Drawing Toolbar */
-        #top-drawing-tools { display: none; gap: 5px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #333; }
-        #top-drawing-tools.active { display: flex; }
-        .tool-btn { background: #000; border: 1px solid #444; color: #888; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
-        .tool-btn:hover { background: #222; color: #fff; }
-        .tool-btn.active { background: #ddd; color: #000; border-color: #fff; font-weight: bold; }
-
         #last-saved { margin-left: auto; font-size: 11px; color: #555; font-family: monospace; }
 
         /* --- HEADER & CONTENT --- */
@@ -209,244 +202,9 @@
             font-family: monospace;
         }
 
-        /* --- FLASHCARD MODE STYLES --- */
-        #flashcard-overlay {
-            display: none;
-            position: absolute; top: 40px; left: 0; width: 100%; height: calc(100vh - 40px);
-            background-color: #0e0e0e; 
-            z-index: 200;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        #flashcard-overlay.active { display: flex; }
-
-        .fc-mode-label {
-            position: absolute; top: 10px; left: 20px;
-            font-size: 14px; color: #888; font-weight: bold;
-            text-transform: uppercase; letter-spacing: 1px;
-        }
-
-        /* --- STUDY MODE --- */
-        #fc-study-container { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; justify-content: center; }
-        
-        .fc-scene {
-            width: 600px; height: 400px; perspective: 1000px; margin: 20px; cursor: pointer;
-            -webkit-user-select: none; user-select: none;
-        }
-        .fc-card {
-            width: 100%; height: 100%; position: relative;
-            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
-            transform-style: preserve-3d;
-        }
-        .fc-card.is-flipped { transform: rotateX(180deg); }
-        .fc-face {
-            position: absolute; width: 100%; height: 100%; border-radius: 1rem;
-            background: #2b2b2b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-            display: flex; justify-content: center; align-items: center;
-            padding: 2rem; text-align: center; font-size: 2rem; line-height: 1.5; font-weight: 400;
-            backface-visibility: hidden; -webkit-backface-visibility: hidden;
-            overflow-y: auto;
-        }
-        .fc-face-back { transform: rotateX(180deg); color: #fff; }
-        .fc-face-front { color: #fff; }
-
-        .fc-instructions {
-            margin-top: 1rem; color: #6e6e6e; font-size: 0.875rem; font-weight: 700;
-            letter-spacing: 0.05em; text-transform: uppercase; user-select: none;
-        }
-        .fc-controls {
-            display: flex; gap: 15px; align-items: center; margin-top: 20px;
-        }
-        .fc-btn {
-            background: #222; border: 1px solid #444; color: #ccc; padding: 8px 16px; 
-            border-radius: 4px; cursor: pointer; font-size: 14px;
-        }
-        .fc-btn:hover { background: #333; color: white; }
-        .fc-btn.edit-toggle { color: #8af; border-color: #357; }
-        #fc-counter { font-family: monospace; color: #888; }
-        #no-cards-msg { color: #666; font-style: italic; margin-bottom: 20px; }
-
-        /* --- EDIT MODE --- */
-        #fc-edit-container { 
-            display: none; flex-direction: column; width: 600px; height: 600px; 
-            background: #111; border: 1px solid #333; border-radius: 8px; padding: 20px;
-        }
-        .fc-edit-field {
-            display: flex; flex-direction: column; flex: 1; margin-bottom: 15px;
-        }
-        .fc-edit-field label { font-size: 12px; color: #888; margin-bottom: 5px; font-weight: bold; }
-        .fc-edit-textarea {
-            flex: 1; background: #1a1a1a; border: 1px solid #333; color: #ddd; 
-            padding: 10px; font-family: 'Consolas', monospace; font-size: 14px; resize: none; outline: none;
-            border-radius: 4px;
-        }
-        .fc-edit-textarea:focus { border-color: #555; }
-        .fc-edit-controls { display: flex; justify-content: space-between; align-items: center; }
-        .fc-btn.add-btn { color: #8f8; border-color: #353; }
-        .fc-btn.del-btn { color: #f88; border-color: #533; }
-
-        /* Markdown Styles in Flashcard */
-        .fc-face p { margin-bottom: 10px; }
-        .fc-face code { background: #444; padding: 2px 4px; border-radius: 3px; font-size: 0.8em; font-family: monospace; }
-        .fc-face pre { background: #111; padding: 10px; border-radius: 5px; width: 100%; text-align: left; overflow-x: auto; }
-
-        /* --- GLOSSARY MODE STYLES --- */
-        #glossary-overlay {
-            display: none;
-            position: absolute; top: 40px; left: 0; width: 100%; height: calc(100vh - 40px);
-            background-color: #0e0e0e;
-            z-index: 200;
-            flex-direction: column;
-            padding: 40px;
-            overflow-y: auto;
-        }
-        #glossary-overlay.active { display: flex; }
-
-        .glossary-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 15px;
-        }
-        .glossary-header h2 {
-            margin: 0;
-            font-size: 24px;
-            color: #fff;
-        }
-        .glossary-add-section {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        .glossary-input-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        .glossary-input {
-            flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #ddd;
-            padding: 10px;
-            font-size: 14px;
-            border-radius: 4px;
-            outline: none;
-        }
-        .glossary-input:focus { border-color: #555; }
-        .glossary-input.term-input { flex: 0 0 250px; }
-        
-        .glossary-textarea {
-            width: 100%;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #ddd;
-            padding: 10px;
-            font-size: 14px;
-            border-radius: 4px;
-            outline: none;
-            resize: vertical;
-            min-height: 80px;
-            font-family: 'Consolas', monospace;
-        }
-        .glossary-textarea:focus { border-color: #555; }
-
-        .glossary-add-btn {
-            background: #222;
-            border: 1px solid #353;
-            color: #8f8;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        .glossary-add-btn:hover { background: #252; }
-
-        .glossary-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        .glossary-item {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 15px;
-            transition: all 0.2s;
-        }
-        .glossary-item:hover {
-            border-color: #555;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        .glossary-term {
-            font-size: 18px;
-            font-weight: bold;
-            color: #fff;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 8px;
-        }
-        .glossary-definition {
-            color: #aaa;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-        .glossary-definition p { margin: 5px 0; }
-        .glossary-definition code {
-            background: #2d2d2d;
-            padding: 2px 5px;
-            border-radius: 4px;
-            color: #ccc;
-            border: 1px solid #444;
-            font-family: 'Consolas', monospace;
-            font-size: 13px;
-        }
-        .glossary-item-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .glossary-item-btn {
-            background: #222;
-            border: 1px solid #444;
-            color: #ccc;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .glossary-item-btn:hover { background: #333; color: #fff; }
-        .glossary-item-btn.delete { color: #f88; border-color: #533; }
-        .glossary-item-btn.delete:hover { background: #300; }
-
-        .glossary-search {
-            margin-bottom: 20px;
-        }
-        .glossary-search input {
-            width: 100%;
-            max-width: 400px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #ddd;
-            padding: 10px;
-            font-size: 14px;
-            border-radius: 4px;
-            outline: none;
-        }
-        .glossary-search input:focus { border-color: #555; }
-
         #pdf-render-container { display: none; justify-content: center; align-items: center; width: 100%; height: 30vh; position: relative; transition: height 0.1s ease; }
         #the-canvas { max-height: 100%; max-width: 80%; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: absolute; z-index: 1; }
         #the-canvas.inverted { filter: invert(1); }
-        #draw-canvas { max-height: 100%; max-width: 80%; position: absolute; z-index: 2; touch-action: none; pointer-events: none; }
-        #draw-canvas.active { pointer-events: auto; border: 1px dashed rgba(255, 255, 255, 0.2); }
         #no-pdf-msg { color: #444; font-style: italic; position: absolute; font-size: 14px; z-index: 0; }
         .textLayer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; opacity: 1; mix-blend-mode: multiply; line-height: 1.0; pointer-events: auto; }
         .textLayer ::selection { background: rgba(0, 0, 255, 0.3); }
@@ -530,9 +288,6 @@
 
         /* --- BIONIC READING STYLES --- */
         #slideNotesPreview strong,
-        .fc-face strong,
-        .glossary-definition strong,
-        .glossary-term strong,
         .toc-text strong {
             font-weight: 650;
             color: #e8e8e8;
@@ -542,9 +297,6 @@
         
         /* Subtle gradient effect on containing elements */
         #slideNotesPreview,
-        .fc-face,
-        .glossary-definition,
-        .glossary-term,
         .toc-text {
             color: #b8b8b8;
         }
@@ -563,8 +315,6 @@
         <button class="menu-trigger" onclick="toggleMenu('edit-menu')">Edit</button>
         <button class="menu-trigger" onclick="toggleMenu('fixes-menu')">Fixes</button>
         <button class="menu-trigger" onclick="toggleMenu('appearance-menu')">Appearance</button>
-        <button class="menu-trigger" id="btn-flashcards" onclick="toggleFlashcardMode()">Flashcards</button>
-        <button class="menu-trigger" id="btn-glossary" onclick="toggleGlossaryMode()">Glossary</button>
         
         <label class="mode-toggle">
             Standard
@@ -574,12 +324,6 @@
             </div>
             PDF
         </label>
-
-        <div id="top-drawing-tools">
-            <button class="tool-btn active" id="btn-pen" onclick="setTool('pen')">Pen</button>
-            <button class="tool-btn" id="btn-eraser" onclick="setTool('eraser')">Eraser</button>
-            <button class="tool-btn" onclick="clearSlideDrawing()" style="color:#ff6666;">Clear</button>
-        </div>
 
         <div id="last-saved">Not saved</div>
     </div>
@@ -664,8 +408,7 @@
             <strong>How to use:</strong><br>
             1. Click "Add Lecture Files" to select multiple JSON files<br>
             2. Drag files to reorder them (merged in this order)<br>
-            3. Click "Merge & Save" to create a combined file<br>
-            <em>Note: Flashcards and glossary terms will be deduplicated automatically.</em>
+            3. Click "Merge & Save" to create a combined file
         </div>
 
         <div id="merge-file-list"></div>
@@ -693,76 +436,6 @@
         <button class="context-menu-item" onclick="setSlideLevel(contextMenuTargetIndex, null)">Remove Level</button>
     </div>
 
-    <div id="flashcard-overlay">
-        <div class="fc-mode-label" id="fc-mode-label">Study Mode</div>
-
-        <div id="fc-study-container">
-            <div id="no-cards-msg" style="display:none;">Deck is empty. Press 'e' to add cards.</div>
-            
-            <div class="fc-scene" id="fc-scene">
-                <div class="fc-card">
-                    <div class="fc-face fc-face-front"></div>
-                    <div class="fc-face fc-face-back"></div>
-                </div>
-            </div>
-            
-            <div class="fc-instructions">Space to flip • 'e' to Edit</div>
-            
-            <div class="fc-controls">
-                <button class="fc-btn" onclick="navFlashcard(-1)">Previous</button>
-                <span id="fc-counter">0 / 0</span>
-                <button class="fc-btn" onclick="navFlashcard(1)">Next</button>
-                <div style="width:20px;"></div>
-                <button class="fc-btn edit-toggle" onclick="toggleFlashcardEditMode()">Edit / Add</button>
-            </div>
-        </div>
-
-        <div id="fc-edit-container">
-            <h3 style="margin-top:0; margin-bottom:15px; color:#8af;">Edit Flashcard</h3>
-            
-            <div class="fc-edit-field">
-                <label>Front (Question)</label>
-                <textarea class="fc-edit-textarea" id="fc-edit-front" placeholder="Type question here (Markdown supported)..."></textarea>
-            </div>
-            
-            <div class="fc-edit-field">
-                <label>Back (Answer)</label>
-                <textarea class="fc-edit-textarea" id="fc-edit-back" placeholder="Type answer here (Markdown supported)..."></textarea>
-            </div>
-            
-            <div class="fc-edit-controls">
-                <button class="fc-btn del-btn" onclick="deleteFlashcard()">Delete Card</button>
-                <div>
-                     <button class="fc-btn" onclick="toggleFlashcardEditMode()">Cancel / View</button>
-                     <button class="fc-btn add-btn" onclick="saveFlashcardAndNext()">Save & Add New</button>
-                     <button class="fc-btn" onclick="saveFlashcardOnly()" style="border-color:#8af; color:#8af;">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="glossary-overlay">
-        <div class="glossary-header">
-            <h2>Glossary</h2>
-            <button class="fc-btn" onclick="toggleGlossaryMode()" style="border-color:#666;">Close</button>
-        </div>
-
-        <div class="glossary-add-section">
-            <h3 style="margin-top:0; margin-bottom:15px; color:#8af; font-size:16px;">Add New Term</h3>
-            <div class="glossary-input-group">
-                <input type="text" class="glossary-input term-input" id="glossary-term-input" placeholder="Term...">
-            </div>
-            <textarea class="glossary-textarea" id="glossary-definition-input" placeholder="Definition (Markdown supported)..."></textarea>
-            <button class="glossary-add-btn" onclick="addGlossaryTerm()">Add Term</button>
-        </div>
-
-        <div class="glossary-search">
-            <input type="text" id="glossary-search-input" placeholder="Search glossary..." oninput="filterGlossary()">
-        </div>
-
-        <div class="glossary-list" id="glossary-list"></div>
-    </div>
-
     <div id="sticky-header-group">
         <div id="display">1</div>
         <span id="slideLabel" contenteditable="true" role="textbox" data-placeholder="Header..."></span>
@@ -770,7 +443,6 @@
             <div id="no-pdf-msg">Load PDF in Menu</div>
             <canvas id="the-canvas" class="inverted"></canvas>
             <div id="text-layer" class="textLayer"></div>
-            <canvas id="draw-canvas"></canvas>
         </div>
     </div>
 
@@ -783,10 +455,8 @@
 
     <script>
         const pdfCanvas = document.getElementById('the-canvas');
-        const drawCanvas = document.getElementById('draw-canvas');
         const textLayerDiv = document.getElementById('text-layer');
         const pdfCtx = pdfCanvas.getContext('2d');
-        const drawCtx = drawCanvas.getContext('2d');
         const display = document.getElementById('display');
         const slideLabel = document.getElementById('slideLabel');
         const editor = document.getElementById('slideNotesEditor');
@@ -797,9 +467,6 @@
         // UI Elements
         const mainMenu = document.getElementById('main-menu');
         const modeSwitch = document.getElementById('mode-switch');
-        const drawingToolbar = document.getElementById('top-drawing-tools');
-        const btnPen = document.getElementById('btn-pen');
-        const btnEraser = document.getElementById('btn-eraser');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         
         const searchInput = document.getElementById('search-input');
@@ -877,8 +544,8 @@
             return div.innerHTML;
         }
 
-        let state = { count: 1, slides: [], flashcards: [], glossary: [] };
-        state.slides = [{ type: 'blank', header: '', notes: '', drawings: [] }];
+        let state = { count: 1, slides: [] };
+        state.slides = [{ type: 'blank', header: '', notes: '' }];
         
         let MODES = ['NUM', 'PDF']; 
         let currentModeIndex = 0; 
@@ -894,42 +561,11 @@
         let isRestoring = false;
         let fileHandle = null;
         let autoSaveInterval = null;
-        let isDrawing = false; let isErasing = false; let currentTool = 'pen'; let currentStrokes = [];
         let isPageRendering = false; let pageNumPending = null;
-        
-        // --- FLASHCARD STATE ---
-        let currentFlashcardIndex = 0;
-        let isFlashcardMode = false;
-        let isFlashcardEditMode = false;
-        
-        // --- GLOSSARY STATE ---
-        let isGlossaryMode = false;
-        let editingGlossaryIndex = -1;
         
         // --- MERGE STATE ---
         let mergeFiles = []; // Array of {name, data}
 
-        // --- FLASHCARD ELEMENTS ---
-        const fcOverlay = document.getElementById('flashcard-overlay');
-        const fcScene = document.getElementById('fc-scene');
-        const fcCard = document.querySelector('.fc-card');
-        const fcFront = document.querySelector('.fc-face-front');
-        const fcBack = document.querySelector('.fc-face-back');
-        const fcCounter = document.getElementById('fc-counter');
-        const noCardsMsg = document.getElementById('no-cards-msg');
-        const fcStudyContainer = document.getElementById('fc-study-container');
-        const fcEditContainer = document.getElementById('fc-edit-container');
-        const fcEditFront = document.getElementById('fc-edit-front');
-        const fcEditBack = document.getElementById('fc-edit-back');
-        const fcModeLabel = document.getElementById('fc-mode-label');
-        
-        // --- GLOSSARY ELEMENTS ---
-        const glossaryOverlay = document.getElementById('glossary-overlay');
-        const glossaryList = document.getElementById('glossary-list');
-        const glossaryTermInput = document.getElementById('glossary-term-input');
-        const glossaryDefInput = document.getElementById('glossary-definition-input');
-        const glossarySearchInput = document.getElementById('glossary-search-input');
-        
         // --- MERGE ELEMENTS ---
         const mergeOverlay = document.getElementById('merge-overlay');
         const mergeFileList = document.getElementById('merge-file-list');
@@ -942,13 +578,13 @@
         function pushSnapshot(index, text) { if (isRestoring) return; const h = getHistory(index); if (h.undo.length > 0 && h.undo[h.undo.length - 1] === text) return; h.undo.push(text); h.redo = []; if (h.undo.length > 50) h.undo.shift(); }
         function undo(index) { const h = getHistory(index); if (h.undo.length === 0) return null; const currentText = editor.value; if (h.undo.length > 0 && h.undo[h.undo.length - 1] === currentText) { h.undo.pop(); } if (h.undo.length === 0) return null; h.redo.push(currentText); return h.undo.pop(); }
         function redo(index) { const h = getHistory(index); if (h.redo.length === 0) return null; const next = h.redo.pop(); h.undo.push(editor.value); return next; }
-        function checkIfDirty() { if (state.slides.length > 1) return true; const s = state.slides[0]; if (s.header && s.header.trim() !== "") return true; if (s.notes && s.notes.trim() !== "") return true; if (s.drawings && s.drawings.length > 0) return true; return false; }
+        function checkIfDirty() { if (state.slides.length > 1) return true; const s = state.slides[0]; if (s.header && s.header.trim() !== "") return true; if (s.notes && s.notes.trim() !== "") return true; return false; }
         function saveData() { /* Memory Only */ }
         function autoResizeTextarea() { editor.style.height = 'auto'; editor.style.height = (editor.scrollHeight) + 'px'; }
 
         function handleInput() {
             const idx = state.count - 1; const newText = editor.value; isDirty = true; autoResizeTextarea();
-            if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'', drawings:[] };
+            if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'' };
             state.slides[idx].header = slideLabel.innerText; state.slides[idx].notes = newText; 
             if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { pushSnapshot(idx, newText); }, 500);
             saveData(); updateSidebar(); 
@@ -1029,275 +665,6 @@
             tocContextMenu.classList.remove('active');
         }
 
-        // --- FLASHCARD FUNCTIONS ---
-        function toggleFlashcardMode() {
-            isFlashcardMode = !isFlashcardMode;
-            const btn = document.getElementById('btn-flashcards');
-            
-            if (isFlashcardMode) {
-                fcOverlay.classList.add('active');
-                btn.style.background = '#222';
-                btn.style.color = '#fff';
-                btn.style.borderColor = '#444';
-                
-                if(!state.flashcards) state.flashcards = [];
-                isFlashcardEditMode = false;
-                renderFlashcardUI();
-            } else {
-                fcOverlay.classList.remove('active');
-                btn.style.background = 'none';
-                btn.style.color = '#888';
-                btn.style.borderColor = 'transparent';
-                if (MODES[currentModeIndex] === 'PDF') renderPage();
-            }
-        }
-
-        function toggleFlashcardEditMode() {
-            isFlashcardEditMode = !isFlashcardEditMode;
-            renderFlashcardUI();
-        }
-
-        function renderFlashcardUI() {
-            if (isFlashcardEditMode) {
-                fcStudyContainer.style.display = 'none';
-                fcEditContainer.style.display = 'flex';
-                fcModeLabel.innerText = "Edit Mode";
-                
-                if(state.flashcards && state.flashcards.length > 0 && currentFlashcardIndex < state.flashcards.length) {
-                    const card = state.flashcards[currentFlashcardIndex];
-                    fcEditFront.value = card.front;
-                    fcEditBack.value = card.back;
-                } else {
-                    fcEditFront.value = "";
-                    fcEditBack.value = "";
-                }
-                fcEditFront.focus();
-
-            } else {
-                fcStudyContainer.style.display = 'flex';
-                fcEditContainer.style.display = 'none';
-                fcModeLabel.innerText = "Study Mode";
-                
-                fcCard.classList.remove('is-flipped');
-
-                if (!state.flashcards || state.flashcards.length === 0) {
-                    noCardsMsg.style.display = 'block';
-                    fcScene.style.display = 'none';
-                    fcCounter.innerText = "0 / 0";
-                } else {
-                    noCardsMsg.style.display = 'none';
-                    fcScene.style.display = 'block';
-                    updateFlashcardDisplay();
-                }
-            }
-        }
-
-        function updateFlashcardDisplay() {
-            const cards = state.flashcards || [];
-            if (cards.length === 0) return;
-            
-            if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
-            
-            const cardData = cards[currentFlashcardIndex];
-            
-            fcFront.innerHTML = applyBionicReading(marked.parse(cardData.front || "..."));
-            fcBack.innerHTML = applyBionicReading(marked.parse(cardData.back || "..."));
-            
-            fcCounter.textContent = `${currentFlashcardIndex + 1} / ${cards.length}`;
-            fcCard.classList.remove('is-flipped');
-        }
-
-        function navFlashcard(dir) {
-            const cards = state.flashcards || [];
-            if (cards.length === 0) return;
-            currentFlashcardIndex += dir;
-            if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
-            if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
-            updateFlashcardDisplay();
-        }
-
-        function flipCard() {
-            fcCard.classList.toggle('is-flipped');
-        }
-
-        fcScene.addEventListener('click', flipCard);
-
-        function saveFlashcardOnly() {
-            if(!state.flashcards) state.flashcards = [];
-            
-            const frontVal = fcEditFront.value;
-            const backVal = fcEditBack.value;
-
-            if (state.flashcards.length > 0 && currentFlashcardIndex < state.flashcards.length) {
-                state.flashcards[currentFlashcardIndex].front = frontVal;
-                state.flashcards[currentFlashcardIndex].back = backVal;
-            } else {
-                state.flashcards.push({ front: frontVal, back: backVal });
-                currentFlashcardIndex = 0;
-            }
-            isDirty = true;
-            toggleFlashcardEditMode();
-        }
-
-        function saveFlashcardAndNext() {
-             if(!state.flashcards) state.flashcards = [];
-             
-             const frontVal = fcEditFront.value;
-             const backVal = fcEditBack.value;
-             
-             if (currentFlashcardIndex < state.flashcards.length) {
-                 state.flashcards[currentFlashcardIndex].front = frontVal;
-                 state.flashcards[currentFlashcardIndex].back = backVal;
-             } else {
-                 state.flashcards.push({ front: frontVal, back: backVal });
-             }
-
-             state.flashcards.push({ front: "", back: "" });
-             currentFlashcardIndex = state.flashcards.length - 1;
-             
-             fcEditFront.value = "";
-             fcEditBack.value = "";
-             fcEditFront.focus();
-             
-             isDirty = true;
-        }
-
-        function deleteFlashcard() {
-             if(!state.flashcards || state.flashcards.length === 0) return;
-             if(confirm("Delete this card?")) {
-                 state.flashcards.splice(currentFlashcardIndex, 1);
-                 if (currentFlashcardIndex >= state.flashcards.length) currentFlashcardIndex = Math.max(0, state.flashcards.length - 1);
-                 isDirty = true;
-                 isFlashcardEditMode = false;
-                 renderFlashcardUI();
-             }
-        }
-
-        // --- GLOSSARY FUNCTIONS ---
-        function toggleGlossaryMode() {
-            isGlossaryMode = !isGlossaryMode;
-            const btn = document.getElementById('btn-glossary');
-            
-            if (isGlossaryMode) {
-                glossaryOverlay.classList.add('active');
-                btn.style.background = '#222';
-                btn.style.color = '#fff';
-                btn.style.borderColor = '#444';
-                
-                if(!state.glossary) state.glossary = [];
-                renderGlossary();
-                glossaryTermInput.focus();
-            } else {
-                glossaryOverlay.classList.remove('active');
-                btn.style.background = 'none';
-                btn.style.color = '#888';
-                btn.style.borderColor = 'transparent';
-                clearGlossaryInputs();
-                if (MODES[currentModeIndex] === 'PDF') renderPage();
-            }
-        }
-
-        function addGlossaryTerm() {
-            const term = glossaryTermInput.value.trim();
-            const definition = glossaryDefInput.value.trim();
-            
-            if (!term || !definition) {
-                alert('Please enter both a term and definition.');
-                return;
-            }
-            
-            if(!state.glossary) state.glossary = [];
-            
-            if (editingGlossaryIndex >= 0) {
-                // Update existing
-                state.glossary[editingGlossaryIndex] = { term, definition };
-                editingGlossaryIndex = -1;
-            } else {
-                // Add new
-                state.glossary.push({ term, definition });
-            }
-            
-            isDirty = true;
-            clearGlossaryInputs();
-            renderGlossary();
-            glossaryTermInput.focus();
-        }
-
-        function editGlossaryTerm(index) {
-            if (index >= 0 && index < state.glossary.length) {
-                const item = state.glossary[index];
-                glossaryTermInput.value = item.term;
-                glossaryDefInput.value = item.definition;
-                editingGlossaryIndex = index;
-                glossaryTermInput.focus();
-                glossaryTermInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        }
-
-        function deleteGlossaryTerm(index) {
-            if (confirm('Delete this term?')) {
-                state.glossary.splice(index, 1);
-                isDirty = true;
-                renderGlossary();
-            }
-        }
-
-        function clearGlossaryInputs() {
-            glossaryTermInput.value = '';
-            glossaryDefInput.value = '';
-            editingGlossaryIndex = -1;
-        }
-
-        function renderGlossary() {
-            if (!state.glossary || state.glossary.length === 0) {
-                glossaryList.innerHTML = '<div style="color:#666; font-style:italic; grid-column: 1/-1; text-align:center; padding:40px;">No terms yet. Add your first term above!</div>';
-                return;
-            }
-            
-            const searchTerm = glossarySearchInput.value.toLowerCase().trim();
-            let filteredGlossary = state.glossary;
-            
-            if (searchTerm) {
-                filteredGlossary = state.glossary.filter(item => 
-                    item.term.toLowerCase().includes(searchTerm) || 
-                    item.definition.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            // Sort alphabetically by term
-            filteredGlossary = [...filteredGlossary].sort((a, b) => a.term.toLowerCase().localeCompare(b.term.toLowerCase()));
-            
-            if (filteredGlossary.length === 0) {
-                glossaryList.innerHTML = '<div style="color:#666; font-style:italic; grid-column: 1/-1; text-align:center; padding:40px;">No matching terms found.</div>';
-                return;
-            }
-            
-            let html = '';
-            filteredGlossary.forEach((item, displayIndex) => {
-                // Find original index for edit/delete
-                const originalIndex = state.glossary.indexOf(item);
-                const definitionHTML = applyBionicReading(marked.parse(item.definition));
-                const termHTML = applyBionicReading(escapeHtml(item.term));
-                
-                html += `
-                    <div class="glossary-item">
-                        <div class="glossary-term">${termHTML}</div>
-                        <div class="glossary-definition">${definitionHTML}</div>
-                        <div class="glossary-item-actions">
-                            <button class="glossary-item-btn" onclick="editGlossaryTerm(${originalIndex})">Edit</button>
-                            <button class="glossary-item-btn delete" onclick="deleteGlossaryTerm(${originalIndex})">Delete</button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            glossaryList.innerHTML = html;
-        }
-
-        function filterGlossary() {
-            renderGlossary();
-        }
-
         function escapeHtml(text) {
             const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
             return text.replace(/[&<>"']/g, m => map[m]);
@@ -1328,8 +695,6 @@
                         
                         // Ensure data has required structure
                         if (!data.slides) data.slides = [];
-                        if (!data.flashcards) data.flashcards = [];
-                        if (!data.glossary) data.glossary = [];
                         
                         mergeFiles.push({
                             name: file.name,
@@ -1360,8 +725,6 @@
             let html = '';
             mergeFiles.forEach((file, index) => {
                 const slideCount = file.data.slides?.length || 0;
-                const fcCount = file.data.flashcards?.length || 0;
-                const glossaryCount = file.data.glossary?.length || 0;
                 
                 html += `
                     <div class="merge-file-card" draggable="true" data-index="${index}">
@@ -1369,7 +732,7 @@
                         <div class="merge-file-order">${index + 1}</div>
                         <div class="merge-file-info">
                             <div class="merge-file-name">${escapeHtml(file.name)}</div>
-                            <div class="merge-file-stats">${slideCount} slides • ${fcCount} flashcards • ${glossaryCount} glossary terms</div>
+                            <div class="merge-file-stats">${slideCount} slides</div>
                         </div>
                         <button class="merge-file-remove" onclick="removeMergeFile(${index})">Remove</button>
                     </div>
@@ -1431,9 +794,7 @@
             // Initialize merged data
             const merged = {
                 count: 1,
-                slides: [],
-                flashcards: [],
-                glossary: []
+                slides: []
             };
             
             // Merge slides with corrected PDF page numbers
@@ -1446,7 +807,6 @@
                         type: 'blank',
                         header: `─── ${file.name} ───`,
                         notes: '',
-                        drawings: [],
                         level: 1
                     });
                 }
@@ -1479,34 +839,6 @@
                 cumulativePageOffset += maxPageInFile;
             });
             
-            // Merge flashcards (deduplicate by front text)
-            const fcSet = new Set();
-            mergeFiles.forEach(file => {
-                if (file.data.flashcards) {
-                    file.data.flashcards.forEach(fc => {
-                        const key = fc.front.toLowerCase().trim();
-                        if (!fcSet.has(key)) {
-                            fcSet.add(key);
-                            merged.flashcards.push(fc);
-                        }
-                    });
-                }
-            });
-            
-            // Merge glossary (deduplicate by term)
-            const glossaryMap = new Map();
-            mergeFiles.forEach(file => {
-                if (file.data.glossary) {
-                    file.data.glossary.forEach(term => {
-                        const key = term.term.toLowerCase().trim();
-                        if (!glossaryMap.has(key)) {
-                            glossaryMap.set(key, term);
-                        }
-                    });
-                }
-            });
-            merged.glossary = Array.from(glossaryMap.values());
-            
             // Save merged file
             const content = JSON.stringify(merged);
             
@@ -1520,7 +852,7 @@
                     await writable.write(content);
                     await writable.close();
                     
-                    alert(`✅ Successfully merged ${mergeFiles.length} lectures!\n\nSlides: ${merged.slides.length}\nFlashcards: ${merged.flashcards.length}\nGlossary: ${merged.glossary.length}`);
+                    alert(`✅ Successfully merged ${mergeFiles.length} lectures!\n\nSlides: ${merged.slides.length}`);
                     closeMergeLectures();
                 } catch(e) {
                     if (e.name !== 'AbortError') {
@@ -1591,9 +923,9 @@
         function updateUIForMode() {
             const mode = MODES[currentModeIndex];
             if (mode === 'PDF') {
-                modeSwitch.checked = true; slideLabel.style.display = 'block'; pdfContainer.style.display = 'flex'; drawCanvas.classList.add('active'); drawingToolbar.classList.add('active'); setTool('pen'); 
+                modeSwitch.checked = true; slideLabel.style.display = 'block'; pdfContainer.style.display = 'flex';
             } else {
-                modeSwitch.checked = false; slideLabel.style.display = 'block'; pdfContainer.style.display = 'none'; drawCanvas.classList.remove('active'); drawingToolbar.classList.remove('active');
+                modeSwitch.checked = false; slideLabel.style.display = 'block'; pdfContainer.style.display = 'none';
             }
             updateDisplay(); 
         }
@@ -1645,41 +977,17 @@
             const targetIndex = parseInt(this.dataset.index);
             if (dragSrcIndex !== targetIndex) {
                 const srcSlide = state.slides[dragSrcIndex]; const tgtSlide = state.slides[targetIndex];
-                const tempHeader = srcSlide.header; const tempNotes = srcSlide.notes; const tempDrawings = srcSlide.drawings;
-                srcSlide.header = tgtSlide.header; srcSlide.notes = tgtSlide.notes; srcSlide.drawings = tgtSlide.drawings;
-                tgtSlide.header = tempHeader; tgtSlide.notes = tempNotes; tgtSlide.drawings = tempDrawings;
+                const tempHeader = srcSlide.header; const tempNotes = srcSlide.notes;
+                srcSlide.header = tgtSlide.header; srcSlide.notes = tgtSlide.notes;
+                tgtSlide.header = tempHeader; tgtSlide.notes = tempNotes;
                 isDirty = true; saveData(); renderRearrangeGrid();
             }
             return false;
         }
 
-        // --- DRAWING ---
-        function setTool(tool) {
-            currentTool = tool;
-            if(tool === 'pen') { btnPen.classList.add('active'); btnEraser.classList.remove('active'); drawCanvas.style.cursor = 'crosshair'; } 
-            else { btnPen.classList.remove('active'); btnEraser.classList.add('active'); drawCanvas.style.cursor = 'cell'; }
-        }
-        function clearSlideDrawing() { if(confirm("Clear drawings?")) { const s = state.slides[state.count - 1]; if (s) { s.drawings = []; isDirty = true; saveData(); renderDrawings(); } } }
-        function toNorm(x, y) { return { x: x / drawCanvas.width, y: y / drawCanvas.height }; }
-        function toPixel(xNorm, yNorm) { return { x: xNorm * drawCanvas.width, y: yNorm * drawCanvas.height }; }
-        function getNormalizedPos(e) { const rect = drawCanvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height }; }
-        function eraseStrokeAtInternal(pos) {
-            const slide = state.slides[state.count - 1]; const drawings = slide ? (slide.drawings || []) : [];
-            if(drawings.length === 0) return;
-            const remaining = drawings.filter(path => { return !path.points.some(pt => { const pPx = toPixel(pt.x, pt.y); return Math.hypot(pPx.x - pos.x, pPx.y - pos.y) < 25; }); });
-            if(remaining.length !== drawings.length) { slide.drawings = remaining; isDirty = true; saveData(); renderDrawings(); }
-        }
-        function saveDrawingsToState() { const slide = state.slides[state.count - 1]; if(slide) { if(!slide.drawings) slide.drawings = []; slide.drawings = slide.drawings.concat(currentStrokes); currentStrokes = []; saveData(); } }
-        function renderDrawings() {
-            drawCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height); const slide = state.slides[state.count - 1]; const drawings = slide ? (slide.drawings || []) : [];
-            drawings.forEach(path => { drawCtx.strokeStyle='red'; drawCtx.lineWidth=3; drawCtx.lineCap='round'; drawCtx.lineJoin='round'; if(path.points.length<1) return; drawCtx.beginPath(); const start = toPixel(path.points[0].x, path.points[0].y); drawCtx.moveTo(start.x, start.y); for(let i=1; i<path.points.length; i++) { const p = toPixel(path.points[i].x, path.points[i].y); drawCtx.lineTo(p.x, p.y); } drawCtx.stroke(); });
-        }
-        function resizeDrawLayer() { drawCanvas.width = pdfCanvas.width; drawCanvas.height = pdfCanvas.height; textLayerDiv.style.width = `${pdfCanvas.width}px`; textLayerDiv.style.height = `${pdfCanvas.height}px`; renderDrawings(); }
-        function endAction() { if(isDrawing) { isDrawing = false; isDirty = true; saveDrawingsToState(); } if(isErasing) isErasing = false; }
-
         function insertSlide(offset) {
             handleInput();
-            const newSlide = { type: 'blank', header: '', notes: '', drawings: [] };
+            const newSlide = { type: 'blank', header: '', notes: '' };
             let insertIndex = (offset === 1) ? state.count : state.count - 1;
             state.slides.splice(insertIndex, 0, newSlide);
             if (offset === 1) state.count++; 
@@ -1697,14 +1005,14 @@
         function syncPdfSlides() {
             if (!pdfDoc) { alert("Load a PDF first."); return; }
             if (!confirm(`Force-Sync slides to PDF pages 1-${pdfDoc.numPages}? (Fixes black screens/missing slides)`)) return;
-            for (let i = 0; i < pdfDoc.numPages; i++) { if (!state.slides[i]) { state.slides[i] = { type: 'pdf', pdfPage: i + 1, header: "", notes: "", drawings: [] }; } else { state.slides[i].type = 'pdf'; state.slides[i].pdfPage = i + 1; } }
+            for (let i = 0; i < pdfDoc.numPages; i++) { if (!state.slides[i]) { state.slides[i] = { type: 'pdf', pdfPage: i + 1, header: "", notes: "" }; } else { state.slides[i].type = 'pdf'; state.slides[i].pdfPage = i + 1; } }
             if (state.count > state.slides.length) state.count = state.slides.length;
             isDirty = true; updateDisplay(); renderPage();
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
         }
         function shiftContent(direction) {
             if (!confirm(`Shift content ${direction === -1 ? 'UP (Delete Slide 1)' : 'DOWN (Insert Blank at 1)'}?`)) return;
-            if (direction === 1) { for (let i = state.slides.length - 1; i >= 0; i--) { if (i === 0) { state.slides[i].notes = ""; state.slides[i].drawings = []; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i-1].notes; state.slides[i].drawings = state.slides[i-1].drawings; state.slides[i].header = state.slides[i-1].header; } } } else { for (let i = 0; i < state.slides.length; i++) { if (i === state.slides.length - 1) { state.slides[i].notes = ""; state.slides[i].drawings = []; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i+1].notes; state.slides[i].drawings = state.slides[i+1].drawings; state.slides[i].header = state.slides[i+1].header; } } }
+            if (direction === 1) { for (let i = state.slides.length - 1; i >= 0; i--) { if (i === 0) { state.slides[i].notes = ""; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i-1].notes; state.slides[i].header = state.slides[i-1].header; } } } else { for (let i = 0; i < state.slides.length; i++) { if (i === state.slides.length - 1) { state.slides[i].notes = ""; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i+1].notes; state.slides[i].header = state.slides[i+1].header; } } }
             isDirty = true; updateDisplay();
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
         }
@@ -1761,9 +1069,7 @@
         function loadImportedData(jsonString) {
             try {
                 let imported = JSON.parse(jsonString);
-                if (imported.memory && (!imported.slides || imported.slides.length === 0)) { imported.slides = []; const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b); const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0; for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"", drawings: d.drawings||[] }); } if(imported.count !== undefined) imported.count++; }
-                if(!imported.flashcards) imported.flashcards = [];
-                if(!imported.glossary) imported.glossary = [];
+                if (imported.memory && (!imported.slides || imported.slides.length === 0)) { imported.slides = []; const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b); const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0; for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"" }); } if(imported.count !== undefined) imported.count++; }
                 state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateDisplay(); if(pdfDoc && MODES[currentModeIndex] === 'PDF') renderPage();
             } catch(err) { alert("Error reading JSON"); }
         }
@@ -1783,7 +1089,7 @@
                 if(pdfCanvas.width < 100) { pdfCanvas.width=800; pdfCanvas.height=450; } 
                 const isDark = pdfCanvas.classList.contains('inverted'); pdfCtx.fillStyle = isDark ? '#333' : '#eee'; pdfCtx.fillRect(0,0,pdfCanvas.width, pdfCanvas.height);
                 pdfCtx.font = "30px Arial"; pdfCtx.fillStyle = isDark ? '#fff' : '#555'; pdfCtx.textAlign = "center"; pdfCtx.fillText("📝 Additional Notes (Not in PDF)", pdfCanvas.width/2, pdfCanvas.height/2);
-                resizeDrawLayer(); return;
+                return;
             }
             if (!pdfDoc) return;
             const pageNum = slide.pdfPage || state.count;
@@ -1800,7 +1106,7 @@
                 renderTask.promise.then(function() {
                     isPageRendering = false;
                     if (pageNumPending !== null) { pageNumPending = null; renderPage(); } 
-                    else { pdfCanvas.height = offscreenCanvas.height; pdfCanvas.width = offscreenCanvas.width; pdfCtx.drawImage(offscreenCanvas, 0, 0); resizeDrawLayer(); }
+                    else { pdfCanvas.height = offscreenCanvas.height; pdfCanvas.width = offscreenCanvas.width; pdfCtx.drawImage(offscreenCanvas, 0, 0); }
                 }).catch(function(err) { isPageRendering = false; if (err.name === 'RenderingCancelledException') { if (pageNumPending !== null) { pageNumPending = null; renderPage(); } } });
             });
         }
@@ -1810,7 +1116,7 @@
                 if (state.count === state.slides.length) {
                     let nextType = 'blank'; let nextPdfPage = null;
                     if (pdfDoc) { let lastPage = 0; for(let i=state.slides.length-1; i>=0; i--) { if(state.slides[i].type === 'pdf') { lastPage = state.slides[i].pdfPage; break; } } if(lastPage < pdfDoc.numPages) { nextType='pdf'; nextPdfPage = lastPage+1; } }
-                    state.slides.push({ type: nextType, pdfPage: nextPdfPage, header: "", notes: "", drawings: [] });
+                    state.slides.push({ type: nextType, pdfPage: nextPdfPage, header: "", notes: "" });
                 } state.count++;
             } else if (direction === 'backward') { if (state.count > 1) { state.count--; } }
             updateDisplay(); if (MODES[currentModeIndex] === 'PDF') renderPage();
@@ -1840,33 +1146,7 @@
         document.getElementById('pdf-upload').value = '';
         window.addEventListener('beforeunload', function (e) { if (isDirty) { e.preventDefault(); e.returnValue = ''; } });
         window.addEventListener('keydown', function(e) {
-            // 1. Flashcard Mode Handlers
-            if (isFlashcardMode) {
-                if (isFlashcardEditMode) {
-                    if (e.key === 'Escape') toggleFlashcardEditMode();
-                    return;
-                }
-                if (e.key === 'e') { e.preventDefault(); toggleFlashcardEditMode(); }
-                if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) flipCard(); }
-                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navFlashcard(1);
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navFlashcard(-1);
-                if (e.key === 'Escape') toggleFlashcardMode();
-                return;
-            }
-            
-            // 2. Glossary Mode Handlers
-            if (isGlossaryMode) {
-                if (e.key === 'Escape' && document.activeElement !== glossaryTermInput && document.activeElement !== glossaryDefInput && document.activeElement !== glossarySearchInput) {
-                    toggleGlossaryMode();
-                }
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && (document.activeElement === glossaryTermInput || document.activeElement === glossaryDefInput)) {
-                    e.preventDefault();
-                    addGlossaryTerm();
-                }
-                return;
-            }
-            
-            // 3. Standard Shortcuts
+            // Standard Shortcuts
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNotes(); }
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearchBar(); }
             if (e.key === 'Escape') { if (searchBar.classList.contains('active')) { toggleSearchBar(); } else { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); } document.activeElement.blur(); document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active')); } }
@@ -1878,7 +1158,7 @@
                     const typedarray = new Uint8Array(this.result);
                     pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
                         pdfDoc = pdfDoc_; noPdfMsg.style.display = "none"; extractAllText(pdfDoc);
-                        if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"", drawings:[] }); } state.count = 1; updateDisplay(); }
+                        if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); }
                         const pdfModeIdx = MODES.indexOf('PDF'); if (pdfModeIdx !== -1) { currentModeIndex = pdfModeIdx; updateUIForMode(); } renderPage(); document.getElementById('pdf-upload').blur();
                     });
                 }; fileReader.readAsArrayBuffer(file);
@@ -1899,14 +1179,9 @@
         document.addEventListener('wheel', (e) => {
             const notesDiv = document.getElementById('notes-wrapper'); const sidebarDiv = document.getElementById('sidebar'); 
             if (notesDiv.contains(e.target) || sidebarDiv.contains(e.target)) return;
-            if (isFlashcardEditMode || isGlossaryMode) return;
-            if (fcOverlay.classList.contains('active') || glossaryOverlay.classList.contains('active')) return;
             const now = Date.now(); if (now - lastScrollTime < 30) return;
             if (e.deltaY > 0) { handleNav('forward'); lastScrollTime = now; } else if (e.deltaY < 0) { handleNav('backward'); lastScrollTime = now; }
         });
-        drawCanvas.addEventListener('mousedown', (e) => { const norm = getNormalizedPos(e); if (currentTool === 'eraser') { isErasing = true; eraseStrokeAtInternal(toPixel(norm.x, norm.y)); } else { isDrawing = true; currentStrokes.push({ points: [norm] }); const px = toPixel(norm.x, norm.y); drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(px.x, px.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke(); } });
-        drawCanvas.addEventListener('mousemove', (e) => { const norm = getNormalizedPos(e); const px = toPixel(norm.x, norm.y); if (currentTool === 'eraser' && isErasing) { eraseStrokeAtInternal(px); return; } if (currentTool === 'pen' && isDrawing) { const path = currentStrokes[currentStrokes.length - 1]; const last = path.points[path.points.length - 1]; const lastPx = toPixel(last.x, last.y); drawCtx.lineWidth=3; drawCtx.strokeStyle='red'; drawCtx.lineCap='round'; drawCtx.beginPath(); drawCtx.moveTo(lastPx.x, lastPx.y); drawCtx.lineTo(px.x, px.y); drawCtx.stroke(); path.points.push(norm); } });
-        drawCanvas.addEventListener('mouseup', endAction); drawCanvas.addEventListener('mouseout', endAction);
 
         searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if(e.shiftKey) nextMatch(-1); else nextMatch(1); } });
         document.addEventListener('keydown', e => {
