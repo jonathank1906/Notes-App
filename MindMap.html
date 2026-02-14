@@ -6507,6 +6507,20 @@
             return;
         }
         
+        // ---> THE SHIELD: Stops 'e', 'b', 'v' tools from activating while typing <---
+        const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+        
+        if (isTyping || editingTextBox !== null) {
+            // Allow Escape to close the text box
+            if (e.key === 'Escape') {
+                if (editingTextBox !== null) {
+                    finishEditingTextBox();
+                }
+                e.target.blur();
+            }
+            return; // Stops all other shortcuts below from running!
+        }
+
         if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
             e.preventDefault();
             toggleFullScreen();
@@ -6515,9 +6529,12 @@
             isSpacePressed = true;
             if (!isDrawing && !isSelecting && !isMoving && !isErasing) canvas.style.cursor = 'grab';
         }
+        
+        // Tool shortcuts (will NOT run if the shield above caught the keystroke)
         if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey) setTool('eraser');
         if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setTool('pen');
         if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey) setTool('select');
+        
         if (e.key === 'Delete' && (selectedStrokes.size > 0 || selectedTextBoxes.size > 0)) {
             e.preventDefault();
             deleteSelectedStrokes();
