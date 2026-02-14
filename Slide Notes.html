@@ -368,6 +368,14 @@
             <label>Number Size</label>
             <input type="range" min="20" max="120" value="80" oninput="updateNumberSize(this.value)">
         </div>
+        <label class="menu-checkbox">
+            <input type="checkbox" id="hide-slide-label" onchange="toggleSlideLabel(this.checked)">
+            Hide Slide Label
+        </label>
+        <label class="menu-checkbox">
+            <input type="checkbox" id="hide-slide-number" onchange="toggleSlideNumber(this.checked)">
+            Hide Slide Number
+        </label>
     </div>
 
     <input type="file" id="pdf-upload" accept=".pdf" class="hidden-file-input">
@@ -922,10 +930,11 @@
         }
         function updateUIForMode() {
             const mode = MODES[currentModeIndex];
+            const hideLabel = document.getElementById('hide-slide-label').checked;
             if (mode === 'PDF') {
-                modeSwitch.checked = true; slideLabel.style.display = 'block'; pdfContainer.style.display = 'flex';
+                modeSwitch.checked = true; slideLabel.style.display = hideLabel ? 'none' : 'block'; pdfContainer.style.display = 'flex';
             } else {
-                modeSwitch.checked = false; slideLabel.style.display = 'block'; pdfContainer.style.display = 'none';
+                modeSwitch.checked = false; slideLabel.style.display = hideLabel ? 'none' : 'block'; pdfContainer.style.display = 'none';
             }
             updateDisplay(); 
         }
@@ -1127,6 +1136,8 @@
         function updateTextSize(val) { editor.style.fontSize = val + "px"; preview.style.fontSize = val + "px"; }
         function updatePdfSize(val) { pdfContainer.style.height = val + "vh"; }
         function refreshPdfResolution() { if (MODES[currentModeIndex] === 'PDF' && pdfDoc) renderPage(); }
+        function toggleSlideLabel(hide) { slideLabel.style.display = hide ? 'none' : 'block'; }
+        function toggleSlideNumber(hide) { display.style.display = hide ? 'none' : 'block'; }
 
         function activateEditor() {
             const wrapper = document.getElementById('notes-wrapper');
