@@ -2418,8 +2418,8 @@
     <!-- New Note Dropdown appended to body for stable stacking/context -->
     <div id="new-note-menu" onclick="event.stopPropagation()" aria-hidden="true">
         <div class="new-note-option" onclick="createNewNote('note')">
-            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6z"/></svg>
-            Note
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path fill="currentColor" d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Canvas
         </div>
         <div class="new-note-option" onclick="createNewNote('flashcard')">
             <svg viewBox="0 0 20 20"><path d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/></svg>
@@ -2439,7 +2439,7 @@
         </div>
         <div class="new-note-option" onclick="createNewNote('linear')">
             <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-            Linear Notes
+            Linear Note
         </div>
     </div>
 
@@ -3850,6 +3850,11 @@
                 return;
             }
             
+            if (data.type === 'linear') {
+                // Use note SVG for linear notes
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="110" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="18" height="20" rx="2" fill="#fff" stroke="#888" stroke-width="1.5"/><line x1="7" y1="7" x2="17" y2="7" stroke="#888" stroke-width="1.2"/><line x1="7" y1="11" x2="17" y2="11" stroke="#888" stroke-width="1.2"/><line x1="7" y1="15" x2="13" y2="15" stroke="#888" stroke-width="1.2"/></svg></div>`;
+                return;
+            }
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
