@@ -5790,9 +5790,14 @@
     // --- BEFOREUNLOAD WARNING ---
     window.addEventListener('beforeunload', (e) => {
         if (hasUnsavedChanges) {
-            e.preventDefault();
-            e.returnValue = ''; // Required for Chrome
-            return ''; // Required for some browsers
+            // Electron needs us to explicitly ask the user with a confirm box
+            const forceClose = confirm("You have unsaved changes! Are you sure you want to quit without saving?");
+            
+            if (!forceClose) {
+                e.preventDefault();
+                e.returnValue = false; // This blocks the app from closing
+            }
+            // If they click "OK" (forceClose is true), the app will close normally!
         }
     });
 
