@@ -2445,6 +2445,11 @@
     </div>
 
 <script>
+    // 1. IMPORT NODE NATIVE SUPERPOWERS
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+
     // --- CONFIGURATION ---
     const CONFIG = {
         bgColor: '#121212',
@@ -5394,9 +5399,36 @@
         // Update title
         const fileName = currentLinearNotesHandle.name.replace('.json', '');
         document.querySelector('#linear-notes-page .linear-notes-header h1').textContent = fileName;
-        
+
         // Initialize Quill editor if not already initialized
         if (!linearNotesEditor) {
+
+            // ---> START IMAGE MEMORY FIX <--- //
+            // Tell Quill it's allowed to remember image sizes and alignment styles
+            const BaseImage = Quill.import('formats/image');
+            class CustomImage extends BaseImage {
+                static formats(domNode) {
+                    return {
+                        width: domNode.getAttribute('width'),
+                        height: domNode.getAttribute('height'),
+                        style: domNode.getAttribute('style') // This saves the alignment!
+                    };
+                }
+                format(name, value) {
+                    if (['width', 'height', 'style'].includes(name)) {
+                        if (value) {
+                            this.domNode.setAttribute(name, value);
+                        } else {
+                            this.domNode.removeAttribute(name);
+                        }
+                    } else {
+                        super.format(name, value);
+                    }
+                }
+            }
+            Quill.register(CustomImage, true);
+            // ---> END IMAGE MEMORY FIX <--- //
+
             linearNotesEditor = new Quill('#linear-notes-editor', {
                 theme: 'snow',
                 modules: {
@@ -5416,6 +5448,76 @@
                 },
                 placeholder: 'Start typing your notes...'
             });
+
+            // ---> START NEW IMAGE SAVING LOGIC <--- //
+
+            // 1. Handle clicking the "Image" button in the toolbar
+            linearNotesEditor.getModule('toolbar').addHandler('image', () => {
+                const input = document.createElement('input');
+                input.setAttribute('type', 'file');
+                input.setAttribute('accept', 'image/*');
+                input.click();
+                
+                input.onchange = async () => {
+                    const file = input.files[0];
+                    if (file) {
+                        saveAndEmbedImage(file.path, null, file.name);
+                    }
+                };
+            });
+
+            // 2. Handle pasting images directly into the editor
+            linearNotesEditor.root.addEventListener('paste', async (e) => {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                const items = clipboardData.items;
+                
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault(); // Stop normal base64 paste
+                        const file = items[i].getAsFile();
+                        
+                        // Convert browser File to Node.js Buffer
+                        const arrayBuffer = await file.arrayBuffer();
+                        const buffer = Buffer.from(arrayBuffer);
+                        
+                        saveAndEmbedImage(null, buffer, file.name || 'pasted.png');
+                    }
+                }
+            });
+
+            // 3. Helper function to save locally and embed
+            function saveAndEmbedImage(sourcePath, buffer, originalName = 'img.png') {
+                // Set the save folder to Documents/MindMapImages
+                const docsPath = path.join(os.homedir(), 'Documents', 'MindMapImages');
+                
+                // Create folder if it doesn't exist
+                if (!fs.existsSync(docsPath)) {
+                    fs.mkdirSync(docsPath, { recursive: true });
+                }
+                
+                // Make a unique filename
+                const safeName = originalName.replace(/[^a-zA-Z0-9.]/g, '');
+                const fileName = `img_${Date.now()}_${safeName}`;
+                const destPath = path.join(docsPath, fileName);
+                
+                // Write the file to your hard drive
+                if (sourcePath) {
+                    fs.copyFileSync(sourcePath, destPath);
+                } else if (buffer) {
+                    fs.writeFileSync(destPath, buffer);
+                }
+                
+                // Format the native path so Chromium can display it
+                const fileUrl = 'file:///' + destPath.replace(/\\/g, '/');
+                
+                // Put the image inside the Quill editor
+                const range = linearNotesEditor.getSelection(true);
+                linearNotesEditor.insertEmbed(range.index, 'image', fileUrl);
+                linearNotesEditor.setSelection(range.index + 1);
+                
+                // Trigger your auto-save
+                saveLinearNotesData();
+            }
             
             // Auto-save on text change (debounced)
             let saveTimeout;
