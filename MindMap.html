@@ -2163,6 +2163,30 @@
             font-size: 12px;
         }
         .todo-delete-btn:hover { background: #633; }
+        /* Settings Button & Modal */
+        #settings-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-color);
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 101;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+        }
+        #settings-btn:hover {
+            color: var(--accent);
+            background: var(--btn-hover);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -2231,6 +2255,30 @@
             <div id="empty-notes-state" style="display: none;">
                 <div id="empty-notes-state-desc">Select your notes folder to get started</div>
                 <button class="select-folder-btn" onclick="selectRootFolder()">Open Folder</button>
+            </div>
+        </div>
+    <button id="settings-btn" title="Settings" onclick="openSettings()">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </button>
+    </div>
+
+    <div id="settings-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;">
+        <div class="fc-modal-content">
+            <div class="fc-modal-header">
+                <div class="fc-modal-title">Settings</div>
+                <button class="fc-modal-close" onclick="closeSettings()">×</button>
+            </div>
+            <div class="fc-edit-field">
+                <label>Default Notes Folder Path</label>
+                <input type="text" id="default-folder-input" class="qa-input" style="width:100%; box-sizing: border-box;" placeholder="e.g. C:\Users\YourName\Documents\Notes">
+                <p style="font-size: 13px; color: #888; margin-top: 8px;">Paste the full path to your notes folder here. The app will automatically open this folder silently on startup.</p>
+            </div>
+            <div class="fc-modal-actions" style="margin-top: 24px;">
+                <button class="fc-btn" onclick="closeSettings()">Cancel</button>
+                <button class="fc-btn" onclick="saveSettings()" style="border-color:#8af; color:#8af;">Save & Reload</button>
             </div>
         </div>
     </div>
@@ -3437,21 +3485,129 @@
         requestRender();
     }
 
+    // --- NATIVE FILE SYSTEM WRAPPERS --- //
+    // This perfectly mimics the Web File System API so you don't have to rewrite your app!
+    class NodeFileHandle {
+        constructor(filePath, name) {
+            this.kind = 'file';
+            this.name = name;
+            this.path = filePath;
+        }
+        async getFile() {
+            const buffer = fs.readFileSync(this.path);
+            const file = new File([buffer], this.name);
+            file.path = this.path;
+            const stats = fs.statSync(this.path);
+            Object.defineProperty(file, 'lastModified', { value: stats.mtimeMs });
+            return file;
+        }
+        async createWritable() {
+            return {
+                write: async (data) => {
+                    // Handle both Canvas Blob saves and standard JSON saves
+                    if (data instanceof Blob) {
+                        const arrayBuffer = await data.arrayBuffer();
+                        fs.writeFileSync(this.path, Buffer.from(arrayBuffer));
+                    } else {
+                        fs.writeFileSync(this.path, data);
+                    }
+                },
+                close: async () => {}
+            };
+        }
+    }
+
+    class NodeDirectoryHandle {
+        constructor(dirPath, name) {
+            this.kind = 'directory';
+            this.name = name;
+            this.path = dirPath;
+        }
+        async *values() {
+            const entries = fs.readdirSync(this.path, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(this.path, entry.name);
+                if (entry.isDirectory()) {
+                    yield new NodeDirectoryHandle(fullPath, entry.name);
+                } else if (entry.isFile()) {
+                    yield new NodeFileHandle(fullPath, entry.name);
+                }
+            }
+        }
+        async getFileHandle(name, options = {}) {
+            const fullPath = path.join(this.path, name);
+            if (!fs.existsSync(fullPath) && !options.create) {
+                throw new Error('File not found');
+            }
+            if (options.create && !fs.existsSync(fullPath)) {
+                fs.writeFileSync(fullPath, '');
+            }
+            return new NodeFileHandle(fullPath, name);
+        }
+        async removeEntry(name) {
+            const fullPath = path.join(this.path, name);
+            if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+        }
+    }
+
+    // --- SETTINGS LOGIC --- //
+    function openSettings() {
+        const modal = document.getElementById('settings-modal');
+        const input = document.getElementById('default-folder-input');
+        input.value = localStorage.getItem('defaultMindMapFolder') || '';
+        modal.style.display = 'flex';
+    }
+
+    function closeSettings() {
+        document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    async function saveSettings() {
+        const input = document.getElementById('default-folder-input').value.trim();
+        if (input) {
+            if (!fs.existsSync(input)) {
+                alert('That folder path does not exist on your computer. Please check it and try again.');
+                return;
+            }
+            localStorage.setItem('defaultMindMapFolder', input);
+        } else {
+            localStorage.removeItem('defaultMindMapFolder');
+        }
+        closeSettings();
+        
+        // Reload immediately to apply
+        initHomeScreen(); 
+    }
+
     async function initHomeScreen() {
-        // Check if File System Access API is supported
+        // 1. SILENT DESKTOP OVERRIDE: Check for Default Path
+        const defaultPath = localStorage.getItem('defaultMindMapFolder');
+        
+        if (defaultPath && fs.existsSync(defaultPath)) {
+            // Bypass all Web APIs, use native Node.js folder access!
+            const folderName = path.basename(defaultPath);
+            rootDirHandle = new NodeDirectoryHandle(defaultPath, folderName);
+            currentDirHandle = rootDirHandle;
+            
+            allNotesLoaded = false;
+            await loadSubjects();
+            activeSubject = null;
+            await loadAllNotes();
+            return; // Exit here to skip the web permission prompt!
+        }
+
+        // 2. FALLBACK: Normal Web IndexedDB code if no default is set
         if (!('showDirectoryPicker' in window)) {
             console.warn('File System Access API not supported');
             showEmptyState();
             return;
         }
 
-        // Try to restore saved directory handle
         try {
             const db = await openDB();
             const handle = await db.get('rootDirHandle');
             
             if (handle) {
-                // Verify permission
                 const permission = await handle.queryPermission({ mode: 'readwrite' });
                 if (permission === 'granted') {
                     rootDirHandle = handle;
@@ -3460,7 +3616,6 @@
                     activeSubject = null;
                     await loadAllNotes();
                 } else {
-                    // Request permission
                     const newPermission = await handle.requestPermission({ mode: 'readwrite' });
                     if (newPermission === 'granted') {
                         rootDirHandle = handle;
