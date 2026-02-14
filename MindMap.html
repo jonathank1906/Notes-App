@@ -157,10 +157,9 @@
         /* Text editing textarea */
         #text-editor {
             position: fixed;
-            background: rgba(30, 30, 30, 0.95);
-            border: 2px solid #555;
-            border-radius: 8px;
-            padding: 8px;
+            background: transparent;
+            border: none;
+            padding: 0px; /* Force zero padding! */
             color: #e0e0e0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             font-size: 16px;
@@ -2841,79 +2840,33 @@
     function drawTextBox(context, textBox, isSelected = false) {
         const { x, y, width, height, text } = textBox;
         
-        // Skip drawing entirely if this text box is being edited (to prevent ghost effect)
+        // Skip drawing entirely if this text box is being edited
         if (editingTextBox !== null && textBoxes[editingTextBox] === textBox) {
             return;
         }
         
-        // Convert to screen coordinates and round to ensure pixel-perfect alignment with textarea
+        // Convert to screen coordinates
         const screenX = Math.round(x * camera.z + camera.x);
         const screenY = Math.round(y * camera.z + camera.y);
         const screenWidth = Math.round(width * camera.z);
-        const screenHeight = Math.round(height * camera.z);
         
         // Convert back to world coordinates for drawing
         const drawX = (screenX - camera.x) / camera.z;
         const drawY = (screenY - camera.y) / camera.z;
         const drawWidth = screenWidth / camera.z;
-        const drawHeight = screenHeight / camera.z;
         
-        // Draw selection highlight if selected
-        if (isSelected) {
-            context.save();
-            context.strokeStyle = '#2196F3';
-            context.lineWidth = 4 / camera.z;
-            context.globalAlpha = 0.5;
-            
-            const radius = 8;
-            context.beginPath();
-            context.moveTo(drawX + radius, drawY);
-            context.lineTo(drawX + drawWidth - radius, drawY);
-            context.quadraticCurveTo(drawX + drawWidth, drawY, drawX + drawWidth, drawY + radius);
-            context.lineTo(drawX + drawWidth, drawY + drawHeight - radius);
-            context.quadraticCurveTo(drawX + drawWidth, drawY + drawHeight, drawX + drawWidth - radius, drawY + drawHeight);
-            context.lineTo(drawX + radius, drawY + drawHeight);
-            context.quadraticCurveTo(drawX, drawY + drawHeight, drawX, drawY + drawHeight - radius);
-            context.lineTo(drawX, drawY + radius);
-            context.quadraticCurveTo(drawX, drawY, drawX + radius, drawY);
-            context.closePath();
-            context.stroke();
-            context.restore();
-        }
-        
-        // Draw box background
-        context.fillStyle = 'rgba(30, 30, 30, 0.95)';
-        context.strokeStyle = isSelected ? '#888' : '#555';
-        context.lineWidth = isSelected ? 2 / camera.z : 1.5 / camera.z;
-        
-        // Draw rounded rectangle
-        const radius = 8;
-        context.beginPath();
-        context.moveTo(drawX + radius, drawY);
-        context.lineTo(drawX + drawWidth - radius, drawY);
-        context.quadraticCurveTo(drawX + drawWidth, drawY, drawX + drawWidth, drawY + radius);
-        context.lineTo(drawX + drawWidth, drawY + drawHeight - radius);
-        context.quadraticCurveTo(drawX + drawWidth, drawY + drawHeight, drawX + drawWidth - radius, drawY + drawHeight);
-        context.lineTo(drawX + radius, drawY + drawHeight);
-        context.quadraticCurveTo(drawX, drawY + drawHeight, drawX, drawY + drawHeight - radius);
-        context.lineTo(drawX, drawY + radius);
-        context.quadraticCurveTo(drawX, drawY, drawX + radius, drawY);
-        context.closePath();
-        context.fill();
-        context.stroke();
-        
-        // Draw text with wrapping (in world coordinates so it scales with the box)
+        // Pure text settings (No backgrounds, no padding)
         const fontSize = 16;
-        const padding = 8;
         const lineHeight = fontSize * 1.5;
-        const maxWidth = drawWidth - padding * 2;
+        const maxWidth = drawWidth;
         
-        context.fillStyle = '#e0e0e0';
+        // Turn text blue if selected, otherwise keep it standard color
+        context.fillStyle = isSelected ? '#2196F3' : '#e0e0e0';
         context.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
         context.textBaseline = 'top';
         
         const lines = text.split('\n');
-        let currentY = drawY + padding;
+        let currentY = drawY;
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -2925,8 +2878,7 @@
                 const metrics = context.measureText(testLine);
                 
                 if (metrics.width > maxWidth && currentLine) {
-                    // Draw current line and start new one
-                    context.fillText(currentLine, drawX + padding, currentY);
+                    context.fillText(currentLine, drawX, currentY);
                     currentY += lineHeight;
                     currentLine = words[j];
                 } else {
@@ -2934,21 +2886,10 @@
                 }
             }
             
-            // Draw remaining text
             if (currentLine) {
-                context.fillText(currentLine, drawX + padding, currentY);
+                context.fillText(currentLine, drawX, currentY);
                 currentY += lineHeight;
             }
-        }
-        
-        // Draw resize handle if selected
-        if (isSelected && !editingTextBox) {
-            const handleSize = 10;
-            context.fillStyle = '#666';
-            context.strokeStyle = '#888';
-            context.lineWidth = 1;
-            context.fillRect(drawX + drawWidth - handleSize, drawY + drawHeight - handleSize, handleSize, handleSize);
-            context.strokeRect(drawX + drawWidth - handleSize, drawY + drawHeight - handleSize, handleSize, handleSize);
         }
     }
     
@@ -2958,11 +2899,11 @@
             id: generateId(),
             x: worldX,
             y: worldY,
-            width: 20,
-            height: 40,
+            width: 150,       // <-- Much wider start size so the cursor has room to breathe
+            height: 24,       // <-- Adjusted height for exactly one line
             text: '',
-            minWidth: 20,
-            minHeight: 40,
+            minWidth: 150,    
+            minHeight: 24,
             manuallyResized: false
         };
         
@@ -2989,24 +2930,11 @@
         const textBox = textBoxes[idx];
         const textEditor = document.getElementById('text-editor');
         
-        // Position the textarea
-        const screenX = textBox.x * camera.z + camera.x;
-        const screenY = textBox.y * camera.z + camera.y;
-        const screenWidth = textBox.width * camera.z;
-        const screenHeight = textBox.height * camera.z;
-        
-        textEditor.style.left = Math.round(screenX) + 'px';
-        textEditor.style.top = Math.round(screenY) + 'px';
-        textEditor.style.width = Math.round(screenWidth) + 'px';
-        textEditor.style.height = Math.round(screenHeight) + 'px';
-        textEditor.style.fontSize = Math.round(16 * camera.z) + 'px';
-        textEditor.style.padding = Math.round(8 * camera.z) + 'px';
-        textEditor.style.borderRadius = Math.round(8 * camera.z) + 'px';
-        textEditor.style.borderWidth = Math.round(2 * camera.z) + 'px';
+        // Position the textarea and clear paddings/borders
+        updateTextEditorPosition();
         textEditor.style.display = 'block';
         textEditor.value = textBox.text;
         
-        // Set up oninput handler AFTER setting value to avoid triggering resize on initial load
         textEditor.oninput = () => {
             textBox.text = textEditor.value;
             autoResizeTextBox(idx);
@@ -3052,7 +2980,6 @@
         const fontSize = 16;
         tempCtx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
         
-        const padding = 8;
         const lineHeight = fontSize * 1.5;
         const lines = textBox.text.split('\n');
         
@@ -3060,27 +2987,24 @@
         let maxWidth = textBox.minWidth;
         for (const line of lines) {
             const metrics = tempCtx.measureText(line);
-            const lineWidth = metrics.width + padding * 2;
-            if (lineWidth > maxWidth) {
-                maxWidth = lineWidth;
+            // Add a tiny 20px buffer so the browser cursor doesn't randomly force a line wrap
+            if (metrics.width + 20 > maxWidth) {
+                maxWidth = metrics.width + 20;
             }
         }
         
-        // Expand width automatically as user types
         if (maxWidth > textBox.width) {
             textBox.width = maxWidth;
         }
         
-        // Only expand height when there are multiple lines (user pressed Enter)
-        if (lines.length > 1) {
-            const textHeight = lines.length * lineHeight + padding * 2;
+        if (lines.length > 0) {
+            const textHeight = lines.length * lineHeight;
             const newHeight = Math.max(textBox.minHeight, textHeight);
             if (newHeight > textBox.height) {
                 textBox.height = newHeight;
             }
         }
         
-        // Always update textarea position to keep it in sync
         updateTextEditorPosition();
     }
     
@@ -3090,19 +3014,21 @@
         const textBox = textBoxes[editingTextBox];
         const textEditor = document.getElementById('text-editor');
         
-        const screenX = textBox.x * camera.z + camera.x;
-        const screenY = textBox.y * camera.z + camera.y;
-        const screenWidth = textBox.width * camera.z;
-        const screenHeight = textBox.height * camera.z;
+        const screenX = Math.round(textBox.x * camera.z + camera.x);
+        const screenY = Math.round(textBox.y * camera.z + camera.y);
+        const screenWidth = Math.round(textBox.width * camera.z);
+        const screenHeight = Math.round(textBox.height * camera.z);
         
-        textEditor.style.left = Math.round(screenX) + 'px';
-        textEditor.style.top = Math.round(screenY) + 'px';
-        textEditor.style.width = Math.round(screenWidth) + 'px';
-        textEditor.style.height = Math.round(screenHeight) + 'px';
+        textEditor.style.left = screenX + 'px';
+        textEditor.style.top = screenY + 'px';
+        textEditor.style.width = screenWidth + 'px';
+        textEditor.style.height = screenHeight + 'px';
         textEditor.style.fontSize = Math.round(16 * camera.z) + 'px';
-        textEditor.style.padding = Math.round(8 * camera.z) + 'px';
-        textEditor.style.borderRadius = Math.round(8 * camera.z) + 'px';
-        textEditor.style.borderWidth = Math.round(2 * camera.z) + 'px';
+        
+        // -> CRITICAL FIX: Ensure zero padding and borders in the JS <-
+        textEditor.style.padding = '0px';
+        textEditor.style.borderRadius = '0px';
+        textEditor.style.borderWidth = '0px';
     }
     
     function isPointInTextBox(x, y, textBox) {
@@ -3111,39 +3037,30 @@
     }
     
     function isPointInResizeHandle(x, y, textBox) {
-        const handleSize = 10;
-        const handleX = textBox.x + textBox.width - handleSize;
-        const handleY = textBox.y + textBox.height - handleSize;
-        
-        return x >= handleX && x <= handleX + handleSize &&
-               y >= handleY && y <= handleY + handleSize;
+        return false; // Disabled completely
     }
     
     function calculateMinTextBoxSize(textBox, targetWidth = null) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         const fontSize = 16;
-        const padding = 8;
         const lineHeight = fontSize * 1.5;
         tempCtx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
         
         const lines = textBox.text.split('\n');
         let minWidth = textBox.minWidth;
         
-        // Find the longest single word (can't wrap smaller than this)
         for (const line of lines) {
             const words = line.split(' ');
             for (const word of words) {
-                const wordWidth = tempCtx.measureText(word).width + padding * 2;
+                const wordWidth = tempCtx.measureText(word).width;
                 if (wordWidth > minWidth) {
                     minWidth = wordWidth;
                 }
             }
         }
         
-        // Calculate height needed for given width (or minimum width)
         const width = targetWidth || minWidth;
-        const maxWidth = width - padding * 2;
         let totalLines = 0;
         
         for (const line of lines) {
@@ -3159,7 +3076,7 @@
                 const testLine = currentLine ? currentLine + ' ' + word : word;
                 const metrics = tempCtx.measureText(testLine);
                 
-                if (metrics.width > maxWidth && currentLine !== '') {
+                if (metrics.width > width && currentLine !== '') {
                     totalLines++;
                     currentLine = word;
                 } else {
@@ -3172,8 +3089,7 @@
             }
         }
         
-        const minHeight = Math.max(textBox.minHeight, totalLines * lineHeight + padding * 2);
-        
+        const minHeight = Math.max(textBox.minHeight, totalLines * lineHeight);
         return { minWidth, minHeight };
     }
     
