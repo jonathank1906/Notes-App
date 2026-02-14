@@ -377,13 +377,19 @@
             overflow-y: auto;
         }
 
+        /* Updated Sidebar Header Layout */
         #sidebar-header {
-            padding: 20px 20px 16px 20px;
-            border-bottom: none;
+            padding: 20px 20px 10px 20px; /* Reduced bottom padding */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* Aligns gear and search to the left */
+            gap: 8px; /* Controls vertical space between gear and search */
         }
 
         #sidebar-notes-item {
-            margin: 16px -12px 20px -12px;
+            margin: 16px -12px 20px -12px; /* match subjects alignment */
+            width: 244px; /* fixed width matching subjects */
+            box-sizing: border-box;
         }
 
         #sidebar-divider {
@@ -405,15 +411,15 @@
         #sidebar-search-wrapper {
             position: relative;
             width: 100%;
-            margin: 0 -12px;
+            margin: 0 -12px; /* align input to match subjects width */
         }
 
         #sidebar-search {
-            width: 244px;
-            padding: 10px 36px 10px 12px;
+            width: 244px; /* fixed width matching subjects */
+            padding: 10px 12px 10px 36px; /* icon on left: increase left padding */
             background: #2a2a2a;
             border: 1px solid var(--ui-border);
-            border-radius: 6px;
+            border-radius: 8px; /* Slightly rounder */
             color: var(--accent);
             font-size: 14px;
             outline: none;
@@ -427,13 +433,14 @@
 
         #sidebar-search-icon {
             position: absolute;
-            right: -8px;
+            left: 12px; /* moved to left side */
+            right: auto;
             top: 50%;
             transform: translateY(-50%);
             width: 18px;
             height: 18px;
             pointer-events: none;
-            opacity: 0.5;
+            opacity: 0.6;
         }
 
         #sidebar-search-icon svg {
@@ -2183,29 +2190,27 @@
             font-size: 12px;
         }
         .todo-delete-btn:hover { background: #633; }
-        /* Settings Button & Modal */
+        /* Settings Gear Styling */
         #settings-btn {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: var(--ui-bg);
-            border: 1px solid var(--ui-border);
+            position: static; /* Remove absolute positioning */
+            background: transparent;
+            border: none;
             color: var(--text-color);
-            border-radius: 50%;
             cursor: pointer;
-            z-index: 101;
-            width: 44px;
-            height: 44px;
+            width: auto;
+            height: auto;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            transition: all 0.15s ease;
+            transition: color 0.15s ease;
+            margin-bottom: 4px; /* Tiny extra space before search bar */
+            margin-left: -2px; /* adjusted to align gear center with search icon */
         }
+        
         #settings-btn:hover {
             color: var(--accent);
-            background: var(--btn-hover);
-            transform: scale(1.05);
+            transform: none; /* Remove scaling to keep it clean */
         }
     </style>
 </head>
@@ -2215,8 +2220,14 @@
     <div id="home-screen">
         <div id="subjects-sidebar">
             <div id="sidebar-header">
+                <button id="settings-btn" title="Settings" onclick="openSettings()">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
                 <div id="sidebar-search-wrapper">
-                    <input id="sidebar-search" type="text" placeholder="Search...">
+                    <input id="sidebar-search" type="text" placeholder="Search">
                     <div id="sidebar-search-icon">
                         <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
@@ -2277,12 +2288,6 @@
                 <button class="select-folder-btn" onclick="selectRootFolder()">Open Folder</button>
             </div>
         </div>
-    <button id="settings-btn" title="Settings" onclick="openSettings()">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-    </button>
     </div>
 
     <div id="settings-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;">
