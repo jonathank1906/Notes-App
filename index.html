@@ -2223,6 +2223,130 @@
             color: var(--accent);
             transform: none; /* Remove scaling to keep it clean */
         }
+
+        /* Links Pinboard Page */
+        #links-page {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1000;
+        }
+        #links-page.active { display: block; }
+
+        .links-header {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: 60px; background: #1a1a1a;
+            border-bottom: 1px solid #333; z-index: 1001;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .links-header h1 { font-size: 20px; color: #fff; margin: 0; }
+
+        #links-board {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+            /* Using padding instead of margin prevents the header from overlapping! */
+            padding-top: 80px; 
+            padding-bottom: 80px;
+            box-sizing: border-box;
+        }
+
+        .link-section {
+            margin-bottom: 20px;
+        }
+
+        .link-divider {
+            position: relative;
+            height: 1px;
+            background: #333;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            margin: 40px 0 30px 0;
+        }
+        
+        .link-divider-text {
+            background: #252a33;
+            color: #e0e0e0;
+            padding: 4px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            /* CRITICAL FIX: allow interaction */
+            pointer-events: auto !important; 
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        .link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 280px);
+            gap: 24px;
+            justify-content: start; /* Builds left to right natively */
+            align-items: start; 
+            padding: 0 40px;
+        }
+
+        .link-card {
+            position: relative;
+            width: 280px;
+            background: #252a33;
+            border: 1px solid #3a414f;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: box-shadow 0.2s, border-color 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .link-card:hover { border-color: #579; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        
+        .link-card.empty-card {
+            background: #1e222b;
+            align-items: center; justify-content: center;
+            cursor: pointer; min-height: 120px;
+        }
+        
+        .link-card.empty-card:hover { background: #252a33; }
+
+        .link-card.dragging {
+            opacity: 0 !important; 
+        }
+
+        .link-input {
+            background: transparent; border: none; color: #e0e0e0; outline: none;
+            font-family: inherit; width: 100%;
+            /* CRITICAL FIX: Unlock typing in Electron */
+            pointer-events: auto !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+        .link-headline { font-size: 16px; font-weight: 600; color: #fff; }
+        .link-desc { font-size: 13px; color: #aaa; resize: none; overflow: hidden; min-height: 40px; }
+
+        .link-actions { display: flex; gap: 10px; margin-top: auto; }
+        .link-btn {
+            background: transparent; border: none; color: #888;
+            cursor: pointer; padding: 4px; display: flex; align-items: center;
+            /* CRITICAL FIX: Unlock clicking in Electron */
+            pointer-events: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+        }
+        .link-btn:hover { color: #8af; }
+
+        .link-media {
+            width: 100%; border-radius: 4px; overflow: hidden;
+            background: #000; margin-bottom: 8px;
+        }
+        .link-media img, .link-media iframe {
+            width: 100%; display: block; border: none; aspect-ratio: 16/9; object-fit: cover;
+        }
     </style>
 </head>
 <body>
@@ -2543,13 +2667,23 @@
             <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
             Linear Note
         </div>
+        <div class="new-note-option" onclick="createNewNote('links')">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+            Links Pinboard
+        </div>
     </div>
+
+<div id="links-page">
+    <div class="links-header"><h1 id="links-title">Pinboard 1</h1></div>
+    <div id="links-board"></div>
+</div>
 
 <script>
     // 1. IMPORT NODE NATIVE SUPERPOWERS
     const fs = require('fs');
     const path = require('path');
     const os = require('os');
+    const { shell } = require('electron'); // <-- ADD THIS LINE
 
     // --- CONFIGURATION ---
     const CONFIG = {
@@ -3999,6 +4133,11 @@
                 previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="110" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="18" height="20" rx="2" fill="#fff" stroke="#888" stroke-width="1.5"/><line x1="7" y1="7" x2="17" y2="7" stroke="#888" stroke-width="1.2"/><line x1="7" y1="11" x2="17" y2="11" stroke="#888" stroke-width="1.2"/><line x1="7" y1="15" x2="13" y2="15" stroke="#888" stroke-width="1.2"/></svg></div>`;
                 return;
             }
+
+            if (data.type === 'links') {
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></div>`;
+                return;
+            }
             const validStrokes = data.strokes ? data.strokes.filter(s => s.tool !== 'eraser') : [];
             const textBoxes = data.textBoxes || [];
             
@@ -4095,6 +4234,8 @@
             openTodo(fileHandle, data);
         } else if (data.type === 'linear') {
             openLinearNotes(fileHandle, data);
+        } else if (data.type === 'links') {
+            openLinks(fileHandle, data);
         } else {
             // Load as canvas note
             await loadFromFileHandle(fileHandle);
@@ -4246,6 +4387,15 @@
                     timestamp: new Date().toISOString(),
                     content: { ops: [] }
                 };
+            } else if (type === 'links') {
+                defaultName = `Pinboard ${formattedDate} ${formattedTime}.json`;
+                blankData = {
+                    type: 'links',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    sectionNames: {},
+                    cards: []
+                };
             } else {
                 defaultName = `Note ${formattedDate} ${formattedTime}.json`;
                 blankData = {
@@ -4290,6 +4440,8 @@
                 openTodo(fileHandle, blankData);
             } else if (type === 'linear') {
                 openLinearNotes(fileHandle, blankData);
+            } else if (type === 'links') {
+                openLinks(fileHandle, blankData);
             } else {
                 // Initialize blank canvas
                 strokes = [];
@@ -5698,6 +5850,412 @@
         await writable.close();
     }
 
+    let currentLinksHandle = null;
+    let currentLinksData = null;
+    const SECTION_HEIGHT = 450;
+
+    function openLinks(fileHandle, data) {
+        currentLinksHandle = fileHandle;
+        currentLinksData = data;
+        if (!currentLinksData.cards) currentLinksData.cards = [];
+        if (!currentLinksData.sectionNames) currentLinksData.sectionNames = {};
+
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('qa-page').classList.remove('active');
+        document.getElementById('todo-page').classList.remove('active');
+        document.getElementById('linear-notes-page').classList.remove('active');
+
+        document.getElementById('links-page').classList.add('active');
+        document.getElementById('btn-back').classList.remove('hidden');
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+
+        document.getElementById('links-title').textContent = currentLinksHandle.name.replace('.json', '');
+        renderLinksBoard();
+    }
+
+    async function closeLinks() {
+        await saveLinksData();
+        document.getElementById('links-page').classList.remove('active');
+        document.getElementById('btn-back').classList.add('hidden');
+        currentLinksData = null;
+        currentLinksHandle = null;
+        showHomeScreen();
+    }
+
+    async function saveLinksData() {
+        if (!currentLinksHandle || !currentLinksData) return;
+        currentLinksData.timestamp = new Date().toISOString();
+        const writable = await currentLinksHandle.createWritable();
+        await writable.write(JSON.stringify(currentLinksData, null, 2));
+        await writable.close();
+    }
+
+    function getEmbedUrl(url) {
+        if (!url) return null;
+        const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+        const vimeoMatch = url.match(/vimeo\.com\/(?:.*#|.*\/videos\/)?([0-9]+)/);
+        if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+        return null;
+    }
+
+    // We store the dynamic bounds of sections here so drag-and-drop knows where you are
+    window.linkSectionBounds = [];
+
+    function renderLinksBoard() {
+        const board = document.getElementById('links-board');
+        board.innerHTML = '';
+        window.linkSectionBounds = []; // Reset bounds
+
+        // Calculate how many columns fit on screen
+        const cols = Math.max(1, Math.floor((window.innerWidth - 60) / 320));
+        const ROW_HEIGHT = 380; // Approximate vertical space each row takes up
+
+        // 1. Group cards into sections
+        const sections = {};
+        let highestSectionWithCards = -1; 
+        
+        currentLinksData.cards.forEach(c => {
+            // Upgrade legacy cards (that used absolute Y coordinates) to use a section index
+            if (c.section === undefined) c.section = Math.floor((c.y || 0) / 450);
+            if (c.section < 0) c.section = 0;
+            
+            if (c.section > highestSectionWithCards) highestSectionWithCards = c.section;
+            if (!sections[c.section]) sections[c.section] = [];
+            sections[c.section].push(c);
+        });
+
+        // RESTORED LOGIC: Always guarantee at least one completely empty section at the bottom
+        let maxSection = Math.max(1, highestSectionWithCards + 1);
+
+        for (let i = 0; i <= maxSection; i++) {
+            if (!sections[i]) sections[i] = [];
+            // Sort by Y, then X to preserve legacy layout order
+            sections[i].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        }
+
+        currentLinksData.cards = []; 
+        let currentYOffset = 80; // Starting Y 
+
+        // 2. Build DOM for each section
+        for (let i = 0; i <= maxSection; i++) {
+            const sectionCards = sections[i];
+            const name = currentLinksData.sectionNames[i] || `Section ${i + 1}`;
+            const topBound = currentYOffset;
+            
+            const sectionWrapper = document.createElement('div');
+            sectionWrapper.className = 'link-section';
+            sectionWrapper.dataset.section = i;
+
+            // Add Divider
+            const divider = document.createElement('div');
+            divider.className = 'link-divider';
+            divider.innerHTML = `<span class="link-divider-text" title="Double-click to rename">${escapeHtml(name)}</span>`;
+            divider.querySelector('.link-divider-text').ondblclick = async () => {
+                const newName = prompt("Rename section:", name);
+                if(newName && newName.trim() !== "") {
+                    currentLinksData.sectionNames[i] = newName.trim();
+                    await saveLinksData();
+                    renderLinksBoard();
+                }
+            };
+            sectionWrapper.appendChild(divider);
+
+            const sectionStartY = currentYOffset + 40; 
+            
+            // Add CSS Grid Container
+            const grid = document.createElement('div');
+            grid.className = 'link-grid';
+            
+            // Add Cards to Grid
+            sectionCards.forEach((card, idx) => {
+                card.section = i;
+                currentLinksData.cards.push(card); 
+                const globalIndex = currentLinksData.cards.length - 1;
+                
+                const cardEl = document.createElement('div');
+                cardEl.className = 'link-card';
+                cardEl.dataset.origIndex = globalIndex; 
+
+                let mediaHtml = '';
+                if (card.image) {
+                    mediaHtml = `<div class="link-media"><img src="${card.image}"></div>`;
+                } else {
+                    const embed = getEmbedUrl(card.url);
+                    if (embed) mediaHtml = `<div class="link-media"><iframe src="${embed}" allowfullscreen></iframe></div>`;
+                }
+
+                cardEl.innerHTML = `
+                    ${mediaHtml}
+                    <input type="text" class="link-input link-headline" placeholder="Headline">
+                    <textarea class="link-input link-desc" placeholder="Type something..."></textarea>
+                    
+                    <div class="link-url-container" style="display: none; margin-top: auto; padding-top: 10px; border-top: 1px solid #3a414f;">
+                        <input type="text" class="link-input link-url-field" placeholder="Paste URL here..." style="font-size: 13px; color: #8af;">
+                    </div>
+                    
+                    <div class="link-actions" style="margin-top: ${card.url ? '10px' : 'auto'};">
+                        <button class="link-btn btn-url" title="${card.url ? 'Edit Link' : 'Add Link'}"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
+                        ${card.url ? `<button class="link-btn btn-visit" title="Visit Link"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg></button>` : ''}
+                        <button class="link-btn btn-img" title="Add Image"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></button>
+                        <button class="link-btn btn-del" style="margin-left:auto; color:#a55;" title="Delete"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+                    </div>
+                `;
+                
+                cardEl.querySelector('.link-headline').value = card.headline || '';
+                cardEl.querySelector('.link-desc').value = card.text || '';
+                
+                cardEl.querySelector('.link-headline').oninput = (e) => { card.headline = e.target.value; saveLinksData(); };
+                cardEl.querySelector('.link-desc').oninput = (e) => { 
+                    card.text = e.target.value; 
+                    e.target.style.height = 'auto'; 
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                    saveLinksData(); 
+                };
+
+                // URL Expansion Logic
+                const urlContainer = cardEl.querySelector('.link-url-container');
+                const urlField = cardEl.querySelector('.link-url-field');
+
+                cardEl.querySelector('.btn-url').onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent drag lock
+                    if (urlContainer.style.display === 'none') {
+                        urlContainer.style.display = 'block';
+                        urlField.value = card.url || '';
+                        urlField.focus();
+                    } else {
+                        urlContainer.style.display = 'none';
+                    }
+                };
+
+                urlField.oninput = (e) => {
+                    card.url = e.target.value.trim();
+                    saveLinksData(); // Save silently in the background
+                };
+
+                urlField.onkeydown = (e) => {
+                    e.stopPropagation(); // Stop drag lock while typing
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        urlContainer.style.display = 'none';
+                        renderLinksBoard(); // Re-render so the "Visit Link" button appears!
+                    }
+                };
+
+                // Native Electron Visit Button
+                if (cardEl.querySelector('.btn-visit')) {
+                    cardEl.querySelector('.btn-visit').onclick = (e) => {
+                        e.stopPropagation();
+                        require('electron').shell.openExternal(card.url);
+                    };
+                }
+
+                cardEl.querySelector('.btn-img').onclick = (e) => {
+                    e.stopPropagation();
+                    const input = document.createElement('input');
+                    input.type = 'file'; input.accept = 'image/*';
+                    input.onchange = async () => {
+                        if(input.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = async (ev) => { card.image = ev.target.result; await saveLinksData(); renderLinksBoard(); };
+                            reader.readAsDataURL(input.files[0]);
+                        }
+                    };
+                    input.click();
+                };
+
+                cardEl.querySelector('.btn-del').onclick = async (e) => {
+                    e.stopPropagation();
+                    if(confirm("Delete this card?")) {
+                        currentLinksData.cards.splice(globalIndex, 1);
+                        await saveLinksData();
+                        renderLinksBoard();
+                    }
+                };
+
+                makeCardDraggable(cardEl, card, globalIndex);
+                grid.appendChild(cardEl);
+
+                // Auto adjust height of textarea
+                setTimeout(() => {
+                    const desc = cardEl.querySelector('.link-desc');
+                    desc.style.height = desc.scrollHeight + 'px';
+                }, 0);
+            });
+
+            // Add the "Add New (+)" empty card at the end of the grid
+            const addIdx = sectionCards.length;
+            const addRow = Math.floor(addIdx / cols);
+            
+            const addCard = document.createElement('div');
+            addCard.className = 'link-card empty-card';
+            addCard.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24"><path fill="#888" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
+            addCard.onclick = async () => {
+                currentLinksData.cards.push({ 
+                    section: i,
+                    headline: '', 
+                    text: '', 
+                    url: '', 
+                    image: '' 
+                });
+                await saveLinksData();
+                renderLinksBoard();
+            };
+            grid.appendChild(addCard);
+
+            sectionWrapper.appendChild(grid);
+            board.appendChild(sectionWrapper);
+            
+            // Record boundaries so drag-and-drop knows exactly where rows/sections start
+            const totalRowsThisSection = addRow + 1;
+            const bottomBound = sectionStartY + (totalRowsThisSection * ROW_HEIGHT) + 40;
+            
+            window.linkSectionBounds.push({
+                section: i,
+                top: topBound,
+                bottom: bottomBound,
+                startY: sectionStartY
+            });
+
+            currentYOffset = bottomBound; 
+        }
+    }
+
+    function makeCardDraggable(el, cardData, globalIndex) {
+        let isDragging = false;
+        let ghost = null;
+        let startX, startY, initialMouseX, initialMouseY;
+
+        const onPointerMove = (e) => {
+            if(!isDragging || !ghost) return;
+            
+            // Move floating visual ghost
+            const dx = e.clientX - initialMouseX;
+            const dy = e.clientY - initialMouseY;
+            ghost.style.left = `${startX + dx}px`;
+            ghost.style.top = `${startY + dy}px`;
+
+            // Detect what element is underneath the mouse
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            if (!target) return;
+
+            const targetCard = target.closest('.link-card');
+            const targetGrid = target.closest('.link-grid');
+
+            // Swap native DOM nodes to push other cards out of the way dynamically
+            if (targetCard && targetCard !== el) {
+                const targetRect = targetCard.getBoundingClientRect();
+                const mouseXRel = e.clientX - targetRect.left;
+                
+                if (mouseXRel < targetRect.width / 2) {
+                    targetCard.parentNode.insertBefore(el, targetCard);
+                } else {
+                    targetCard.parentNode.insertBefore(el, targetCard.nextSibling);
+                }
+            } else if (targetGrid && !targetCard) {
+                // If hovering over an empty grid area, place it before the "+" add card
+                const emptyCard = targetGrid.querySelector('.empty-card');
+                if (emptyCard) {
+                    targetGrid.insertBefore(el, emptyCard);
+                }
+            }
+        };
+
+        const onPointerUp = async (e) => {
+            if(isDragging) {
+                isDragging = false;
+                el.classList.remove('dragging');
+                el.style.opacity = '1';
+                
+                if (ghost) {
+                    ghost.remove();
+                    ghost = null;
+                }
+
+                window.removeEventListener('pointermove', onPointerMove);
+                window.removeEventListener('pointerup', onPointerUp);
+
+                // REBUILD ARRAY: Read the new order straight from the DOM structure
+                const newCardsArray = [];
+                const sections = document.querySelectorAll('.link-section');
+                
+                sections.forEach(sectionEl => {
+                    const secIndex = parseInt(sectionEl.dataset.section);
+                    const cardsInGrid = sectionEl.querySelectorAll('.link-card:not(.empty-card)');
+                    
+                    cardsInGrid.forEach(cEl => {
+                        const origIndex = parseInt(cEl.dataset.origIndex);
+                        const cData = currentLinksData.cards[origIndex];
+                        cData.section = secIndex; // Update section if it moved
+                        
+                        // Clean up legacy x/y attributes securely
+                        delete cData.x;
+                        delete cData.y;
+                        
+                        newCardsArray.push(cData);
+                    });
+                });
+
+                currentLinksData.cards = newCardsArray;
+                await saveLinksData();
+                renderLinksBoard(); // Clean re-render
+            }
+        };
+
+        // CRITICAL FIX: switched to pointerdown to avoid input lockups
+        el.addEventListener('pointerdown', (e) => {
+            // Check if clicking interactive elements. DO NOTHING if so.
+            if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button') || e.target.closest('a')) {
+                return;
+            }
+            if (e.button !== 0) return; // Only trigger drag on left click
+
+            isDragging = true;
+            e.stopPropagation();
+            
+            const rect = el.getBoundingClientRect();
+            startX = rect.left;
+            startY = rect.top;
+            initialMouseX = e.clientX;
+            initialMouseY = e.clientY;
+
+            // Create a floating clone (Ghost)
+            ghost = el.cloneNode(true);
+            ghost.id = 'drag-ghost';
+            ghost.style.position = 'fixed';
+            ghost.style.left = `${startX}px`;
+            ghost.style.top = `${startY}px`;
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.height = `${rect.height}px`;
+            ghost.style.margin = '0';
+            ghost.style.zIndex = '9999';
+            ghost.style.pointerEvents = 'none'; // Ignore mouse so we can detect grid below it
+            ghost.style.opacity = '0.9';
+            ghost.style.transform = 'scale(1.02) rotate(2deg)';
+            ghost.style.transition = 'none';
+            document.body.appendChild(ghost);
+
+            // Hide original but keep its physical space in the grid
+            el.classList.add('dragging');
+
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+        });
+    }
+
+    window.addEventListener('resize', () => {
+        if (document.getElementById('links-page').classList.contains('active')) {
+            renderLinksBoard();
+        }
+    });
+
     async function selectRootFolder() {
         try {
             const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
@@ -7068,6 +7626,10 @@
             closeQA();
         } else if (document.getElementById('todo-page').classList.contains('active')) {
             closeTodo();
+        } else if (document.getElementById('linear-notes-page').classList.contains('active')) {
+            closeLinearNotes();
+        } else if (document.getElementById('links-page').classList.contains('active')) {
+            closeLinks();
         }
     };
     if (btnNew) btnNew.onclick = createNewMindmap;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, session } = require('electron')
 const path = require('path')
 
 function createWindow () {
@@ -22,6 +22,18 @@ function createWindow () {
 }
 
 app.whenReady().then(() => {
+  
+  // --- YOUTUBE ERROR 153 FIX ---
+  // Intercept network requests and inject a fake Referer header so YouTube doesn't block the embed
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['Referer'] = 'https://localhost/';
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+  // -----------------------------
+
   createWindow()
 
   app.on('activate', () => {
