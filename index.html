@@ -3934,6 +3934,7 @@
             // Scan the root folder for subfolders (subjects)
             for await (const entry of rootDirHandle.values()) {
                 if (entry.kind === 'directory') {
+                    if (entry.name === 'Assets') continue;
                     const files = [];
                     try {
                         for await (const fileEntry of entry.values()) {
