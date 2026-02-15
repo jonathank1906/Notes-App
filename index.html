@@ -2312,24 +2312,23 @@
             position: relative;
             width: 280px;
             background: #252a33;
-            border: 1px solid #3a414f;
+            border: 1px solid var(--ui-border);
             border-radius: 8px;
             padding: 16px;
             display: flex; flex-direction: column; gap: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transition: box-shadow 0.2s, border-color 0.2s;
+            transition: box-shadow 0.2s, border-color 0.2s, border-width 0.2s;
             box-sizing: border-box;
         }
         
-        .link-card:hover { border-color: #579; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        
+        .link-card:focus-within { border-color: #8af; border-width: 2px; }
         
         .link-card.empty-card {
             background: #1e222b;
             align-items: center; justify-content: center;
-            cursor: pointer; min-height: 120px;
+            cursor: pointer; min-height: 60px;
         }
         
-        .link-card.empty-card:hover { background: #252a33; }
 
         .link-card.dragging {
             opacity: 0 !important; 
@@ -2733,7 +2732,7 @@
         </div>
         <div class="new-note-option" onclick="createNewNote('links')">
             <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-            Links Pinboard
+            Pinboard
         </div>
     </div>
 
@@ -6220,7 +6219,7 @@
             
             const addCard = document.createElement('div');
             addCard.className = 'link-card empty-card';
-            addCard.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24"><path fill="#888" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
+            addCard.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24"><path fill="#ffffff" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
             addCard.onclick = async () => {
                 currentLinksData.cards.push({ 
                     section: i,
