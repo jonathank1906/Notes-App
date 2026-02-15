@@ -2347,6 +2347,47 @@
         .link-media img, .link-media iframe {
             width: 100%; display: block; border: none; aspect-ratio: 16/9; object-fit: cover;
         }
+
+        /* The base span: invisible by default, acts as a click target */
+        .link-divider-text {
+            background: transparent;
+            color: #e0e0e0;
+            padding: 4px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: text;
+            outline: none;
+            min-width: 140px; /* Gives you a wide enough area to click */
+            display: inline-block;
+            text-align: center;
+            transition: all 0.2s ease;
+            
+            /* Ensure Electron doesn't block interactions */
+            pointer-events: auto !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        /* Create the placeholder text */
+        .link-divider-text:empty::before {
+            content: attr(data-placeholder);
+            color: #888;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        /* Show placeholder faintly on hover if it's empty and NOT being typed in */
+        .link-divider-text:empty:not(:focus):hover::before {
+            opacity: 1;
+        }
+
+        /* When you focus it (click it) OR it has saved text, show the dark pill background */
+        .link-divider-text.has-content,
+        .link-divider-text:focus {
+            background: #252a33;
+        }
     </style>
 </head>
 <body>
@@ -5946,7 +5987,8 @@
         // 2. Build DOM for each section
         for (let i = 0; i <= maxSection; i++) {
             const sectionCards = sections[i];
-            const name = currentLinksData.sectionNames[i] || `Section ${i + 1}`;
+            // Check if a name exists; if not, keep it an empty string instead of a default "Section X"
+            const savedName = currentLinksData.sectionNames[i] || ""; 
             const topBound = currentYOffset;
             
             const sectionWrapper = document.createElement('div');
@@ -5956,15 +5998,58 @@
             // Add Divider
             const divider = document.createElement('div');
             divider.className = 'link-divider';
-            divider.innerHTML = `<span class="link-divider-text" title="Double-click to rename">${escapeHtml(name)}</span>`;
-            divider.querySelector('.link-divider-text').ondblclick = async () => {
-                const newName = prompt("Rename section:", name);
-                if(newName && newName.trim() !== "") {
-                    currentLinksData.sectionNames[i] = newName.trim();
-                    await saveLinksData();
-                    renderLinksBoard();
+
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'link-divider-text';
+            titleSpan.contentEditable = "true"; // Makes it inline-typable!
+            titleSpan.setAttribute('data-placeholder', 'Click to add title');
+
+            if (savedName) {
+                titleSpan.textContent = savedName;
+                titleSpan.classList.add('has-content'); // Keeps the background visible
+            }
+
+            // Listen to typing to toggle the background box on and off dynamically
+            titleSpan.addEventListener('input', () => {
+                // Browsers often inject a <br> when emptying a contenteditable. We need to strip it out.
+                if (titleSpan.innerHTML === '<br>') {
+                    titleSpan.innerHTML = '';
                 }
-            };
+                
+                if (titleSpan.textContent.trim().length > 0) {
+                    titleSpan.classList.add('has-content');
+                } else {
+                    titleSpan.classList.remove('has-content');
+                }
+            });
+
+            // Pressing Enter saves and closes the editing state
+            titleSpan.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    titleSpan.blur(); // Triggers the blur event below
+                }
+            });
+
+            // When the user clicks away, save to the JSON
+            titleSpan.addEventListener('blur', async () => {
+                const newName = titleSpan.textContent.trim();
+                
+                // Force pure empty state if they deleted everything
+                if (newName === "") {
+                    titleSpan.innerHTML = ""; 
+                    titleSpan.classList.remove('has-content');
+                }
+
+                // Only save if the name actually changed
+                if (newName !== savedName) {
+                    currentLinksData.sectionNames[i] = newName;
+                    await saveLinksData();
+                    // Note: No need to call renderLinksBoard() here, the UI updates instantly!
+                }
+            });
+
+            divider.appendChild(titleSpan);
             sectionWrapper.appendChild(divider);
 
             const sectionStartY = currentYOffset + 40; 
