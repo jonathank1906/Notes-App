@@ -91,7 +91,35 @@
         .slider-item label { font-size: 11px; color: #888; margin-bottom: 2px; font-family: 'AdobeClean-Regular', Arial, sans-serif; }
         .slider-item input { width: 100%; cursor: pointer; accent-color: #888; }
 
-        #last-saved { margin-left: auto; font-size: 11px; color: #555; font-family: monospace; }
+        /* Save Status Indicator */
+        #btn-save-status {
+            margin-left: auto;
+            background: transparent;
+            border: none;
+            color: transparent;
+            padding: 0;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: none;
+            transition: all 0.15s ease;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        #btn-save-status.saved svg circle {
+            fill: none;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+
+        #btn-save-status.unsaved svg circle {
+            fill: #fff;
+        }
 
         /* --- HEADER & CONTENT --- */
         #sticky-header-group { flex: 0 0 auto; background: #000; border-bottom: 1px solid #222; padding: 10px 0px; z-index: 50; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100px; }
@@ -297,7 +325,11 @@
         
         <button id="split-screen-btn" class="menu-trigger" onclick="toggleSplitScreen()" disabled style="opacity: 0.5; cursor: not-allowed; margin-left: 10px; color: #8af;">Split Screen</button>
 
-        <div id="last-saved">Not saved</div>
+        <button id="btn-save-status" class="saved" data-tooltip="All changes saved">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <circle cx="12" cy="12" r="8" />
+            </svg>
+        </button>
     </div>
 
     <div id="file-menu" class="menu-dropdown" style="left: 15px;">
@@ -307,11 +339,6 @@
         <button class="menu-item" onclick="saveNotesAs()">Save As New File...</button>
         <div class="menu-separator"></div>
         <button class="menu-item" onclick="openMergeLectures()">Merge Lectures...</button>
-        <div class="menu-separator"></div>
-        <label class="menu-checkbox">
-            <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()" checked>
-            Enable Auto-Save
-        </label>
     </div>
 
     <div id="edit-menu" class="menu-dropdown" style="left: 70px;">
@@ -449,6 +476,38 @@
         const fs = require('fs'); // Native file system for silent saving
         let isSplitScreen = false;
 
+        const saveStatusIndicator = document.getElementById('btn-save-status');
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        const debouncedSave = debounce(() => {
+            if (window.currentJsonPath) {
+                saveNotes(true);
+            }
+        }, 3000);
+
+        function updateSaveStatusIndicator() {
+            if (isDirty) {
+                saveStatusIndicator.classList.remove('saved');
+                saveStatusIndicator.classList.add('unsaved');
+                saveStatusIndicator.setAttribute('data-tooltip', 'Unsaved changes...');
+            } else {
+                saveStatusIndicator.classList.remove('unsaved');
+                saveStatusIndicator.classList.add('saved');
+                saveStatusIndicator.setAttribute('data-tooltip', 'All changes saved');
+            }
+        }
+
         function toggleSplitScreen() {
             if (!pdfDoc) return; 
             isSplitScreen = !isSplitScreen;
@@ -498,6 +557,7 @@
             if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'' };
             state.slides[idx].notes = newText;
             isDirty = true;
+            debouncedSave();
             
             // Update the main window's preview instantly
             let htmlContent = typeof marked !== 'undefined' && newText ? marked.parse(newText) : (newText || "");
@@ -545,7 +605,6 @@
 
             // Start auto-save automatically if we have a file path
             if (window.currentJsonPath || fileHandle) {
-                document.getElementById('autosave-toggle').checked = true;
                 startAutoSave();
             }
         });
@@ -640,7 +699,7 @@
         function autoResizeTextarea() { editor.style.height = 'auto'; editor.style.height = (editor.scrollHeight) + 'px'; }
 
         function handleInput() {
-            const idx = state.count - 1; const newText = editor.value; isDirty = true; autoResizeTextarea();
+            const idx = state.count - 1; const newText = editor.value; isDirty = true; debouncedSave(); updateSaveStatusIndicator(); autoResizeTextarea();
             if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'' };
             state.slides[idx].header = slideLabel.innerText; state.slides[idx].notes = newText; 
             if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { pushSnapshot(idx, newText); }, 500);
@@ -717,6 +776,7 @@
                     state.slides[index].level = level;
                 }
                 isDirty = true;
+                debouncedSave();
                 saveData();
                 updateSidebar();
             }
@@ -1031,7 +1091,7 @@
                 const tempHeader = srcSlide.header; const tempNotes = srcSlide.notes;
                 srcSlide.header = tgtSlide.header; srcSlide.notes = tgtSlide.notes;
                 tgtSlide.header = tempHeader; tgtSlide.notes = tempNotes;
-                isDirty = true; saveData(); renderRearrangeGrid();
+                isDirty = true; debouncedSave(); updateSaveStatusIndicator(); saveData(); renderRearrangeGrid();
             }
             return false;
         }
@@ -1042,7 +1102,7 @@
             let insertIndex = (offset === 1) ? state.count : state.count - 1;
             state.slides.splice(insertIndex, 0, newSlide);
             if (offset === 1) state.count++; 
-            isDirty = true; updateDisplay(); renderPage();
+            isDirty = true; debouncedSave(); updateSaveStatusIndicator(); updateDisplay(); renderPage();
             mainMenu.classList.remove('active');
         }
         function deleteCurrentSlide() {
@@ -1050,7 +1110,7 @@
             if (!confirm("Delete current slide?")) return;
             state.slides.splice(state.count - 1, 1);
             if (state.count > state.slides.length) state.count = state.slides.length;
-            isDirty = true; updateDisplay(); renderPage();
+            isDirty = true; debouncedSave(); updateSaveStatusIndicator(); updateDisplay(); renderPage();
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
         }
         function syncPdfSlides() {
@@ -1058,13 +1118,13 @@
             if (!confirm(`Force-Sync slides to PDF pages 1-${pdfDoc.numPages}? (Fixes black screens/missing slides)`)) return;
             for (let i = 0; i < pdfDoc.numPages; i++) { if (!state.slides[i]) { state.slides[i] = { type: 'pdf', pdfPage: i + 1, header: "", notes: "" }; } else { state.slides[i].type = 'pdf'; state.slides[i].pdfPage = i + 1; } }
             if (state.count > state.slides.length) state.count = state.slides.length;
-            isDirty = true; updateDisplay(); renderPage();
+            isDirty = true; debouncedSave(); updateSaveStatusIndicator(); updateDisplay(); renderPage();
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
         }
         function shiftContent(direction) {
             if (!confirm(`Shift content ${direction === -1 ? 'UP (Delete Slide 1)' : 'DOWN (Insert Blank at 1)'}?`)) return;
             if (direction === 1) { for (let i = state.slides.length - 1; i >= 0; i--) { if (i === 0) { state.slides[i].notes = ""; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i-1].notes; state.slides[i].header = state.slides[i-1].header; } } } else { for (let i = 0; i < state.slides.length; i++) { if (i === state.slides.length - 1) { state.slides[i].notes = ""; state.slides[i].header = ""; } else { state.slides[i].notes = state.slides[i+1].notes; state.slides[i].header = state.slides[i+1].header; } } }
-            isDirty = true; updateDisplay();
+            isDirty = true; debouncedSave(); updateSaveStatusIndicator(); updateDisplay();
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
         }
 
@@ -1098,7 +1158,7 @@
         async function openNotesEditable() {
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
             if (!window.showOpenFilePicker) { alert("Your browser doesn't support Smart Open."); return; }
-            try { [fileHandle] = await window.showOpenFilePicker({ types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }] }); const file = await fileHandle.getFile(); const text = await file.text(); loadImportedData(text); document.getElementById('export-btn').textContent = "💾 Save (Instant)"; if (document.getElementById('autosave-toggle').checked) startAutoSave(); } catch(e) { console.error("Open cancelled", e); }
+            try { [fileHandle] = await window.showOpenFilePicker({ types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }] }); const file = await fileHandle.getFile(); const text = await file.text(); loadImportedData(text); document.getElementById('export-btn').textContent = "💾 Save (Instant)"; startAutoSave(); } catch(e) { console.error("Open cancelled", e); }
         }
         async function saveNotes(isAuto = false) {
             if (!isAuto) document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
@@ -1109,7 +1169,7 @@
                 try {
                     fs.writeFileSync(window.currentJsonPath, content);
                     isDirty = false;
-                    updateSaveTime();
+                    updateSaveStatusIndicator();
                     if (!isAuto && document.getElementById('export-btn')) {
                         document.getElementById('export-btn').textContent = "💾 Saved!";
                         setTimeout(() => document.getElementById('export-btn').textContent = "💾 Save (Linked)", 2000);
@@ -1126,8 +1186,8 @@
                     const writable = await fileHandle.createWritable(); 
                     await writable.write(content); 
                     await writable.close(); 
-                    isDirty = false; 
-                    updateSaveTime(); 
+                    isDirty = false;
+                    updateSaveStatusIndicator();
                     return; 
                 } catch(e) { 
                     console.error("Save failed", e); 
@@ -1141,19 +1201,18 @@
         async function saveNotesAs() {
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
             const content = JSON.stringify(state);
-            if (window.showSaveFilePicker) { try { const date = new Date().toISOString().slice(0,10); fileHandle = await window.showSaveFilePicker({ suggestedName: `lecture_notes_${date}.json`, types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }] }); const writable = await fileHandle.createWritable(); await writable.write(content); await writable.close(); startAutoSave(); isDirty = false; updateSaveTime(); return; } catch(e) { if(e.name !== 'AbortError') alert("Save failed."); } }
+            if (window.showSaveFilePicker) { try { const date = new Date().toISOString().slice(0,10); fileHandle = await window.showSaveFilePicker({ suggestedName: `lecture_notes_${date}.json`, types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }] }); const writable = await fileHandle.createWritable(); await writable.write(content); await writable.close(); startAutoSave(); isDirty = false; updateSaveStatusIndicator(); return; } catch(e) { if(e.name !== 'AbortError') alert("Save failed."); } }
             exportNotes(); 
         }
-        function updateSaveTime() { const now = new Date(); lastSavedDiv.textContent = `Last saved: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; }
-        function startAutoSave() { if (autoSaveInterval) clearInterval(autoSaveInterval); autoSaveInterval = setInterval(() => { saveNotes(true); }, 120000); console.log("Auto-save timer started"); }
-        function toggleAutoSave() { const isChecked = document.getElementById('autosave-toggle').checked; if (autoSaveInterval) { clearInterval(autoSaveInterval); autoSaveInterval = null; } if (isChecked) { if (fileHandle) { startAutoSave(); alert("Auto-save started."); } } }
+        function startAutoSave() { }
+
         function exportNotes() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); const date = new Date().toISOString().slice(0,10); downloadAnchorNode.setAttribute("download", "lecture_notes_" + date + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); isDirty = false; }
         
         function loadImportedData(jsonString) {
             try {
                 let imported = JSON.parse(jsonString);
                 if (imported.memory && (!imported.slides || imported.slides.length === 0)) { imported.slides = []; const indices = Object.keys(imported.memory).map(Number).sort((a,b)=>a-b); const maxIdx = indices.length > 0 ? indices[indices.length-1] : 0; for(let i=0; i<=maxIdx; i++) { const d = imported.memory[i] || {}; imported.slides.push({ type: 'pdf', pdfPage: i+1, header: d.header||"", notes: d.notes||"" }); } if(imported.count !== undefined) imported.count++; }
-                state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateDisplay(); if(pdfDoc) renderPage();
+                state = imported; if(state.count < 1) state.count = 1; historyStacks = {}; isDirty = false; updateSaveStatusIndicator(); updateDisplay(); if(pdfDoc) renderPage();
             } catch(err) { alert("Error reading JSON"); }
         }
 
