@@ -9,6 +9,10 @@
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script src="https://unpkg.com/quill-image-resize-module@3.0.0/image-resize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
     <style>
         :root {
             --bg-color: #121212;
@@ -2758,7 +2762,6 @@
 
 <script>
     // --- Open Slide Notes in New Electron Window ---
-    alert('index.html loaded');
     // Ensure Node.js modules are available if running in Electron
     let fs, path, ipcRenderer;
     if (window.require) {
@@ -4127,23 +4130,69 @@
             const card = document.createElement('div');
             card.className = 'note-card pdf-card';
             card.dataset.subject = subject.name;
-            card.innerHTML = `
-                <div class="card-header">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10,9 9,9 8,9"/>
-                        </svg>
-                    </div>
-                    <div class="card-title">${pdf.name}</div>
-                </div>
-                <div class="card-content">
-                    <div class="card-preview">PDF Document</div>
-                </div>
-            `;
+            
+            const preview = document.createElement('div');
+            preview.className = 'note-preview';
+            preview.innerHTML = '<canvas width="120" height="160" style="width: 100%; height: 100%; object-fit: contain;"></canvas>';
+            
+            const info = document.createElement('div');
+            info.className = 'note-info';
+            
+            const title = document.createElement('div');
+            title.className = 'note-title';
+            title.textContent = pdf.name;
+            title.title = pdf.name;
+            
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'note-meta';
+            
+            const dateDiv = document.createElement('div');
+            dateDiv.className = 'note-date';
+            // Leave empty for PDFs
+            
+            const subjectPill = document.createElement('div');
+            subjectPill.className = 'note-subject-pill';
+            subjectPill.textContent = subject.name;
+            
+            metaDiv.appendChild(dateDiv);
+            metaDiv.appendChild(subjectPill);
+            
+            info.appendChild(title);
+            info.appendChild(metaDiv);
+            
+            card.appendChild(preview);
+            card.appendChild(info);
+            
+            // Render PDF preview
+            const canvas = preview.querySelector('canvas');
+            const ctx = canvas.getContext('2d');
+            try {
+                const file = await pdf.handle.getFile();
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const page = await pdfDoc.getPage(1);
+                const viewport = page.getViewport({ scale: 0.7 }); // Even higher scale for sharper preview
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                await page.render(renderContext).promise;
+            } catch (err) {
+                console.error('Error rendering PDF preview:', err);
+                // Fallback to icon
+                preview.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 60px; height: 80px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10,9 9,9 8,9"/>
+                    </svg>
+                `;
+            }
+            
             card.onclick = async () => {
                 const file = await pdf.handle.getFile();
                 const buffer = await file.arrayBuffer();
