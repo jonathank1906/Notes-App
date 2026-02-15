@@ -5961,16 +5961,6 @@
 
         document.getElementById('links-title').textContent = currentLinksHandle.name.replace('.json', '');
         renderLinksBoard();
-
-        // NEW FIX: If there are cards (especially just one), focus the first one automatically
-        if (currentLinksData.cards.length > 0) {
-            setTimeout(() => {
-                const firstHeadline = document.querySelector('.link-headline');
-                if (firstHeadline) {
-                    firstHeadline.focus();
-                }
-            }, 150); // Slightly longer delay for the very first load
-        }
     }
 
     async function closeLinks() {
