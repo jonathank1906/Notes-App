@@ -2764,6 +2764,8 @@
     // --- Open Slide Notes in New Electron Window ---
     // Ensure Node.js modules are available if running in Electron
     let fs, path, ipcRenderer;
+    let noteMap = new Map();
+    let currentNoteFileName;
     if (window.require) {
         try {
             fs = window.require('fs');
@@ -2774,6 +2776,26 @@
             path = null;
             ipcRenderer = null;
         }
+    }
+
+    // IPC listener for loading note in new window
+    if (ipcRenderer) {
+        ipcRenderer.on('load-note', (event, noteData) => {
+            openNoteFromData(noteData);
+        });
+        ipcRenderer.on('save-note', async (event, {fileName, data}) => {
+            const item = noteMap.get(fileName);
+            if (item) {
+                item.data = data;
+                try {
+                    const writable = await item.handle.createWritable();
+                    await writable.write(JSON.stringify(data));
+                    await writable.close();
+                } catch (err) {
+                    console.error('Error saving:', err);
+                }
+            }
+        });
     }
 
     function openSlidesApp() {
@@ -3538,14 +3560,13 @@
             strokes: validStrokes,
             textBoxes: textBoxes
         };
-        const json = JSON.stringify(data);
-        const blob = new Blob([json], {type: 'application/json'});
-
+        
         // If we have a file handle and directory access, save directly
         if (currentFileHandle && currentDirHandle) {
             try {
+                const json = JSON.stringify(data);
                 const writable = await currentFileHandle.createWritable();
-                await writable.write(blob);
+                await writable.write(json);
                 await writable.close();
                 hasUnsavedChanges = false;
                 updateSaveStatusIndicator();
@@ -3555,8 +3576,19 @@
                 console.error('Save failed:', err);
             }
         }
-
+        
+        // If no handle, send to main window to save
+        if (ipcRenderer && currentFileName && currentFileName !== 'untitled') {
+            ipcRenderer.send('save-note', {fileName: currentFileName, data: data});
+            hasUnsavedChanges = false;
+            updateSaveStatusIndicator();
+            showNotification('Saved');
+            return;
+        }
+        
         // Fallback: download file
+        const json = JSON.stringify(data);
+        const blob = new Blob([json], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -3597,6 +3629,29 @@
         } catch (err) {
             console.error(err);
             alert('Error loading file');
+        }
+    }
+
+    function loadFromData(data) {
+        if (data.strokes && Array.isArray(data.strokes)) {
+            strokes = data.strokes.filter(s => s.tool !== 'eraser');
+            textBoxes = data.textBoxes || [];
+            if (data.camera) camera = data.camera;
+            undoStack = [];
+            redoStack = [];
+            selectedStrokes.clear();
+            selectedTextBoxes.clear();
+            editingTextBox = null;
+            eraserPath = [];
+            strokesBeforeErase = [];
+            currentFileName = 'Untitled';
+            currentFileHandle = null;
+            hasUnsavedChanges = false;
+            updateSaveStatusIndicator();
+            requestRender();
+            showNotification('Loaded note');
+        } else {
+            alert('Invalid file format');
         }
     }
 
@@ -4475,6 +4530,19 @@
         const text = await file.text();
         const data = JSON.parse(text);
         
+        // Store in map for saving
+        noteMap.set(fileHandle.name, {handle: fileHandle, data: data});
+        
+        // Send to main process to open in new window
+        if (ipcRenderer) {
+            ipcRenderer.send('open-note-window', {type: data.type, data: data, fileName: fileHandle.name});
+        } else {
+            // Fallback for non-Electron
+            openNoteLocally(fileHandle, data);
+        }
+    }
+
+    function openNoteLocally(fileHandle, data) {
         if (data.type === 'flashcard') {
             openFlashcard(fileHandle, data);
         } else if (data.type === 'glossary') {
@@ -4489,7 +4557,30 @@
             openLinks(fileHandle, data);
         } else {
             // Load as canvas note
-            await loadFromFileHandle(fileHandle);
+            loadFromFileHandle(fileHandle);
+            showCanvas();
+        }
+    }
+
+    function openNoteFromData(noteData) {
+        const {type, data, fileName} = noteData;
+        currentNoteFileName = fileName;
+        if (type === 'flashcard') {
+            openFlashcard(null, data, fileName);
+        } else if (type === 'glossary') {
+            openGlossary(null, data, fileName);
+        } else if (type === 'qa') {
+            openQA(null, data, fileName);
+        } else if (type === 'todo') {
+            openTodo(null, data, fileName);
+        } else if (type === 'linear') {
+            openLinearNotes(null, data, fileName);
+        } else if (type === 'links') {
+            openLinks(null, data, fileName);
+        } else {
+            // Load as canvas note
+            loadFromData(data);
+            currentFileName = fileName;
             showCanvas();
         }
     }
@@ -4724,7 +4815,7 @@
     let currentFlashcardIndex = 0;
     let isFlashcardFullEditMode = false;
 
-    function openFlashcard(fileHandle, data) {
+    function openFlashcard(fileHandle, data, fileName = null) {
         currentFlashcardHandle = fileHandle;
         currentFlashcardData = data;
         currentFlashcardIndex = 0;
@@ -5171,7 +5262,12 @@
     }
 
     async function saveFlashcardData() {
-        if (!currentFlashcardHandle) return;
+        if (!currentFlashcardHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentFlashcardData});
+            }
+            return;
+        }
         
         try {
             const writable = await currentFlashcardHandle.createWritable();
@@ -5191,7 +5287,7 @@
     let currentQAData = null;
     let currentQAHandle = null;
 
-    function openGlossary(fileHandle, data) {
+    function openGlossary(fileHandle, data, fileName = null) {
         currentGlossaryHandle = fileHandle;
         currentGlossaryData = data;
         
@@ -5215,8 +5311,8 @@
         document.getElementById('help-btn').classList.add('hidden');
         
         // Update title
-        const fileName = currentGlossaryHandle.name.replace('.json', '');
-        document.getElementById('glossary-title').textContent = fileName;
+        const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Glossary');
+        document.getElementById('glossary-title').textContent = fileNameStr;
         
         renderGlossaryList();
     }
@@ -5475,7 +5571,12 @@
     }
 
     async function saveGlossaryData() {
-        if (!currentGlossaryHandle) return;
+        if (!currentGlossaryHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentGlossaryData});
+            }
+            return;
+        }
         
         try {
             const writable = await currentGlossaryHandle.createWritable();
@@ -5492,7 +5593,7 @@
     }
 
     // --- Q/A FUNCTIONS ---
-    function openQA(fileHandle, data) {
+    function openQA(fileHandle, data, fileName = null) {
         currentQAHandle = fileHandle;
         currentQAData = data;
         
@@ -5764,7 +5865,15 @@
     }
 
     async function saveQAData() {
-        if (!currentQAHandle || !currentQAData) return;
+        if (!currentQAHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                currentQAData.timestamp = new Date().toISOString();
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentQAData});
+            }
+            return;
+        }
+        
+        if (!currentQAData) return;
         
         currentQAData.timestamp = new Date().toISOString();
         const json = JSON.stringify(currentQAData, null, 2);
@@ -5794,7 +5903,7 @@
     let currentTodoHandle = null;
     let currentTodoData = null;
 
-    function openTodo(fileHandle, data) {
+    function openTodo(fileHandle, data, fileName = null) {
         currentTodoHandle = fileHandle;
         currentTodoData = data;
         
@@ -5818,8 +5927,8 @@
         document.getElementById('help-btn').classList.add('hidden');
         
         // Update title
-        const fileName = currentTodoHandle.name.replace('.json', '');
-        document.getElementById('todo-title').textContent = fileName;
+        const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Todo');
+        document.getElementById('todo-title').textContent = fileNameStr;
         
         if (!currentTodoData.todos) {
             currentTodoData.todos = [];
@@ -5900,7 +6009,15 @@
     }
 
     async function saveTodoData() {
-        if (!currentTodoHandle || !currentTodoData) return;
+        if (!currentTodoHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                currentTodoData.timestamp = new Date().toISOString();
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentTodoData});
+            }
+            return;
+        }
+        
+        if (!currentTodoData) return;
         
         currentTodoData.timestamp = new Date().toISOString();
         const json = JSON.stringify(currentTodoData, null, 2);
@@ -5914,7 +6031,7 @@
     let currentLinearNotesData = null;
     let linearNotesEditor = null;
 
-    function openLinearNotes(fileHandle, data) {
+    function openLinearNotes(fileHandle, data, fileName = null) {
         currentLinearNotesHandle = fileHandle;
         currentLinearNotesData = data;
         
@@ -5939,8 +6056,8 @@
         document.getElementById('help-btn').classList.add('hidden');
         
         // Update title
-        const fileName = currentLinearNotesHandle.name.replace('.json', '');
-        document.querySelector('#linear-notes-page .linear-notes-header h1').textContent = fileName;
+        const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Linear Notes');
+        document.querySelector('#linear-notes-page .linear-notes-header h1').textContent = fileNameStr;
 
         // Initialize Quill editor if not already initialized
         if (!linearNotesEditor) {
@@ -6090,7 +6207,17 @@
     }
 
     async function saveLinearNotesData() {
-        if (!currentLinearNotesHandle || !currentLinearNotesData || !linearNotesEditor) return;
+        if (!currentLinearNotesHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                // Save the current editor content
+                currentLinearNotesData.content = linearNotesEditor.getContents();
+                currentLinearNotesData.timestamp = new Date().toISOString();
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentLinearNotesData});
+            }
+            return;
+        }
+        
+        if (!currentLinearNotesData || !linearNotesEditor) return;
         
         // Save the current editor content
         currentLinearNotesData.content = linearNotesEditor.getContents();
@@ -6106,7 +6233,7 @@
     let currentLinksData = null;
     const SECTION_HEIGHT = 450;
 
-    function openLinks(fileHandle, data) {
+    function openLinks(fileHandle, data, fileName = null) {
         currentLinksHandle = fileHandle;
         currentLinksData = data;
         
@@ -6131,7 +6258,8 @@
         document.getElementById('toolbar').classList.add('hidden');
         document.getElementById('help-btn').classList.add('hidden');
 
-        document.getElementById('links-title').textContent = currentLinksHandle.name.replace('.json', '');
+        const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Links');
+        document.getElementById('links-title').textContent = fileNameStr;
         renderLinksBoard();
     }
 
@@ -6145,7 +6273,15 @@
     }
 
     async function saveLinksData() {
-        if (!currentLinksHandle || !currentLinksData) return;
+        if (!currentLinksHandle) {
+            if (ipcRenderer && currentNoteFileName) {
+                currentLinksData.timestamp = new Date().toISOString();
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentLinksData});
+            }
+            return;
+        }
+        
+        if (!currentLinksData) return;
         currentLinksData.timestamp = new Date().toISOString();
         const writable = await currentLinksHandle.createWritable();
         await writable.write(JSON.stringify(currentLinksData, null, 2));
@@ -8320,6 +8456,11 @@
 
     // Set default tool to select
     setTool('select');
+
+    // For note windows, hide home screen
+    if (window.location.search.includes('note')) {
+        document.getElementById('home-screen').classList.add('hidden');
+    }
 
 </script>
 </body>

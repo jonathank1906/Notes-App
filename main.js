@@ -32,7 +32,27 @@ function launchSlideNotesApp(pdfBuffer = null) {
   }
 }
 
-// 2. Function to open the SPLIT SCREEN window
+// 2. Function to open a note in a new window
+function launchNoteApp(noteData) {
+  console.log('Launching note app...', noteData.type);
+  const noteWin = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    x: 100,
+    y: 100,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  noteWin.loadURL('file://' + path.join(__dirname, 'index.html') + '?note=1');
+  noteWin.webContents.once('did-finish-load', () => {
+    noteWin.webContents.send('load-note', noteData);
+  });
+  noteWin.focus();
+}
+
+// 3. Function to open the SPLIT SCREEN window
 function openExternalNotesWindow() {
   console.log('Creating Split Screen window...');
   const extWin = new BrowserWindow({
@@ -68,6 +88,20 @@ ipcMain.handle('select-folder', async () => {
 
 ipcMain.on('launch-slidenotes-app', (event, pdfBuffer) => {
   launchSlideNotesApp(pdfBuffer);
+});
+
+// NEW: Open note in new window
+ipcMain.on('open-note-window', (event, noteData) => {
+  launchNoteApp(noteData);
+});
+
+// NEW: Save note from new window
+ipcMain.on('save-note', (event, {fileName, data}) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (win.webContents !== event.sender) {
+      win.webContents.send('save-note', {fileName, data});
+    }
+  });
 });
 
 // slidenotes.html calls this

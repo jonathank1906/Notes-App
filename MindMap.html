@@ -2689,6 +2689,29 @@
     }
     window.addEventListener('resize', resize);
     
+    // IPC listener for loading note in new window
+    try {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.on('load-note', (event, noteData) => {
+            openNoteFromData(noteData);
+        });
+        ipcRenderer.on('save-note', async (event, {fileName, data}) => {
+            const item = noteMap.get(fileName);
+            if (item) {
+                item.data = data;
+                try {
+                    const writable = await item.handle.createWritable();
+                    await writable.write(JSON.stringify(data));
+                    await writable.close();
+                } catch (err) {
+                    console.error('Error saving:', err);
+                }
+            }
+        });
+    } catch (e) {
+        // Not in Electron
+    }
+    
     resize();
 
     // --- COORDINATES ---
@@ -3402,6 +3425,29 @@
         } catch (err) {
             console.error(err);
             alert('Error loading file');
+        }
+    }
+
+    function loadFromData(data) {
+        if (data.strokes && Array.isArray(data.strokes)) {
+            strokes = data.strokes.filter(s => s.tool !== 'eraser');
+            textBoxes = data.textBoxes || [];
+            if (data.camera) camera = data.camera;
+            undoStack = [];
+            redoStack = [];
+            selectedStrokes.clear();
+            selectedTextBoxes.clear();
+            editingTextBox = null;
+            eraserPath = [];
+            strokesBeforeErase = [];
+            currentFileName = 'Untitled';
+            currentFileHandle = null;
+            hasUnsavedChanges = false;
+            updateSaveStatusIndicator();
+            requestRender();
+            showNotification('Loaded note');
+        } else {
+            alert('Invalid file format');
         }
     }
 
@@ -4238,6 +4284,20 @@
         const text = await file.text();
         const data = JSON.parse(text);
         
+        // Store in map for saving
+        noteMap.set(fileHandle.name, {handle: fileHandle, data: data});
+        
+        // Send to main process to open in new window
+        try {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.send('open-note-window', {type: data.type, data: data, fileName: fileHandle.name});
+        } catch (e) {
+            // Fallback
+            openNoteLocally(fileHandle, data);
+        }
+    }
+
+    function openNoteLocally(fileHandle, data) {
         if (data.type === 'flashcard') {
             openFlashcard(fileHandle, data);
         } else if (data.type === 'glossary') {
@@ -4250,7 +4310,28 @@
             openLinearNotes(fileHandle, data);
         } else {
             // Load as canvas note
-            await loadFromFileHandle(fileHandle);
+            loadFromFileHandle(fileHandle);
+            showCanvas();
+        }
+    }
+
+    function openNoteFromData(noteData) {
+        const {type, data, fileName} = noteData;
+        currentNoteFileName = fileName;
+        if (type === 'flashcard') {
+            openFlashcard(null, data, fileName);
+        } else if (type === 'glossary') {
+            openGlossary(null, data, fileName);
+        } else if (type === 'qa') {
+            openQA(null, data, fileName);
+        } else if (type === 'todo') {
+            openTodo(null, data, fileName);
+        } else if (type === 'linear') {
+            openLinearNotes(null, data, fileName);
+        } else {
+            // Load as canvas note
+            loadFromData(data);
+            currentFileName = fileName;
             showCanvas();
         }
     }
@@ -4920,7 +5001,14 @@
     }
 
     async function saveFlashcardData() {
-        if (!currentFlashcardHandle) return;
+        if (!currentFlashcardHandle) {
+            try {
+                currentFlashcardHandle = await window.showSaveFilePicker({ types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }] });
+            } catch (e) {
+                console.error("Save cancelled", e);
+                return;
+            }
+        }
         
         try {
             const writable = await currentFlashcardHandle.createWritable();
@@ -5543,7 +5631,7 @@
     let currentTodoHandle = null;
     let currentTodoData = null;
 
-    function openTodo(fileHandle, data) {
+    function openTodo(fileHandle, data, fileName = null) {
         currentTodoHandle = fileHandle;
         currentTodoData = data;
         
@@ -5567,8 +5655,8 @@
         document.getElementById('help-btn').classList.add('hidden');
         
         // Update title
-        const fileName = currentTodoHandle.name.replace('.json', '');
-        document.getElementById('todo-title').textContent = fileName;
+        const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Todo');
+        document.getElementById('todo-title').textContent = fileNameStr;
         
         if (!currentTodoData.todos) {
             currentTodoData.todos = [];
