@@ -2378,7 +2378,6 @@
             min-width: 20px; /* Gives you a wide enough area to click */
             display: inline-block;
             text-align: center;
-            transition: all 0.2s ease;
             
             /* Ensure Electron doesn't block interactions */
             pointer-events: auto !important;
@@ -2392,7 +2391,6 @@
             color: #888;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s;
         }
 
         /* Show placeholder faintly on hover if it's empty and NOT being typed in */
@@ -2400,10 +2398,18 @@
             opacity: 1;
         }
 
+        /* Show background on hover for empty spans too */
+        .link-divider-text:empty:hover {
+            background: #252a33;
+            padding: 4px 8px; /* Reduce padding for narrower appearance */
+            min-width: 0; /* Allow it to be narrower */
+        }
+
         /* When you focus it (click it) OR it has saved text, show the dark pill background */
         .link-divider-text.has-content,
         .link-divider-text:focus {
             background: #252a33;
+            padding: 4px 8px; /* Match the hover padding for consistency */
         }
     </style>
 </head>
