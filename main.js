@@ -10,12 +10,13 @@ function createWindow () {
       contextIsolation: false
     }
   });
-  win.loadFile(path.join(__dirname, 'index.html'));
+  win.loadFile(path.join(__dirname, 'index.html')); // Loads Mind Map
 }
 
-function openSlideNotesWindow() {
-  console.log('Creating Slide Notes window...');
-  const slideWin = new BrowserWindow({
+// 1. Function to open the MAIN Slide Notes App
+function launchSlideNotesApp() {
+  console.log('Launching main Slide Notes app...');
+  const slideAppWin = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
@@ -23,18 +24,50 @@ function openSlideNotesWindow() {
       contextIsolation: false
     }
   });
-  slideWin.loadFile(path.join(__dirname, 'Slide Notes.html'));
+  slideAppWin.loadFile(path.join(__dirname, 'Slide Notes.html'));
 }
 
-// IPC handler for opening Slide Notes window
-ipcMain.on('open-slide-notes-window', () => {
-  console.log('IPC: open-slide-notes-window received');
-  openSlideNotesWindow();
+// 2. Function to open the SPLIT SCREEN window
+function openExternalNotesWindow() {
+  console.log('Creating Split Screen window...');
+  const extWin = new BrowserWindow({
+    width: 800,
+    height: 1000,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  extWin.loadFile(path.join(__dirname, 'external-notes.html'));
+  
+  extWin.on('closed', () => {
+    BrowserWindow.getAllWindows().forEach(win => {
+      win.webContents.send('split-screen-closed');
+    });
+  });
+}
+
+// --- IPC LISTENERS ---
+// Mind Map calls this
+ipcMain.on('launch-slidenotes-app', () => {
+  launchSlideNotesApp();
 });
 
+// slidenotes.html calls this
+ipcMain.on('open-external-notes', () => {
+  openExternalNotesWindow();
+});
+
+// Syncs typing between split screens
+ipcMain.on('sync-slide-state', (event, data) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (win.webContents !== event.sender) {
+      win.webContents.send('update-notes-view', data);
+    }
+  });
+});
 
 app.whenReady().then(() => {
-  // --- YOUTUBE ERROR 153 FIX ---
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
     (details, callback) => {
@@ -44,15 +77,10 @@ app.whenReady().then(() => {
   );
   createWindow();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-  // (No longer needed: global.openSlideNotesWindow)
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })

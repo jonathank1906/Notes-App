@@ -2775,8 +2775,8 @@
     function openSlidesApp() {
         console.log('openSlidesApp called');
         if (ipcRenderer) {
-            console.log('ipcRenderer available, sending open-slide-notes-window');
-            ipcRenderer.send('open-slide-notes-window');
+            console.log('ipcRenderer available, sending launch-slidenotes-app');
+            ipcRenderer.send('launch-slidenotes-app');
         } else {
             console.log('ipcRenderer NOT available');
             alert('Not running in Electron environment.');

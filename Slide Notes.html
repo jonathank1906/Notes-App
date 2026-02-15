@@ -316,7 +316,7 @@
         <button class="menu-trigger" onclick="toggleMenu('fixes-menu')">Fixes</button>
         <button class="menu-trigger" onclick="toggleMenu('appearance-menu')">Appearance</button>
         
-        <label class="mode-toggle">
+        <button id="split-screen-btn" class="menu-trigger" onclick="toggleSplitScreen()" disabled style="opacity: 0.5; cursor: not-allowed; margin-left: 10px; color: #8af;">Split Screen</button>
             Standard
             <div class="switch">
                 <input type="checkbox" id="mode-switch" onchange="toggleModeFromSwitch()">
@@ -472,6 +472,53 @@
         const pdfContainer = document.getElementById('pdf-render-container');
         const noPdfMsg = document.getElementById('no-pdf-msg');
         
+        // Add this right after: const noPdfMsg = document.getElementById('no-pdf-msg');
+        const { ipcRenderer } = require('electron');
+        let isSplitScreen = false;
+
+        function toggleSplitScreen() {
+            if (!pdfDoc) return; 
+            isSplitScreen = !isSplitScreen;
+            
+            const btn = document.getElementById('split-screen-btn');
+            const notesContainer = document.getElementById('notes-container');
+            const pdfContainer = document.getElementById('pdf-render-container');
+            
+            if (isSplitScreen) {
+                notesContainer.style.display = 'none'; // Hide notes
+                pdfContainer.style.height = '85vh';    // Expand PDF
+                btn.style.background = '#222';
+                btn.style.color = '#fff';
+                ipcRenderer.send('open-external-notes'); // Open window
+            } else {
+                notesContainer.style.display = 'flex'; // Show notes
+                const sliderVal = document.querySelector('#appearance-menu input[type="range"]').value;
+                pdfContainer.style.height = sliderVal + 'vh'; // Restore PDF size
+                btn.style.background = 'transparent';
+                btn.style.color = '#8af';
+            }
+            if (MODES[currentModeIndex] === 'PDF') renderPage();
+            broadcastNotes();
+        }
+
+        function broadcastNotes() {
+            if (!isSplitScreen) return;
+            const idx = state.count - 1;
+            const slide = state.slides[idx] || { header: '', notes: '' };
+            let htmlContent = typeof marked !== 'undefined' && slide.notes ? marked.parse(slide.notes) : (slide.notes || "");
+            htmlContent = applyBionicReading(htmlContent);
+            
+            ipcRenderer.send('sync-slide-state', {
+                header: slide.header || '',
+                htmlContent: htmlContent,
+                count: state.count
+            });
+        }
+
+        ipcRenderer.on('split-screen-closed', () => {
+            if (isSplitScreen) toggleSplitScreen();
+        });
+        
         // UI Elements
         const mainMenu = document.getElementById('main-menu');
         const modeSwitch = document.getElementById('mode-switch');
@@ -596,6 +643,8 @@
             state.slides[idx].header = slideLabel.innerText; state.slides[idx].notes = newText; 
             if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(() => { pushSnapshot(idx, newText); }, 500);
             saveData(); updateSidebar(); 
+            
+            broadcastNotes(); // ADD THIS LINE HERE
         }
 
         function updateDisplay() {
@@ -613,6 +662,8 @@
             } else { pdfContainer.style.display = 'none'; }
             display.textContent = state.count;
             updateSidebar(); if(isEditorActive) autoResizeTextarea();
+            
+            broadcastNotes(); // ADD THIS LINE HERE
         }
 
         function toggleSidebar() { 
@@ -1169,6 +1220,13 @@
                     const typedarray = new Uint8Array(this.result);
                     pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
                         pdfDoc = pdfDoc_; noPdfMsg.style.display = "none"; extractAllText(pdfDoc);
+                        
+                        // NEW: ENABLE THE BUTTON
+                        const splitBtn = document.getElementById('split-screen-btn');
+                        splitBtn.disabled = false;
+                        splitBtn.style.opacity = '1';
+                        splitBtn.style.cursor = 'pointer';
+
                         if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); }
                         const pdfModeIdx = MODES.indexOf('PDF'); if (pdfModeIdx !== -1) { currentModeIndex = pdfModeIdx; updateUIForMode(); } renderPage(); document.getElementById('pdf-upload').blur();
                     });
