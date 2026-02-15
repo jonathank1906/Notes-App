@@ -6277,21 +6277,19 @@
         const onPointerMove = (e) => {
             if(!isDragging || !ghost) return;
             
-            // Move floating visual ghost
             const dx = e.clientX - initialMouseX;
             const dy = e.clientY - initialMouseY;
             ghost.style.left = `${startX + dx}px`;
             ghost.style.top = `${startY + dy}px`;
 
-            // Detect what element is underneath the mouse
             const target = document.elementFromPoint(e.clientX, e.clientY);
             if (!target) return;
 
             const targetCard = target.closest('.link-card');
             const targetGrid = target.closest('.link-grid');
 
-            // Swap native DOM nodes to push other cards out of the way dynamically
-            if (targetCard && targetCard !== el) {
+            // Swap visual position in the DOM
+            if (targetCard && targetCard !== el && !targetCard.classList.contains('empty-card')) {
                 const targetRect = targetCard.getBoundingClientRect();
                 const mouseXRel = e.clientX - targetRect.left;
                 
@@ -6301,72 +6299,69 @@
                     targetCard.parentNode.insertBefore(el, targetCard.nextSibling);
                 }
             } else if (targetGrid && !targetCard) {
-                // If hovering over an empty grid area, place it before the "+" add card
                 const emptyCard = targetGrid.querySelector('.empty-card');
-                if (emptyCard) {
-                    targetGrid.insertBefore(el, emptyCard);
-                }
+                if (emptyCard) targetGrid.insertBefore(el, emptyCard);
             }
         };
 
         const onPointerUp = async (e) => {
-            if(isDragging) {
-                isDragging = false;
-                
-                // 1. Immediately clean up the ghost and visual states
-                if (ghost) { 
-                    ghost.remove(); 
-                    ghost = null; 
-                }
-                el.classList.remove('dragging');
-                el.style.opacity = '1';
+            if (!isDragging) return;
+            isDragging = false;
 
-                window.removeEventListener('pointermove', onPointerMove);
-                window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
 
-                // 2. REBUILD ARRAY SAFELY
-                const newCardsArray = [];
+            // 1. CLEAN UP GHOST FIRST - Crucial so it's not in the DOM count
+            if (ghost) {
+                ghost.remove();
+                ghost = null;
+            }
+
+            // 2. RESTORE ORIGINAL ELEMENT VISIBILITY
+            el.classList.remove('dragging');
+            el.style.opacity = '1';
+
+            // 3. REBUILD THE ARRAY FROM THE CURRENT DOM STATE
+            // We look at all sections and all cards inside them to determine the new order
+            const newCardsArray = [];
+            const sections = document.querySelectorAll('.link-section');
+            
+            sections.forEach(sectionEl => {
+                const secIndex = parseInt(sectionEl.dataset.section);
+                // Only find real cards, specifically excluding the ghost or any temporary elements
+                const cardsInGrid = sectionEl.querySelectorAll('.link-card:not(.empty-card):not(#drag-ghost)');
                 
-                // CRITICAL FIX: We must ensure we only select real cards. 
-                // We use :not(#drag-ghost) to ensure the floating clone isn't saved into the data.
-                const allCardEls = document.querySelectorAll('.link-section .link-card:not(.empty-card):not(#drag-ghost)');
-                
-                allCardEls.forEach(cEl => {
-                    const origIndex = parseInt(cEl.dataset.origIndex);
-                    // Deep clone the data to ensure we aren't creating circular references
-                    const cData = currentLinksData.cards[origIndex];
-                    
-                    if (cData) {
-                        const parentSection = cEl.closest('.link-section');
-                        if (parentSection) {
-                            cData.section = parseInt(parentSection.dataset.section);
-                        }
-                        newCardsArray.push({...cData}); // Use spread operator to break reference
+                cardsInGrid.forEach(cEl => {
+                    const origIdx = parseInt(cEl.dataset.origIndex);
+                    const data = currentLinksData.cards[origIdx];
+                    if (data) {
+                        const clonedData = { ...data }; // Fresh copy
+                        clonedData.section = secIndex;
+                        newCardsArray.push(clonedData);
                     }
                 });
+            });
 
-                // 3. Data Integrity Check
-                // Only save if we have the same amount of cards we started with (prevents accidental deletion/duplication)
-                if (newCardsArray.length > 0) {
-                    currentLinksData.cards = newCardsArray;
-                    await saveLinksData();
-                    renderLinksBoard(); // Refresh UI to clean up dataset indices
-                }
+            // 4. DATA INTEGRITY CHECK
+            // If the counts match, save. If not, something went wrong—don't overwrite the file!
+            if (newCardsArray.length === currentLinksData.cards.length) {
+                currentLinksData.cards = newCardsArray;
+                await saveLinksData();
+                renderLinksBoard(); // Refresh to reset all dataset indices (dataset.origIndex)
+            } else {
+                console.error("Link Card Count Mismatch! Save aborted to prevent data loss.");
+                renderLinksBoard(); // Reset UI to safe state
             }
         };
 
-        // CRITICAL FIX: switched to pointerdown to avoid input lockups
         el.addEventListener('pointerdown', (e) => {
-            // 1. IF CLICKING BUTTONS OR INPUTS, ABORT DRAG IMMEDIATELY
-            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) {
-                return; 
+            // Shield: Don't drag if clicking buttons or inputs
+            if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) {
+                return;
             }
-            
-            // 2. Only allow left-click dragging
             if (e.button !== 0) return;
 
             isDragging = true;
-            e.preventDefault(); // Prevents text selection while dragging
             
             const rect = el.getBoundingClientRect();
             startX = rect.left;
@@ -6374,7 +6369,6 @@
             initialMouseX = e.clientX;
             initialMouseY = e.clientY;
 
-            // Create a floating clone (Ghost)
             ghost = el.cloneNode(true);
             ghost.id = 'drag-ghost';
             ghost.style.position = 'fixed';
@@ -6382,16 +6376,13 @@
             ghost.style.top = `${startY}px`;
             ghost.style.width = `${rect.width}px`;
             ghost.style.height = `${rect.height}px`;
-            ghost.style.margin = '0';
             ghost.style.zIndex = '9999';
-            ghost.style.pointerEvents = 'none'; // Ignore mouse so we can detect grid below it
-            ghost.style.opacity = '0.9';
-            ghost.style.transform = 'scale(1.02) rotate(2deg)';
-            ghost.style.transition = 'none';
+            ghost.style.pointerEvents = 'none';
+            ghost.style.opacity = '0.8';
+            ghost.style.transform = 'rotate(2deg)';
             document.body.appendChild(ghost);
 
-            // Hide original but keep its physical space in the grid
-            el.classList.add('dragging');
+            el.classList.add('dragging'); // This sets opacity: 0 via CSS
 
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup', onPointerUp);
