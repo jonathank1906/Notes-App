@@ -506,6 +506,44 @@
             font-weight: 600;
         }
 
+        #pdfs-list {
+            flex: 1;
+            padding: 8px 0;
+        }
+
+        .pdf-item {
+            padding: 12px 12px;
+            margin: 2px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-color);
+            transition: all 0.15s ease;
+            border-radius: 8px;
+            border-left: 3px solid transparent;
+        }
+
+        .pdf-item:hover {
+            background: var(--btn-hover);
+            color: var(--accent);
+        }
+
+        .pdf-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .pdf-name {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         /* Notes Content Area */
         #notes-content {
             flex: 1;
@@ -2450,6 +2488,13 @@
             <div id="subjects-list">
                 <!-- Subjects will be dynamically generated -->
             </div>
+            <div id="sidebar-divider"></div>
+            <div id="sidebar-pdfs-section">
+                <div id="sidebar-title">PDFs</div>
+            </div>
+            <div id="pdfs-list">
+                <!-- PDFs will be dynamically generated -->
+            </div>
         </div>
         <div id="notes-content">
             <div id="content-header">
@@ -2758,6 +2803,7 @@
 
 <script>
     // --- Open Slide Notes in New Electron Window ---
+    alert('index.html loaded');
     // Ensure Node.js modules are available if running in Electron
     let fs, path, ipcRenderer;
     if (window.require) {
@@ -2853,6 +2899,7 @@
     let currentFileHandle = null;
     let hasUnsavedChanges = false;
     let allSubjects = [];
+    let allPdfs = [];
     let activeSubject = null;
     let currentView = 'grid'; // 'grid' or 'list'
     let allNotesLoaded = false; // Track if notes have been loaded into DOM
@@ -3793,6 +3840,8 @@
     async function initHomeScreen() {
         // 1. SILENT DESKTOP OVERRIDE: Check for Default Path
         const defaultPath = localStorage.getItem('defaultMindMapFolder');
+        console.log('initHomeScreen: defaultPath =', defaultPath);
+        console.log('fs.existsSync(defaultPath) =', defaultPath ? fs.existsSync(defaultPath) : 'no defaultPath');
         
         if (defaultPath && fs.existsSync(defaultPath)) {
             // Bypass all Web APIs, use native Node.js folder access!
@@ -3802,6 +3851,7 @@
             
             allNotesLoaded = false;
             await loadSubjects();
+            await loadPdfs();
             activeSubject = null;
             await loadAllNotes();
             return; // Exit here to skip the web permission prompt!
@@ -3824,6 +3874,7 @@
                     rootDirHandle = handle;
                     currentDirHandle = handle;
                     await loadSubjects();
+                    await loadPdfs();
                     activeSubject = null;
                     await loadAllNotes();
                 } else {
@@ -3832,6 +3883,7 @@
                         rootDirHandle = handle;
                         currentDirHandle = handle;
                         await loadSubjects();
+                        await loadPdfs();
                         activeSubject = null;
                         await loadAllNotes();
                     } else {
@@ -3915,6 +3967,45 @@
         }
     }
 
+    async function loadPdfs() {
+        console.log('loadPdfs called');
+        console.log('rootDirHandle:', rootDirHandle);
+        if (!rootDirHandle) {
+            console.log('No root directory selected, skipping PDF load');
+            allPdfs = [];
+            displayPdfs();
+            return;
+        }
+        try {
+            const pdfs = [];
+            
+            // Recursive function to scan for PDFs
+            async function scanDir(dirHandle, path = '') {
+                for await (const entry of dirHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.pdf')) {
+                        console.log('Found PDF:', path + entry.name);
+                        pdfs.push({
+                            name: entry.name,
+                            fullPath: path + entry.name,
+                            handle: entry
+                        });
+                    } else if (entry.kind === 'directory') {
+                        await scanDir(entry, path + entry.name + '/');
+                    }
+                }
+            }
+            
+            await scanDir(rootDirHandle);
+            
+            allPdfs = pdfs;
+            console.log('Loaded PDFs:', allPdfs.length);
+            displayPdfs();
+            
+        } catch (err) {
+            console.error('Error loading PDFs:', err);
+        }
+    }
+
     function getSubjectColor(index) {
         // Greyscale theme - return grey for all subjects
         return '#666666';
@@ -3965,6 +4056,38 @@
         
         // Update the + New button visibility
         updateNewNoteButtonVisibility();
+    }
+
+    function displayPdfs() {
+        console.log('displayPdfs called with', allPdfs.length, 'PDFs');
+        const pdfsList = document.getElementById('pdfs-list');
+        pdfsList.innerHTML = '';
+        
+        if (allPdfs.length > 0) {
+            alert('Found ' + allPdfs.length + ' PDFs');
+        }
+        
+        for (const pdf of allPdfs) {
+            const pdfItem = document.createElement('div');
+            pdfItem.className = 'pdf-item';
+            pdfItem.innerHTML = `
+                <svg class="pdf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                </svg>
+                <div class="pdf-name" title="${pdf.fullPath || pdf.name}">${pdf.name}</div>
+            `;
+            pdfItem.onclick = async () => {
+                // Get the file path
+                const file = await pdf.handle.getFile();
+                const buffer = await file.arrayBuffer();
+                ipcRenderer.send('launch-slidenotes-app', buffer);
+            };
+            pdfsList.appendChild(pdfItem);
+        }
     }
 
     function getAllNotesCount() {
@@ -6414,28 +6537,22 @@
     });
 
     async function selectRootFolder() {
-        try {
-            const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-            rootDirHandle = dirHandle;
-            currentDirHandle = dirHandle;
-            currentPath = [];
-            
-            // Save to IndexedDB
-            const db = await openDB();
-            await db.put(dirHandle, 'rootDirHandle');
-            
-            // Invalidate notes cache
-            allNotesLoaded = false;
-            
-            await loadSubjects();
-            activeSubject = null;
-            await loadAllNotes();
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                console.error('Error selecting folder:', err);
-                alert('Error selecting folder. Please try again.');
-            }
-        }
+        const folderPath = await ipcRenderer.invoke('select-folder');
+        if (!folderPath) return; // canceled
+        
+        // Use Node.js handle
+        const folderName = path.basename(folderPath);
+        rootDirHandle = new NodeDirectoryHandle(folderPath, folderName);
+        currentDirHandle = rootDirHandle;
+        currentPath = [];
+        
+        // Invalidate notes cache
+        allNotesLoaded = false;
+        
+        await loadSubjects();
+        await loadPdfs();
+        activeSubject = null;
+        await loadAllNotes();
     }
 
     // --- CONTEXT MENU ---

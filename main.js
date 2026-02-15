@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain } = require('electron')
+const { app, BrowserWindow, session, ipcMain, dialog } = require('electron')
 const path = require('path')
 
 function createWindow () {
@@ -14,8 +14,8 @@ function createWindow () {
 }
 
 // 1. Function to open the MAIN Slide Notes App
-function launchSlideNotesApp() {
-  console.log('Launching main Slide Notes app...');
+function launchSlideNotesApp(pdfBuffer = null) {
+  console.log('Launching main Slide Notes app...', pdfBuffer ? 'with PDF buffer' : '');
   const slideAppWin = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -25,6 +25,11 @@ function launchSlideNotesApp() {
     }
   });
   slideAppWin.loadFile(path.join(__dirname, 'Slide Notes.html'));
+  if (pdfBuffer) {
+    slideAppWin.webContents.once('did-finish-load', () => {
+      slideAppWin.webContents.send('load-pdf-buffer', pdfBuffer);
+    });
+  }
 }
 
 // 2. Function to open the SPLIT SCREEN window
@@ -49,8 +54,20 @@ function openExternalNotesWindow() {
 
 // --- IPC LISTENERS ---
 // Mind Map calls this
-ipcMain.on('launch-slidenotes-app', () => {
-  launchSlideNotesApp();
+ipcMain.handle('select-folder', async () => {
+  const { dialog } = require('electron');
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  });
+  if (result.canceled) {
+    return null;
+  } else {
+    return result.filePaths[0];
+  }
+});
+
+ipcMain.on('launch-slidenotes-app', (event, pdfBuffer) => {
+  launchSlideNotesApp(pdfBuffer);
 });
 
 // slidenotes.html calls this

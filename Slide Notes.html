@@ -519,6 +519,33 @@
         ipcRenderer.on('split-screen-closed', () => {
             if (isSplitScreen) toggleSplitScreen();
         });
+
+        // Listen for PDF load request
+        ipcRenderer.on('load-pdf-buffer', (event, pdfBuffer) => {
+            loadPdfFromBuffer(pdfBuffer);
+        });
+
+        function loadPdfFromBuffer(pdfBuffer) {
+            try {
+                const typedarray = new Uint8Array(pdfBuffer);
+                pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
+                    pdfDoc = pdfDoc_; noPdfMsg.style.display = "none"; extractAllText(pdfDoc);
+                    
+                    // ENABLE THE BUTTON
+                    const splitBtn = document.getElementById('split-screen-btn');
+                    splitBtn.disabled = false;
+                    splitBtn.style.opacity = '1';
+                    splitBtn.style.cursor = 'pointer';
+
+                    if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); }
+                    updateUIForMode(); setTimeout(() => renderPage(), 0);
+                }).catch(err => {
+                    console.error('Error loading PDF:', err);
+                });
+            } catch (err) {
+                console.error('Error processing PDF buffer:', err);
+            }
+        }
         
         // UI Elements
         const mainMenu = document.getElementById('main-menu');
