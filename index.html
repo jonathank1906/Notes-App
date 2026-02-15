@@ -2710,6 +2710,10 @@
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path fill="currentColor" d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             Canvas
         </div>
+        <div class="new-note-option" onclick="openSlidesApp()">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.09 7 12 11.82 4.91 7 12 4.18zM4 8.82l8 4.64 8-4.64V17l-8 4.18L4 17V8.82z"/></svg>
+            Slides
+        </div>
         <div class="new-note-option" onclick="createNewNote('flashcard')">
             <svg viewBox="0 0 20 20"><path d="M18.6,9.56A1.84,1.84,0,0,0,18,8.13a2,2,0,0,0-1.43-.61L3.42,7.5A1.86,1.86,0,0,0,2,8.11a1.94,1.94,0,0,0-.61,1.45v8.09A1.83,1.83,0,0,0,2,19.09a1.93,1.93,0,0,0,1.43.6H16.58a1.83,1.83,0,0,0,1.43-.6,1.93,1.93,0,0,0,.6-1.44ZM3.41,17.66V9.54H16.59v8.1Z"/></svg>
             Flashcard Deck
@@ -2737,6 +2741,8 @@
     </div>
 
 <div id="links-page">
+
+
     <div class="links-header">
         <button class="links-home-btn" onclick="showHomeScreen()" data-tooltip="Home" data-shortcut="Ctrl+H">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
@@ -2751,9 +2757,31 @@
 </div>
 
 <script>
-    // 1. IMPORT NODE NATIVE SUPERPOWERS
-    const fs = require('fs');
-    const path = require('path');
+    // --- Open Slide Notes in New Electron Window ---
+    // Ensure Node.js modules are available if running in Electron
+    let fs, path, ipcRenderer;
+    if (window.require) {
+        try {
+            fs = window.require('fs');
+            path = window.require('path');
+            ipcRenderer = window.require('electron').ipcRenderer;
+        } catch (e) {
+            fs = null;
+            path = null;
+            ipcRenderer = null;
+        }
+    }
+
+    function openSlidesApp() {
+        console.log('openSlidesApp called');
+        if (ipcRenderer) {
+            console.log('ipcRenderer available, sending open-slide-notes-window');
+            ipcRenderer.send('open-slide-notes-window');
+        } else {
+            console.log('ipcRenderer NOT available');
+            alert('Not running in Electron environment.');
+        }
+    }
     const os = require('os');
     const { shell } = require('electron'); // <-- ADD THIS LINE
 
