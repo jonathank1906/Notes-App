@@ -16,8 +16,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 
     <style>
+        @font-face {
+            font-family: 'AdobeClean-Regular';
+            src: local('Adobe Clean Regular'), local('AdobeClean-Regular');
+        }
+        @font-face {
+            font-family: 'AdobeClean-Bold';
+            src: local('Adobe Clean Bold'), local('AdobeClean-Bold');
+        }
         * { box-sizing: border-box; }
-        body { margin: 0; height: 100vh; font-family: Arial, sans-serif; background-color: black; color: white; overflow: hidden; display: flex; flex-direction: column; }
+        body { margin: 0; height: 100vh; font-family: 'AdobeClean-Regular', Arial, sans-serif; background-color: black; color: white; overflow: hidden; display: flex; flex-direction: column; }
         
         /* --- TOP MENU BAR --- */
         #app-menu-bar {
@@ -38,6 +46,7 @@
             cursor: pointer;
             border-radius: 6px;
             font-weight: bold;
+            font-family: 'AdobeClean-Bold', Arial, sans-serif;
             transition: all 0.15s ease;
             margin-left: 0;
             margin-right: 0;
@@ -59,10 +68,11 @@
         .menu-dropdown.active { display: block; }
         .menu-section { border-bottom: 1px solid #333; padding: 5px 0; }
         .menu-section:last-child { border-bottom: none; }
-        .menu-label { padding: 4px 15px; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .menu-label { padding: 4px 15px; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; font-family: 'AdobeClean-Regular', Arial, sans-serif; }
         .menu-item {
             display: block; width: 100%; padding: 8px 15px; text-align: left;
             background: transparent; border: none; color: #ccc; font-size: 13px; cursor: pointer;
+            font-family: 'AdobeClean-Regular', Arial, sans-serif;
         }
         .menu-item:hover { background: #222; color: #fff; }
         .menu-item.danger { color: #ff6666; }
@@ -71,43 +81,21 @@
         /* Checkbox in Menu */
         .menu-checkbox {
             display: flex; align-items: center; padding: 8px 15px; cursor: pointer; color: #ccc; font-size: 13px;
+            font-family: 'AdobeClean-Regular', Arial, sans-serif;
         }
         .menu-checkbox:hover { background: #222; color: #fff; }
         .menu-checkbox input { margin-right: 10px; accent-color: #888; }
 
         /* Sliders in Menu */
         .slider-item { padding: 5px 15px; display: flex; flex-direction: column; }
-        .slider-item label { font-size: 11px; color: #888; margin-bottom: 2px; }
+        .slider-item label { font-size: 11px; color: #888; margin-bottom: 2px; font-family: 'AdobeClean-Regular', Arial, sans-serif; }
         .slider-item input { width: 100%; cursor: pointer; accent-color: #888; }
-
-        /* Toggle Switch */
-            .mode-toggle {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 12px;
-                color: #aaa;
-                cursor: pointer;
-                margin-left: 24px;
-            }
-        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #333; transition: .4s; border-radius: 18px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
-        input:checked + .slider { background-color: #2196F3; }
-        input:checked + .slider:before { transform: translateX(16px); }
 
         #last-saved { margin-left: auto; font-size: 11px; color: #555; font-family: monospace; }
 
         /* --- HEADER & CONTENT --- */
         #sticky-header-group { flex: 0 0 auto; background: #000; border-bottom: 1px solid #222; padding: 10px 0px; z-index: 50; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100px; }
-        #display { position: absolute; right: 20px; top: 5px; font-size: 80px; font-weight: bold; user-select: none; line-height: 1; white-space: nowrap; text-align: right; z-index: 20; text-shadow: 0 0 5px black; }
+        #display { position: absolute; right: 20px; top: 5px; font-size: 80px; font-weight: bold; font-family: 'AdobeClean-Bold', Arial, sans-serif; user-select: none; line-height: 1; white-space: nowrap; text-align: right; z-index: 20; text-shadow: 0 0 5px black; }
         
         #slideLabel { background: transparent; border-bottom: 1px solid #333; color: #ddd; font-size: 30px; outline: none; padding-bottom: 2px; margin-bottom: 10px; min-width: 200px; max-width: 60%; text-align: center; transition: border-color 0.2s; cursor: text; display: block; }
         #slideLabel:focus { border-bottom: 1px solid #fff; }
@@ -152,7 +140,7 @@
         .toc-item.is-note { color: #aaa; } .toc-item.is-note:hover { color: #fff; }
         
         /* Heading Levels - Indentation */
-        .toc-item.level-1 { padding-left: 8px; font-weight: bold; font-size: 14px; }
+        .toc-item.level-1 { padding-left: 8px; font-weight: bold; font-size: 14px; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         .toc-item.level-2 { padding-left: 20px; font-size: 13px; }
         .toc-item.level-3 { padding-left: 32px; font-size: 13px; }
         .toc-item.level-4 { padding-left: 44px; font-size: 12px; }
@@ -222,13 +210,13 @@
         #slideNotesPreview p { margin-bottom: 10px; }
         #slideNotesPreview blockquote { border-left: 4px solid #888; margin: 10px 0; padding-left: 15px; color: #aaa; font-style: italic; background: #111; padding: 5px;}
         #slideNotesPreview a { color: #fff; text-decoration: underline; }
-        mark { background-color: #fff; color: black; border-radius: 2px; padding: 0 2px; font-weight: bold; }
+        mark { background-color: #fff; color: black; border-radius: 2px; padding: 0 2px; font-weight: bold; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         #slideNotesPreview pre { background: #1e1e1e !important; padding: 10px; border-radius: 6px; overflow-x: auto; border: 1px solid #333; margin: 10px 0; }
         #slideNotesPreview code { font-family: 'Consolas', 'Courier New', monospace; font-size: 15px; }
         #slideNotesPreview :not(pre) > code { background: #2d2d2d; padding: 2px 5px; border-radius: 4px; color: #ccc; border: 1px solid #444; }
         #slideNotesPreview table { border-collapse: collapse; width: 100%; margin: 15px 0; font-size: 16px; border: 1px solid #444; }
         #slideNotesPreview th, #slideNotesPreview td { border: 1px solid #444; padding: 8px 12px; text-align: left; }
-        #slideNotesPreview th { background-color: #222; color: #fff; font-weight: bold; }
+        #slideNotesPreview th { background-color: #222; color: #fff; font-weight: bold; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         #slideNotesPreview tr:nth-child(even) { background-color: #111; }
         #slideNotesPreview tr:nth-child(odd) { background-color: #161616; }
         
@@ -242,7 +230,7 @@
         .card-note-box { flex: 1; padding: 10px; cursor: grab; background: #161616; transition: background 0.2s; min-height: 80px; }
         .card-note-box:hover { background: #222; }
         .card-note-box:active { cursor: grabbing; }
-        .card-note-header { font-weight: bold; font-size: 12px; color: #fff; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-note-header { font-weight: bold; font-size: 12px; color: #fff; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         .card-note-excerpt { font-size: 10px; color: #888; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
         .rearrange-card-num { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 10px; border-radius: 4px; pointer-events: none; }
 
@@ -260,16 +248,16 @@
         .merge-file-card:hover { border-color: #555; background: #161616; }
         .merge-file-card:active { cursor: grabbing; }
         .merge-file-handle { font-size: 20px; color: #666; user-select: none; }
-        .merge-file-order { background: #222; color: #fff; padding: 8px 12px; border-radius: 4px; font-weight: bold; min-width: 40px; text-align: center; }
+        .merge-file-order { background: #222; color: #fff; padding: 8px 12px; border-radius: 4px; font-weight: bold; min-width: 40px; text-align: center; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         .merge-file-info { flex: 1; }
-        .merge-file-name { font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 5px; }
+        .merge-file-name { font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 5px; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         .merge-file-stats { font-size: 12px; color: #888; }
         .merge-file-remove { background: #300; border: 1px solid #533; color: #f88; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .merge-file-remove:hover { background: #400; }
         .merge-actions { display: flex; gap: 15px; align-items: center; }
         .merge-btn-add { background: #222; border: 1px solid #444; color: #8af; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
         .merge-btn-add:hover { background: #333; }
-        .merge-btn-execute { background: #252; border: 1px solid #353; color: #8f8; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        .merge-btn-execute { background: #252; border: 1px solid #353; color: #8f8; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; font-family: 'AdobeClean-Bold', Arial, sans-serif; }
         .merge-btn-execute:hover { background: #353; }
         .merge-btn-execute:disabled { opacity: 0.3; cursor: not-allowed; }
 
@@ -308,13 +296,6 @@
         <button class="menu-trigger" onclick="toggleMenu('appearance-menu')">Appearance</button>
         
         <button id="split-screen-btn" class="menu-trigger" onclick="toggleSplitScreen()" disabled style="opacity: 0.5; cursor: not-allowed; margin-left: 10px; color: #8af;">Split Screen</button>
-            Standard
-            <div class="switch">
-                <input type="checkbox" id="mode-switch" onchange="toggleModeFromSwitch()">
-                <span class="slider"></span>
-            </div>
-            PDF
-        </label>
 
         <div id="last-saved">Not saved</div>
     </div>
@@ -538,7 +519,6 @@
         
         // UI Elements
         const mainMenu = document.getElementById('main-menu');
-        const modeSwitch = document.getElementById('mode-switch');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         
         const searchInput = document.getElementById('search-input');
@@ -939,22 +919,6 @@
                 tocContextMenu.classList.remove('active');
             }
         });
-
-        // --- TOGGLE SWITCH LOGIC ---
-        function toggleModeFromSwitch() {
-            const isPDF = modeSwitch.checked; currentModeIndex = isPDF ? 1 : 0; updateUIForMode(); if (isPDF) renderPage();
-        }
-        function updateUIForMode() {
-            const mode = MODES[currentModeIndex];
-            const hideLabel = document.getElementById('hide-slide-label').checked;
-            if (mode === 'PDF') {
-                modeSwitch.checked = true; slideLabel.style.display = hideLabel ? 'none' : 'block'; pdfContainer.style.display = 'flex';
-            } else {
-                modeSwitch.checked = false; slideLabel.style.display = hideLabel ? 'none' : 'block'; pdfContainer.style.display = 'none';
-            }
-            updateDisplay(); 
-        }
-        function cycleMode() { modeSwitch.checked = !modeSwitch.checked; toggleModeFromSwitch(); }
 
         // --- REARRANGE LOGIC ---
         let dragSrcIndex = -1;
