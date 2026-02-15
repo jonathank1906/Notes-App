@@ -2694,6 +2694,7 @@
     // --- Open Slide Notes in New Electron Window ---
     // Ensure Node.js modules are available if running in Electron
     let fs, path, ipcRenderer;
+    let rootPath;
     let noteMap = new Map();
     let currentNoteFileName;
     if (window.require) {
@@ -3807,6 +3808,7 @@
         if (defaultPath && fs.existsSync(defaultPath)) {
             // Bypass all Web APIs, use native Node.js folder access!
             const folderName = path.basename(defaultPath);
+            rootPath = defaultPath; // Set rootPath
             rootDirHandle = new NodeDirectoryHandle(defaultPath, folderName);
             currentDirHandle = rootDirHandle;
             
@@ -3817,44 +3819,8 @@
             return; // Exit here to skip the web permission prompt!
         }
 
-        // 2. FALLBACK: Normal Web IndexedDB code if no default is set
-        if (!('showDirectoryPicker' in window)) {
-            console.warn('File System Access API not supported');
-            showEmptyState();
-            return;
-        }
-
-        try {
-            const db = await openDB();
-            const handle = await db.get('rootDirHandle');
-            
-            if (handle) {
-                const permission = await handle.queryPermission({ mode: 'readwrite' });
-                if (permission === 'granted') {
-                    rootDirHandle = handle;
-                    currentDirHandle = handle;
-                    await loadSubjects();
-                    activeSubject = null;
-                    await loadAllNotes();
-                } else {
-                    const newPermission = await handle.requestPermission({ mode: 'readwrite' });
-                    if (newPermission === 'granted') {
-                        rootDirHandle = handle;
-                        currentDirHandle = handle;
-                        await loadSubjects();
-                        activeSubject = null;
-                        await loadAllNotes();
-                    } else {
-                        showEmptyState();
-                    }
-                }
-            } else {
-                showEmptyState();
-            }
-        } catch (err) {
-            console.log('Could not restore saved directory:', err);
-            showEmptyState();
-        }
+        // 2. FALLBACK: Use dialog to select folder
+        await selectRootFolder();
     }
 
     function showEmptyState() {
@@ -3879,45 +3845,44 @@
         try {
             const subjects = [];
             
-            // Scan the root folder for subfolders (subjects)
             for await (const entry of rootDirHandle.values()) {
                 if (entry.kind === 'directory') {
                     if (entry.name === 'Assets') continue;
-                    const files = [];
+                    
+                    const jsonFiles = [];
+                    const pdfBaseNames = new Set();
+                    
                     try {
                         for await (const fileEntry of entry.values()) {
-                            if (fileEntry.kind === 'file' && fileEntry.name.endsWith('.json')) {
-                                files.push(fileEntry);
+                            if (fileEntry.kind === 'file') {
+                                const nameLower = fileEntry.name.toLowerCase();
+                                if (nameLower.endsWith('.pdf')) {
+                                    pdfBaseNames.add(nameLower.slice(0, -4));
+                                } else if (nameLower.endsWith('.json')) {
+                                    jsonFiles.push(fileEntry);
+                                }
                             }
                         }
                     } catch (err) {
                         console.error('Error reading folder:', entry.name, err);
                     }
                     
+                    // Filter out JSONs that share a name with a PDF
+                    const unlinkedJsonFiles = jsonFiles.filter(f => {
+                        return !pdfBaseNames.has(f.name.slice(0, -5).toLowerCase());
+                    });
+                    
                     subjects.push({
                         name: entry.name,
                         handle: entry,
-                        count: files.length,
+                        count: unlinkedJsonFiles.length, // Only count standalone notes!
                         color: getSubjectColor(subjects.length)
                     });
                 }
             }
             
-            // Also include files in root
-            const rootFiles = [];
-            for await (const entry of rootDirHandle.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                    rootFiles.push(entry);
-                }
-            }
-            
-            // Do not inject a default "UIUC" subject here.
-            
             allSubjects = subjects;
-            
-            // Invalidate notes cache so they'll be reloaded from disk
             allNotesLoaded = false;
-            
             displaySubjects();
             
         } catch (err) {
@@ -4232,7 +4197,23 @@
             card.onclick = async () => {
                 const file = await pdf.handle.getFile();
                 const buffer = await file.arrayBuffer();
-                ipcRenderer.send('launch-slidenotes-app', buffer);
+                
+                const baseName = pdf.name.slice(0, -4);
+                let jsonContent = null;
+                let jsonPath = null;
+                
+                if (subject.handle.path && typeof fs !== 'undefined') {
+                    jsonPath = path.join(subject.handle.path, baseName + '.json');
+                    if (fs.existsSync(jsonPath)) {
+                        jsonContent = fs.readFileSync(jsonPath, 'utf8');
+                    }
+                }
+
+                ipcRenderer.send('launch-slidenotes-app', { 
+                    pdfBuffer: buffer, 
+                    jsonContent: jsonContent, 
+                    jsonPath: jsonPath 
+                });
             };
             notesGrid.appendChild(card);
         }
@@ -4241,17 +4222,30 @@
     async function loadNotesIntoDom() {
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
-        
-        // Clear existing cards
         notesGrid.innerHTML = '';
         
-        // Collect all notes from all subjects
         const allNotes = [];
         
         for (const subject of allSubjects) {
             try {
+                const jsonEntries = [];
+                const pdfBaseNames = new Set();
+                
                 for await (const entry of subject.handle.values()) {
-                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    if (entry.kind === 'file') {
+                        const nameLower = entry.name.toLowerCase();
+                        if (nameLower.endsWith('.pdf')) {
+                            pdfBaseNames.add(nameLower.slice(0, -4));
+                        } else if (nameLower.endsWith('.json')) {
+                            jsonEntries.push(entry);
+                        }
+                    }
+                }
+                
+                for (const entry of jsonEntries) {
+                    const baseName = entry.name.slice(0, -5).toLowerCase();
+                    // Only display if it DOES NOT have a matching PDF
+                    if (!pdfBaseNames.has(baseName)) {
                         const file = await entry.getFile();
                         allNotes.push({
                             handle: entry,
@@ -4268,17 +4262,14 @@
             }
         }
         
-        // Sort by name
         allNotes.sort((a, b) => a.name.localeCompare(b.name));
         
-        // Apply current view
         if (currentView === 'list') {
             notesGrid.classList.add('list-view');
         } else {
             notesGrid.classList.remove('list-view');
         }
         
-        // Create and add all cards to DOM
         for (const note of allNotes) {
             const card = createNoteCard(note);
             notesGrid.appendChild(card);
@@ -6663,6 +6654,8 @@
     async function selectRootFolder() {
         const folderPath = await ipcRenderer.invoke('select-folder');
         if (!folderPath) return; // canceled
+        
+        rootPath = folderPath; // Store the root path
         
         // Use Node.js handle
         const folderName = path.basename(folderPath);

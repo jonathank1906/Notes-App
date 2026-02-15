@@ -446,6 +446,7 @@
         
         // Add this right after: const noPdfMsg = document.getElementById('no-pdf-msg');
         const { ipcRenderer } = require('electron');
+        const fs = require('fs'); // Native file system for silent saving
         let isSplitScreen = false;
 
         function toggleSplitScreen() {
@@ -520,9 +521,33 @@
             if (isSplitScreen) toggleSplitScreen();
         });
 
-        // Listen for PDF load request
-        ipcRenderer.on('load-pdf-buffer', (event, pdfBuffer) => {
-            loadPdfFromBuffer(pdfBuffer);
+        ipcRenderer.on('load-pdf-buffer', (event, payload) => {
+            let buffer, jsonContent, jsonPath;
+            
+            if (payload && payload.pdfBuffer) {
+                buffer = payload.pdfBuffer;
+                jsonContent = payload.jsonContent;
+                window.currentJsonPath = payload.jsonPath; // Store path globally!
+            } else {
+                buffer = payload; // legacy support
+            }
+
+            // Load PDF first
+            loadPdfFromBuffer(buffer);
+
+            // Then load JSON
+            if (jsonContent) {
+                loadImportedData(jsonContent);
+                document.getElementById('export-btn').textContent = "💾 Save (Linked)";
+            } else if (window.currentJsonPath) {
+                document.getElementById('export-btn').textContent = "💾 Save (Will Link)";
+            }
+
+            // Start auto-save automatically if we have a file path
+            if (window.currentJsonPath || fileHandle) {
+                document.getElementById('autosave-toggle').checked = true;
+                startAutoSave();
+            }
         });
 
         function loadPdfFromBuffer(pdfBuffer) {
@@ -1075,11 +1100,43 @@
             if (!window.showOpenFilePicker) { alert("Your browser doesn't support Smart Open."); return; }
             try { [fileHandle] = await window.showOpenFilePicker({ types: [{ description: 'JSON Notes', accept: {'application/json': ['.json']} }] }); const file = await fileHandle.getFile(); const text = await file.text(); loadImportedData(text); document.getElementById('export-btn').textContent = "💾 Save (Instant)"; if (document.getElementById('autosave-toggle').checked) startAutoSave(); } catch(e) { console.error("Open cancelled", e); }
         }
-        async function saveNotes() {
-            document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
+        async function saveNotes(isAuto = false) {
+            if (!isAuto) document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
             const content = JSON.stringify(state);
-            if (fileHandle) { try { const writable = await fileHandle.createWritable(); await writable.write(content); await writable.close(); isDirty = false; updateSaveTime(); return; } catch(e) { console.error("Save failed", e); fileHandle = null; } }
-            saveNotesAs();
+            
+            // 1. Native background save (If opened via matching PDF in Mind Map)
+            if (window.currentJsonPath) {
+                try {
+                    fs.writeFileSync(window.currentJsonPath, content);
+                    isDirty = false;
+                    updateSaveTime();
+                    if (!isAuto && document.getElementById('export-btn')) {
+                        document.getElementById('export-btn').textContent = "💾 Saved!";
+                        setTimeout(() => document.getElementById('export-btn').textContent = "💾 Save (Linked)", 2000);
+                    }
+                    return;
+                } catch(e) {
+                    console.error("Native save failed", e);
+                }
+            }
+
+            // 2. Web API save (If manually loaded via JSON)
+            if (fileHandle) { 
+                try { 
+                    const writable = await fileHandle.createWritable(); 
+                    await writable.write(content); 
+                    await writable.close(); 
+                    isDirty = false; 
+                    updateSaveTime(); 
+                    return; 
+                } catch(e) { 
+                    console.error("Save failed", e); 
+                    fileHandle = null; 
+                } 
+            }
+            
+            // 3. Prompt user if no file location is known
+            if (!isAuto) saveNotesAs();
         }
         async function saveNotesAs() {
             document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active'));
