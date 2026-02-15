@@ -286,15 +286,6 @@
 
         .hidden-file-input { display:none; }
 
-        /* --- BIONIC READING STYLES --- */
-        #slideNotesPreview strong,
-        .toc-text strong {
-            font-weight: 650;
-            color: #e8e8e8;
-            opacity: 0.95;
-            letter-spacing: 0.01em;
-        }
-        
         /* Subtle gradient effect on containing elements */
         #slideNotesPreview,
         .toc-text {
@@ -506,7 +497,6 @@
             const idx = state.count - 1;
             const slide = state.slides[idx] || { header: '', notes: '' };
             let htmlContent = typeof marked !== 'undefined' && slide.notes ? marked.parse(slide.notes) : (slide.notes || "");
-            htmlContent = applyBionicReading(htmlContent);
             
             ipcRenderer.send('sync-slide-state', {
                 header: slide.header || '',
@@ -526,7 +516,7 @@
             
             // Update the main window's preview instantly
             let htmlContent = typeof marked !== 'undefined' && newText ? marked.parse(newText) : (newText || "");
-            preview.innerHTML = applyBionicReading(htmlContent);
+            preview.innerHTML = htmlContent;
             if (typeof renderMathInElement !== 'undefined') { 
                 renderMathInElement(preview, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false }); 
             }
@@ -577,54 +567,6 @@
                 langPrefix: 'hljs language-'
             });
         } catch(e) { console.error("Marked/HLJS not loaded", e); }
-
-        // --- BIONIC READING FUNCTION ---
-        function applyBionicReading(html) {
-            const div = document.createElement('div');
-            div.innerHTML = html;
-            
-            function processNode(node) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    const text = node.textContent;
-                    if (!text.trim()) return;
-                    
-                    const bionicText = text.replace(/\b([a-zA-Z0-9]+)\b/g, (word) => {
-                        let boldCount;
-                        if (word.length === 1) {
-                            boldCount = 1;
-                        } else if (word.length === 2) {
-                            boldCount = 1;
-                        } else if (word.length <= 4) {
-                            boldCount = 2;
-                        } else if (word.length <= 7) {
-                            boldCount = Math.ceil(word.length * 0.6);
-                        } else {
-                            boldCount = Math.ceil(word.length * 0.55);
-                        }
-                        const boldPart = word.substring(0, boldCount);
-                        const normalPart = word.substring(boldCount);
-                        return `<strong>${boldPart}</strong>${normalPart}`;
-                    });
-                    
-                    const span = document.createElement('span');
-                    span.innerHTML = bionicText;
-                    node.parentNode.replaceChild(span, node);
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    // Skip code blocks and pre elements
-                    if (node.tagName === 'CODE' || node.tagName === 'PRE' || 
-                        node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
-                        return;
-                    }
-                    
-                    // Process child nodes in reverse to avoid issues with DOM manipulation
-                    const children = Array.from(node.childNodes);
-                    children.forEach(child => processNode(child));
-                }
-            }
-            
-            processNode(div);
-            return div.innerHTML;
-        }
 
         let state = { count: 1, slides: [] };
         state.slides = [{ type: 'blank', header: '', notes: '' }];
@@ -680,7 +622,7 @@
             if (!historyStacks[idx]) historyStacks[idx] = { undo: [], redo: [] };
             let htmlContent = "";
                 if (typeof marked !== 'undefined') { htmlContent = slide.notes ? marked.parse(slide.notes) : ''; } else htmlContent = slide.notes || "";
-            preview.innerHTML = applyBionicReading(htmlContent);
+            preview.innerHTML = htmlContent;
             if (typeof renderMathInElement !== 'undefined') { renderMathInElement(preview, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false }); }
             const mode = MODES[currentModeIndex];
             if (mode === 'PDF') {
@@ -711,10 +653,6 @@
                 const isCurrent = (num === state.count);
                 const isBlank = (slide.type === 'blank');
                 let title = slide.header ? slide.header : (isBlank ? "<i>(Note Slide)</i>" : `Slide ${num}`);
-                // Apply bionic reading to non-italic text
-                if (slide.header) {
-                    title = applyBionicReading(title);
-                }
                 const level = slide.level || 0;
                 const levelClass = level > 0 ? `level-${level}` : '';
                 html += `<div class="toc-item ${isCurrent ? 'current' : ''} ${isBlank ? 'is-note' : ''} ${levelClass}" 
