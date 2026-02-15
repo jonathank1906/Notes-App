@@ -4473,7 +4473,8 @@
                     version: '1.0',
                     timestamp: new Date().toISOString(),
                     sectionNames: {},
-                    cards: []
+                    // Ensure at least one blank card exists for a "scratch" start
+                    cards: [{ section: 0, headline: '', text: '', url: '', image: '' }] 
                 };
             } else {
                 defaultName = `Note ${formattedDate} ${formattedTime}.json`;
@@ -5936,9 +5937,13 @@
     function openLinks(fileHandle, data) {
         currentLinksHandle = fileHandle;
         currentLinksData = data;
+        
+        // Ensure data structures exist
         if (!currentLinksData.cards) currentLinksData.cards = [];
         if (!currentLinksData.sectionNames) currentLinksData.sectionNames = {};
 
+        // --- (Keep your existing UI visibility code here) ---
+        // ... hidden screens, active pages, title update ...
         document.getElementById('home-screen').classList.add('hidden');
         document.getElementById('canvas-container').classList.add('hidden');
         document.getElementById('flashcard-page').classList.remove('active');
@@ -5956,6 +5961,16 @@
 
         document.getElementById('links-title').textContent = currentLinksHandle.name.replace('.json', '');
         renderLinksBoard();
+
+        // NEW FIX: If there are cards (especially just one), focus the first one automatically
+        if (currentLinksData.cards.length > 0) {
+            setTimeout(() => {
+                const firstHeadline = document.querySelector('.link-headline');
+                if (firstHeadline) {
+                    firstHeadline.focus();
+                }
+            }, 150); // Slightly longer delay for the very first load
+        }
     }
 
     async function closeLinks() {
@@ -6175,12 +6190,14 @@
                 // Native Electron Visit Button
                 if (cardEl.querySelector('.btn-visit')) {
                     cardEl.querySelector('.btn-visit').onclick = (e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         require('electron').shell.openExternal(card.url);
                     };
                 }
 
                 cardEl.querySelector('.btn-img').onclick = (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     const input = document.createElement('input');
                     input.type = 'file'; input.accept = 'image/*';
@@ -6195,6 +6212,7 @@
                 };
 
                 cardEl.querySelector('.btn-del').onclick = async (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     if(confirm("Delete this card?")) {
                         currentLinksData.cards.splice(globalIndex, 1);
@@ -6294,54 +6312,61 @@
         const onPointerUp = async (e) => {
             if(isDragging) {
                 isDragging = false;
+                
+                // 1. Immediately clean up the ghost and visual states
+                if (ghost) { 
+                    ghost.remove(); 
+                    ghost = null; 
+                }
                 el.classList.remove('dragging');
                 el.style.opacity = '1';
-                
-                if (ghost) {
-                    ghost.remove();
-                    ghost = null;
-                }
 
                 window.removeEventListener('pointermove', onPointerMove);
                 window.removeEventListener('pointerup', onPointerUp);
 
-                // REBUILD ARRAY: Read the new order straight from the DOM structure
+                // 2. REBUILD ARRAY SAFELY
                 const newCardsArray = [];
-                const sections = document.querySelectorAll('.link-section');
                 
-                sections.forEach(sectionEl => {
-                    const secIndex = parseInt(sectionEl.dataset.section);
-                    const cardsInGrid = sectionEl.querySelectorAll('.link-card:not(.empty-card)');
+                // CRITICAL FIX: We must ensure we only select real cards. 
+                // We use :not(#drag-ghost) to ensure the floating clone isn't saved into the data.
+                const allCardEls = document.querySelectorAll('.link-section .link-card:not(.empty-card):not(#drag-ghost)');
+                
+                allCardEls.forEach(cEl => {
+                    const origIndex = parseInt(cEl.dataset.origIndex);
+                    // Deep clone the data to ensure we aren't creating circular references
+                    const cData = currentLinksData.cards[origIndex];
                     
-                    cardsInGrid.forEach(cEl => {
-                        const origIndex = parseInt(cEl.dataset.origIndex);
-                        const cData = currentLinksData.cards[origIndex];
-                        cData.section = secIndex; // Update section if it moved
-                        
-                        // Clean up legacy x/y attributes securely
-                        delete cData.x;
-                        delete cData.y;
-                        
-                        newCardsArray.push(cData);
-                    });
+                    if (cData) {
+                        const parentSection = cEl.closest('.link-section');
+                        if (parentSection) {
+                            cData.section = parseInt(parentSection.dataset.section);
+                        }
+                        newCardsArray.push({...cData}); // Use spread operator to break reference
+                    }
                 });
 
-                currentLinksData.cards = newCardsArray;
-                await saveLinksData();
-                renderLinksBoard(); // Clean re-render
+                // 3. Data Integrity Check
+                // Only save if we have the same amount of cards we started with (prevents accidental deletion/duplication)
+                if (newCardsArray.length > 0) {
+                    currentLinksData.cards = newCardsArray;
+                    await saveLinksData();
+                    renderLinksBoard(); // Refresh UI to clean up dataset indices
+                }
             }
         };
 
         // CRITICAL FIX: switched to pointerdown to avoid input lockups
         el.addEventListener('pointerdown', (e) => {
-            // Check if clicking interactive elements. DO NOTHING if so.
-            if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button') || e.target.closest('a')) {
-                return;
+            // 1. IF CLICKING BUTTONS OR INPUTS, ABORT DRAG IMMEDIATELY
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) {
+                return; 
             }
-            if (e.button !== 0) return; // Only trigger drag on left click
+            
+            // 2. Only allow left-click dragging
+            if (e.button !== 0) return;
 
             isDragging = true;
-            e.stopPropagation();
+            e.preventDefault(); // Prevents text selection while dragging
             
             const rect = el.getBoundingClientRect();
             startX = rect.left;
