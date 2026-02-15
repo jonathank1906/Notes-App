@@ -1096,16 +1096,16 @@
             if (isPageRendering) { pageNumPending = pageNum; if (renderTask) { renderTask.cancel(); } return; }
             isPageRendering = true;
             pdfDoc.getPage(pageNum).then(function(page) {
-                const containerHeight = pdfContainer.clientHeight; const unscaledViewport = page.getViewport({scale: 1}); const scale = containerHeight / unscaledViewport.height; const viewport = page.getViewport({scale: scale});
-                offscreenCanvas.height = viewport.height; offscreenCanvas.width = viewport.width;
-                const renderContext = { canvasContext: offscreenCtx, viewport: viewport };
+                const containerHeight = pdfContainer.clientHeight; const unscaledViewport = page.getViewport({scale: 1}); const displayScale = containerHeight / unscaledViewport.height; const renderScale = displayScale * 2; const renderViewport = page.getViewport({scale: renderScale}); const displayViewport = page.getViewport({scale: displayScale});
+                offscreenCanvas.height = renderViewport.height; offscreenCanvas.width = renderViewport.width;
+                const renderContext = { canvasContext: offscreenCtx, viewport: renderViewport };
                 renderTask = page.render(renderContext);
-                textLayerDiv.style.width = `${viewport.width}px`; textLayerDiv.style.height = `${viewport.height}px`; textLayerDiv.innerHTML = ""; 
-                page.getTextContent().then(textContent => { pdfjsLib.renderTextLayer({ textContentSource: textContent, container: textLayerDiv, viewport: viewport, textDivs: [] }); });
+                textLayerDiv.style.width = `${displayViewport.width}px`; textLayerDiv.style.height = `${displayViewport.height}px`; textLayerDiv.innerHTML = ""; 
+                page.getTextContent().then(textContent => { pdfjsLib.renderTextLayer({ textContentSource: textContent, container: textLayerDiv, viewport: displayViewport, textDivs: [] }); });
                 renderTask.promise.then(function() {
                     isPageRendering = false;
                     if (pageNumPending !== null) { pageNumPending = null; renderPage(); } 
-                    else { pdfCanvas.height = offscreenCanvas.height; pdfCanvas.width = offscreenCanvas.width; pdfCtx.drawImage(offscreenCanvas, 0, 0); }
+                    else { pdfCanvas.height = displayViewport.height; pdfCanvas.width = displayViewport.width; pdfCtx.drawImage(offscreenCanvas, 0, 0, renderViewport.width, renderViewport.height, 0, 0, displayViewport.width, displayViewport.height); }
                 }).catch(function(err) { isPageRendering = false; if (err.name === 'RenderingCancelledException') { if (pageNumPending !== null) { pageNumPending = null; renderPage(); } } });
             });
         }
