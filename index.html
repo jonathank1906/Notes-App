@@ -2807,6 +2807,7 @@
     let currentPath = [];
     let currentFileName = 'untitled';
     let currentFileHandle = null;
+    let currentNoteType = 'note';
     let hasUnsavedChanges = false;
     let allSubjects = [];
     let activeSubject = null;
@@ -3485,6 +3486,7 @@
         
         const data = {
             version: 2,
+            type: currentNoteType,
             timestamp: Date.now(),
             camera: camera,
             strokes: validStrokes,
@@ -4503,6 +4505,7 @@
     function openNoteFromData(noteData) {
         const {type, data, fileName} = noteData;
         currentNoteFileName = fileName;
+        currentNoteType = type;
         if (type === 'flashcard') {
             openFlashcard(null, data, fileName);
         } else if (type === 'glossary') {
@@ -4721,6 +4724,7 @@
             // Set as current file
             currentFileHandle = fileHandle;
             currentFileName = defaultName;
+            currentNoteType = type;
 
             // Reload notes to show the new file
             allNotesLoaded = false;
