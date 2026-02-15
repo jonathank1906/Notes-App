@@ -3143,6 +3143,7 @@
             textBox.text = textEditor.value;
             autoResizeTextBox(idx);
             hasUnsavedChanges = true;
+            updateSaveStatusIndicator(); // <-- ADD THIS LINE to trigger auto-save while typing
             requestRender();
         };
         
@@ -3597,7 +3598,9 @@
         // No longer needed - kept for compatibility
     }
 
-    // --- SAVE STATUS INDICATOR ---
+    // --- SAVE STATUS INDICATOR & AUTO SAVE ---
+    let autoSaveTimeout = null;
+
     function updateSaveStatusIndicator() {
         const indicator = document.getElementById('btn-save-status');
         if (!indicator) return;
@@ -3605,7 +3608,23 @@
         if (hasUnsavedChanges) {
             indicator.classList.remove('saved');
             indicator.classList.add('unsaved');
-            indicator.setAttribute('data-tooltip', 'Unsaved changes');
+            indicator.setAttribute('data-tooltip', 'Unsaved changes...');
+            
+            // Check if this file has a known location to save to
+            const canSaveQuietly = (currentFileHandle && currentDirHandle) || 
+                                   (ipcRenderer && currentFileName && currentFileName !== 'untitled');
+            
+            if (canSaveQuietly) {
+                // Clear any existing timer
+                clearTimeout(autoSaveTimeout);
+                
+                // Wait 1 second after the user stops drawing/typing, then silently save
+                autoSaveTimeout = setTimeout(() => {
+                    if (hasUnsavedChanges) {
+                        saveToFile();
+                    }
+                }, 1000); 
+            }
         } else {
             indicator.classList.remove('unsaved');
             indicator.classList.add('saved');
@@ -6916,14 +6935,29 @@
     // --- BEFOREUNLOAD WARNING ---
     window.addEventListener('beforeunload', (e) => {
         if (hasUnsavedChanges) {
-            // Electron needs us to explicitly ask the user with a confirm box
-            const forceClose = confirm("You have unsaved changes! Are you sure you want to quit without saving?");
-            
-            if (!forceClose) {
-                e.preventDefault();
-                e.returnValue = false; // This blocks the app from closing
+            const canSaveQuietly = (currentFileHandle && currentDirHandle) || 
+                                   (ipcRenderer && currentFileName && currentFileName !== 'untitled');
+                                   
+            if (canSaveQuietly) {
+                // Instantly push the final save and allow the window to close seamlessly!
+                saveToFile();
+                return; 
+            } else {
+                // ONLY show warning if it's a completely new, unnamed file
+                if (typeof ipcRenderer !== 'undefined') {
+                    const choice = ipcRenderer.sendSync('show-close-confirm-dialog');
+                    if (choice === 1) {
+                        e.preventDefault();
+                        e.returnValue = false;
+                    }
+                } else {
+                    const forceClose = confirm("You have an unsaved new file! Are you sure you want to quit?");
+                    if (!forceClose) {
+                        e.preventDefault();
+                        e.returnValue = false; 
+                    }
+                }
             }
-            // If they click "OK" (forceClose is true), the app will close normally!
         }
     });
 
