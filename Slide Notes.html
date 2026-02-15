@@ -511,9 +511,36 @@
             ipcRenderer.send('sync-slide-state', {
                 header: slide.header || '',
                 htmlContent: htmlContent,
+                rawText: slide.notes || '', // NEW: Send the raw markdown text too!
                 count: state.count
             });
         }
+
+        // NEW: Receive edits from the external window and save them locally
+        ipcRenderer.on('update-note-in-main', (event, newText) => {
+            const idx = state.count - 1;
+            editor.value = newText;
+            if(!state.slides[idx]) state.slides[idx] = { type:'blank', header:'', notes:'' };
+            state.slides[idx].notes = newText;
+            isDirty = true;
+            
+            // Update the main window's preview instantly
+            let htmlContent = typeof marked !== 'undefined' && newText ? marked.parse(newText) : (newText || "");
+            preview.innerHTML = applyBionicReading(htmlContent);
+            if (typeof renderMathInElement !== 'undefined') { 
+                renderMathInElement(preview, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false }); 
+            }
+            
+            // Trigger auto-saves and UI updates
+            if (saveTimeout) clearTimeout(saveTimeout); 
+            saveTimeout = setTimeout(() => { pushSnapshot(idx, newText); }, 500);
+            saveData(); 
+            updateSidebar();
+            if(isEditorActive) autoResizeTextarea();
+            
+            // Send the freshly processed HTML back to the external window
+            broadcastNotes();
+        });
 
         ipcRenderer.on('split-screen-closed', () => {
             if (isSplitScreen) toggleSplitScreen();

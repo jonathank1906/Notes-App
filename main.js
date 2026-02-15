@@ -67,6 +67,15 @@ ipcMain.on('sync-slide-state', (event, data) => {
   });
 });
 
+// NEW: Relay edits from the external window BACK to the main window
+ipcMain.on('edit-note-from-external', (event, text) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (win.webContents !== event.sender) {
+      win.webContents.send('update-note-in-main', text);
+    }
+  });
+});
+
 app.whenReady().then(() => {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
