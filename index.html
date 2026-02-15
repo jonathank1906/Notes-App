@@ -4731,11 +4731,6 @@
             await writable.write(JSON.stringify(blankData));
             await writable.close();
 
-            // Set as current file
-            currentFileHandle = fileHandle;
-            currentFileName = defaultName;
-            currentNoteType = type;
-
             // Reload notes to show the new file
             allNotesLoaded = false;
             if (activeSubject) {
@@ -4745,37 +4740,66 @@
             }
 
             // Open the appropriate editor
-            if (type === 'flashcard') {
-                openFlashcard(fileHandle, blankData);
-            } else if (type === 'glossary') {
-                openGlossary(fileHandle, blankData);
-            } else if (type === 'qa') {
-                openQA(fileHandle, blankData);
-            } else if (type === 'todo') {
-                openTodo(fileHandle, blankData);
-            } else if (type === 'linear') {
-                openLinearNotes(fileHandle, blankData);
-            } else if (type === 'links') {
-                openLinks(fileHandle, blankData);
-            } else if (type === 'practice') {
-                openNote(fileHandle);
-            } else if (type === 'exercises') {
-                openNote(fileHandle);
-            } else {
-                // Initialize blank canvas
-                strokes = [];
-                textBoxes = [];
-                undoStack = [];
-                redoStack = [];
-                selectedStrokes.clear();
-                selectedTextBoxes.clear();
-                editingTextBox = null;
-                camera = { x: 0, y: 0, z: 1 };
-                hasUnsavedChanges = false;
+            if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note') {
+                if (ipcRenderer) {
+                    ipcRenderer.send('open-note-window', {type: type, data: blankData, fileName: defaultName});
+                } else {
+                    // Fallback to local opening
+                    if (type === 'flashcard') {
+                        openFlashcard(fileHandle, blankData);
+                    } else if (type === 'glossary') {
+                        openGlossary(fileHandle, blankData);
+                    } else if (type === 'qa') {
+                        openQA(fileHandle, blankData);
+                    } else if (type === 'todo') {
+                        openTodo(fileHandle, blankData);
+                    } else if (type === 'linear') {
+                        openLinearNotes(fileHandle, blankData);
+                    } else if (type === 'links') {
+                        openLinks(fileHandle, blankData);
+                    } else if (type === 'note') {
+                        // Initialize blank canvas
+                        strokes = [];
+                        textBoxes = [];
+                        undoStack = [];
+                        redoStack = [];
+                        selectedStrokes.clear();
+                        selectedTextBoxes.clear();
+                        editingTextBox = null;
+                        camera = { x: 0, y: 0, z: 1 };
+                        hasUnsavedChanges = false;
 
-                // Show canvas for drawing
-                showCanvas();
-                requestRender();
+                        // Show canvas for drawing
+                        showCanvas();
+                        requestRender();
+                    }
+                }
+            } else {
+                // Set as current file
+                currentFileHandle = fileHandle;
+                currentFileName = defaultName;
+                currentNoteType = type;
+
+                if (type === 'practice') {
+                    openNote(fileHandle);
+                } else if (type === 'exercises') {
+                    openNote(fileHandle);
+                } else {
+                    // Initialize blank canvas
+                    strokes = [];
+                    textBoxes = [];
+                    undoStack = [];
+                    redoStack = [];
+                    selectedStrokes.clear();
+                    selectedTextBoxes.clear();
+                    editingTextBox = null;
+                    camera = { x: 0, y: 0, z: 1 };
+                    hasUnsavedChanges = false;
+
+                    // Show canvas for drawing
+                    showCanvas();
+                    requestRender();
+                }
             }
 
             showNotification(`Created ${defaultName}`);
