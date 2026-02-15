@@ -2860,6 +2860,7 @@
     let activeSubject = null;
     let currentView = 'grid'; // 'grid' or 'list'
     let allNotesLoaded = false; // Track if notes have been loaded into DOM
+    let pdfPreviewCache = {}; // Cache for PDF previews to avoid reloading
 
     // --- INIT ---
     function resize() {
@@ -4166,19 +4167,50 @@
             // Render PDF preview
             const canvas = preview.querySelector('canvas');
             const ctx = canvas.getContext('2d');
+            
+            // Create cache key
+            const cacheKey = `${subject.name}/${pdf.name}`;
+            
             try {
                 const file = await pdf.handle.getFile();
-                const arrayBuffer = await file.arrayBuffer();
-                const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
-                const page = await pdfDoc.getPage(1);
-                const viewport = page.getViewport({ scale: 0.7 }); // Even higher scale for sharper preview
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                const renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
-                await page.render(renderContext).promise;
+                const lastModified = file.lastModified;
+                const fileSize = file.size;
+                
+                // Check if we have a cached preview
+                if (pdfPreviewCache[cacheKey] && 
+                    pdfPreviewCache[cacheKey].lastModified === lastModified && 
+                    pdfPreviewCache[cacheKey].fileSize === fileSize) {
+                    // Use cached preview
+                    const img = new Image();
+                    img.onload = () => {
+                        // Set canvas dimensions to match cached image
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = pdfPreviewCache[cacheKey].dataUrl;
+                } else {
+                    // Render new preview
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    const page = await pdfDoc.getPage(1);
+                    const viewport = page.getViewport({ scale: 0.7 });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+                    await page.render(renderContext).promise;
+                    
+                    // Cache the rendered preview
+                    const dataUrl = canvas.toDataURL();
+                    pdfPreviewCache[cacheKey] = {
+                        dataUrl: dataUrl,
+                        lastModified: lastModified,
+                        fileSize: fileSize
+                    };
+                }
             } catch (err) {
                 console.error('Error rendering PDF preview:', err);
                 // Fallback to icon
