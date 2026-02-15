@@ -857,58 +857,6 @@
             display: none;
         }
 
-        /* Home Button */
-        #btn-home {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: var(--ui-bg);
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            z-index: 101;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            transition: all 0.15s ease;
-        }
-
-        #btn-home:hover {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #btn-home.hidden {
-            display: none;
-        }
-
-        /* Back Button */
-        #btn-back {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: var(--ui-bg);
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            z-index: 101;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            transition: all 0.15s ease;
-        }
-
-        #btn-back:hover {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #btn-back.hidden {
-            display: none;
-        }
-
         /* Save Status Indicator */
         #btn-save-status {
             position: fixed;
@@ -2010,16 +1958,6 @@
             border-bottom: 2px solid #333;
         }
         .linear-notes-header h1 { margin: 0; color: #fff; font-size: 32px; }
-        .linear-notes-close-btn {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .linear-notes-close-btn:hover { background: #333; }
         #linear-notes-editor {
             background: #121212;
             border: none;
@@ -2549,22 +2487,6 @@
         <canvas id="canvas"></canvas>
         <textarea id="text-editor"></textarea>
     </div>
-
-    <!-- Home Button -->
-    <button id="btn-home" data-tooltip="Home" data-shortcut="Ctrl+H">
-        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
-            <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
-	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
-        </svg>
-    </button>
-
-    <!-- Back Button -->
-    <button id="btn-back" class="hidden" data-tooltip="Back" data-shortcut="Ctrl+H">
-        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
-            <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
-	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
-        </svg>
-    </button>
 
     <!-- Save Status Indicator -->
     <button id="btn-save-status" class="saved" data-tooltip="All changes saved">
@@ -3699,8 +3621,6 @@
         document.getElementById('todo-page').classList.remove('active');
         document.getElementById('linear-notes-page').classList.remove('active');
         document.getElementById('links-page').classList.remove('active');
-        document.getElementById('btn-home').classList.add('hidden');
-        document.getElementById('btn-back').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button on home screen
@@ -3745,7 +3665,6 @@
     function showCanvas() {
         document.getElementById('home-screen').classList.add('hidden');
         document.getElementById('canvas-container').classList.remove('hidden');
-        document.getElementById('btn-home').classList.remove('hidden');
         document.getElementById('btn-save-status').classList.remove('hidden');
         
         // Show toolbar and help button for canvas
@@ -4833,8 +4752,6 @@
         document.getElementById('flashcard-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button
@@ -4850,7 +4767,6 @@
 
     function closeFlashcard() {
         document.getElementById('flashcard-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentFlashcardData = null;
         currentFlashcardHandle = null;
         showHomeScreen();
@@ -5303,8 +5219,6 @@
         document.getElementById('glossary-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button
@@ -5320,7 +5234,6 @@
 
     function closeGlossary() {
         document.getElementById('glossary-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentGlossaryData = null;
         currentGlossaryHandle = null;
         showHomeScreen();
@@ -5609,8 +5522,6 @@
         document.getElementById('qa-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button
@@ -5626,7 +5537,6 @@
 
     function closeQA() {
         document.getElementById('qa-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentQAData = null;
         currentQAHandle = null;
         showHomeScreen();
@@ -5919,8 +5829,6 @@
         document.getElementById('todo-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button
@@ -5951,7 +5859,6 @@
     async function closeTodo() {
         await saveTodoData();
         document.getElementById('todo-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentTodoData = null;
         currentTodoHandle = null;
         showHomeScreen();
@@ -6048,8 +5955,6 @@
         document.getElementById('linear-notes-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button
@@ -6201,7 +6106,6 @@
         await saveLinearNotesData();
         
         document.getElementById('linear-notes-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentLinearNotesData = null;
         currentLinearNotesHandle = null;
         showHomeScreen();
@@ -6253,8 +6157,6 @@
         document.getElementById('linear-notes-page').classList.remove('active');
 
         document.getElementById('links-page').classList.add('active');
-        document.getElementById('btn-back').classList.remove('hidden');
-        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         document.getElementById('toolbar').classList.add('hidden');
         document.getElementById('help-btn').classList.add('hidden');
@@ -6267,7 +6169,6 @@
     async function closeLinks() {
         await saveLinksData();
         document.getElementById('links-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentLinksData = null;
         currentLinksHandle = null;
         showHomeScreen();
@@ -8006,7 +7907,6 @@
     const btnSelect = document.getElementById('btn-select');
     const btnUndo = document.getElementById('btn-undo');
     const btnRedo = document.getElementById('btn-redo');
-    const btnHome = document.getElementById('btn-home');
     const btnNew = document.getElementById('btn-new');
     const btnSave = document.getElementById('btn-save');
     const btnFullscreen = document.getElementById('btn-fullscreen');
@@ -8045,24 +7945,6 @@
     btnSelect.onclick = () => setTool('select');
     btnUndo.onclick = performUndo;
     btnRedo.onclick = performRedo;
-    btnHome.onclick = async () => await showHomeScreen();
-    const btnBack = document.getElementById('btn-back');
-    if (btnBack) btnBack.onclick = () => {
-        // Close whichever page is active
-        if (document.getElementById('flashcard-page').classList.contains('active')) {
-            closeFlashcard();
-        } else if (document.getElementById('glossary-page').classList.contains('active')) {
-            closeGlossary();
-        } else if (document.getElementById('qa-page').classList.contains('active')) {
-            closeQA();
-        } else if (document.getElementById('todo-page').classList.contains('active')) {
-            closeTodo();
-        } else if (document.getElementById('linear-notes-page').classList.contains('active')) {
-            closeLinearNotes();
-        } else if (document.getElementById('links-page').classList.contains('active')) {
-            closeLinks();
-        }
-    };
     if (btnNew) btnNew.onclick = createNewMindmap;
     if (btnSave) btnSave.onclick = saveToFile;
     if (btnFullscreen) btnFullscreen.onclick = toggleFullScreen;
@@ -8099,8 +7981,6 @@
     initHomeScreen();
     
     // Initially hide home button and save status (we start on home screen)
-    document.getElementById('btn-home').classList.add('hidden');
-    document.getElementById('btn-back').classList.add('hidden');
     document.getElementById('btn-save-status').classList.add('hidden');
     
     // Initially hide toolbar and help button (only show on canvas)
@@ -8204,16 +8084,10 @@
                 const rect = element.getBoundingClientRect();
                 const tooltipRect = tooltip.getBoundingClientRect();
                 
-                // Position to the right for home button, below for toolbar items
-                if (element.id === 'btn-home') {
-                    tooltip.classList.add('right');
-                    tooltip.style.left = (rect.right + 12) + 'px';
-                    tooltip.style.top = (rect.top + rect.height / 2 - tooltipRect.height / 2) + 'px';
-                } else {
-                    tooltip.classList.add('bottom');
-                    tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
-                    tooltip.style.top = (rect.bottom + 12) + 'px';
-                }
+                // Position below for buttons
+                tooltip.classList.add('bottom');
+                tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
+                tooltip.style.top = (rect.bottom + 12) + 'px';
                 
                 // Show tooltip with delay
                 setTimeout(() => {
@@ -8448,7 +8322,6 @@
         <div class="linear-notes-container">
             <div class="linear-notes-header">
                 <h1>Linear Notes</h1>
-                <button class="linear-notes-close-btn" onclick="closeLinearNotes()">Close</button>
             </div>
             <div id="linear-notes-editor"></div>
         </div>

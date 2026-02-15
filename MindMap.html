@@ -916,32 +916,6 @@
             display: none;
         }
 
-        /* Back Button */
-        #btn-back {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: var(--ui-bg);
-            border: 1px solid var(--ui-border);
-            color: var(--text-color);
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            z-index: 101;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            transition: all 0.15s ease;
-        }
-
-        #btn-back:hover {
-            color: var(--accent);
-            background: var(--btn-hover);
-        }
-
-        #btn-back.hidden {
-            display: none;
-        }
-
         /* Save Status Indicator */
         #btn-save-status {
             position: fixed;
@@ -2041,16 +2015,6 @@
             border-bottom: 2px solid #333;
         }
         .linear-notes-header h1 { margin: 0; color: #fff; font-size: 32px; }
-        .linear-notes-close-btn {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .linear-notes-close-btn:hover { background: #333; }
         #linear-notes-editor {
             background: #121212;
             border: none;
@@ -2403,14 +2367,6 @@
 
     <!-- Home Button -->
     <button id="btn-home" data-tooltip="Home" data-shortcut="Ctrl+H">
-        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
-            <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
-	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
-        </svg>
-    </button>
-
-    <!-- Back Button -->
-    <button id="btn-back" class="hidden" data-tooltip="Back" data-shortcut="Ctrl+H">
         <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="28" height="28" style="display:block;">
             <path fill="currentColor" d="M19.6,11.4L19.6,11.4c0,0.9-0.7,1.6-1.6,1.6h-0.6v5.3h-5.4V12H7.9v6.4H2.5V13H2c-0.9,0-1.6-0.7-1.6-1.6v0
 	c0-0.4,0.2-0.8,0.5-1.1L9,2.1c0.6-0.6,1.5-0.6,2,0l8.1,8.1C19.5,10.5,19.6,10.9,19.6,11.4z"/>
@@ -4571,7 +4527,6 @@
         document.getElementById('flashcard-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
@@ -4588,7 +4543,6 @@
 
     function closeFlashcard() {
         document.getElementById('flashcard-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentFlashcardData = null;
         currentFlashcardHandle = null;
         showHomeScreen();
@@ -5043,7 +4997,6 @@
         document.getElementById('glossary-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
@@ -5060,7 +5013,6 @@
 
     function closeGlossary() {
         document.getElementById('glossary-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentGlossaryData = null;
         currentGlossaryHandle = null;
         showHomeScreen();
@@ -5344,7 +5296,6 @@
         document.getElementById('qa-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
@@ -5361,7 +5312,6 @@
 
     function closeQA() {
         document.getElementById('qa-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentQAData = null;
         currentQAHandle = null;
         showHomeScreen();
@@ -5646,7 +5596,6 @@
         document.getElementById('todo-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
@@ -5678,7 +5627,6 @@
     async function closeTodo() {
         await saveTodoData();
         document.getElementById('todo-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentTodoData = null;
         currentTodoHandle = null;
         showHomeScreen();
@@ -5767,7 +5715,6 @@
         document.getElementById('linear-notes-page').classList.add('active');
         
         // Show back button, hide home button
-        document.getElementById('btn-back').classList.remove('hidden');
         document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-save-status').classList.add('hidden');
         
@@ -5920,7 +5867,6 @@
         await saveLinearNotesData();
         
         document.getElementById('linear-notes-page').classList.remove('active');
-        document.getElementById('btn-back').classList.add('hidden');
         currentLinearNotesData = null;
         currentLinearNotesHandle = null;
         showHomeScreen();
@@ -7292,19 +7238,6 @@
     btnUndo.onclick = performUndo;
     btnRedo.onclick = performRedo;
     btnHome.onclick = async () => await showHomeScreen();
-    const btnBack = document.getElementById('btn-back');
-    if (btnBack) btnBack.onclick = () => {
-        // Close whichever page is active
-        if (document.getElementById('flashcard-page').classList.contains('active')) {
-            closeFlashcard();
-        } else if (document.getElementById('glossary-page').classList.contains('active')) {
-            closeGlossary();
-        } else if (document.getElementById('qa-page').classList.contains('active')) {
-            closeQA();
-        } else if (document.getElementById('todo-page').classList.contains('active')) {
-            closeTodo();
-        }
-    };
     if (btnNew) btnNew.onclick = createNewMindmap;
     if (btnSave) btnSave.onclick = saveToFile;
     if (btnFullscreen) btnFullscreen.onclick = toggleFullScreen;
@@ -7342,7 +7275,6 @@
     
     // Initially hide home button and save status (we start on home screen)
     document.getElementById('btn-home').classList.add('hidden');
-    document.getElementById('btn-back').classList.add('hidden');
     document.getElementById('btn-save-status').classList.add('hidden');
     
     // Initially hide toolbar and help button (only show on canvas)
@@ -7690,7 +7622,6 @@
         <div class="linear-notes-container">
             <div class="linear-notes-header">
                 <h1>Linear Notes</h1>
-                <button class="linear-notes-close-btn" onclick="closeLinearNotes()">Close</button>
             </div>
             <div id="linear-notes-editor"></div>
         </div>
