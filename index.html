@@ -6011,7 +6011,7 @@
         });
 
         // RESTORED LOGIC: Always guarantee at least one completely empty section at the bottom
-        let maxSection = Math.max(1, highestSectionWithCards + 1);
+        let maxSection = Math.max(0, highestSectionWithCards + 1);
 
         for (let i = 0; i <= maxSection; i++) {
             if (!sections[i]) sections[i] = [];
