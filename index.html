@@ -4709,19 +4709,28 @@
             await writable.write(JSON.stringify(blankData));
             await writable.close();
 
-            // Reload notes to show the new file
-            allNotesLoaded = false;
-            if (activeSubject) {
-                await loadNotesForSubject(activeSubject);
-            } else {
-                await loadAllNotes();
-            }
+
+                // ---> CRITICAL BUG FIX 1: Register the new file in noteMap so Electron knows how to save it! <---
+                noteMap.set(defaultName, { handle: fileHandle, data: blankData });
+
+                // Reload notes to show the new file
+                allNotesLoaded = false;
+                if (activeSubject) {
+                    await loadNotesForSubject(activeSubject);
+                } else {
+                    await loadAllNotes();
+                }
 
             // Open the appropriate editor
             if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note') {
                 if (ipcRenderer) {
                     ipcRenderer.send('open-note-window', {type: type, data: blankData, fileName: defaultName});
                 } else {
+                    // ---> CRITICAL BUG FIX 2: Set current context variables for the local fallback <---
+                    currentFileHandle = fileHandle;
+                    currentFileName = defaultName;
+                    currentNoteType = type;
+
                     // Fallback to local opening
                     if (type === 'flashcard') {
                         openFlashcard(fileHandle, blankData);
