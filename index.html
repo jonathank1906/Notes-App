@@ -7422,92 +7422,64 @@
         lastMouse = { x: e.clientX, y: e.clientY };
         currentMouseWorld = toWorld(e.clientX, e.clientY);
 
+        // 1) PANNING CHECK (Middle button or Space + Left button)
         if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
             isPanning = true;
+            isSelecting = false; 
             canvas.style.cursor = 'grabbing';
-            // Prevent Fabric from selecting objects while legacy panning is active
-            try { if (fabricCanvas) fabricCanvas.skipTargetFind = true; } catch (err) {}
-            // Temporarily disable Fabric drawing if active
-            try {
-                if (fabricCanvas && fabricCanvas.isDrawingMode) {
+            
+            if (fabricCanvas) {
+                fabricCanvas.skipTargetFind = true;
+                fabricCanvas.selection = false; // Disable selection marquee while panning
+                if (fabricCanvas.isDrawingMode) {
                     prevDrawingMode = true;
                     fabricCanvas.isDrawingMode = false;
-                    fabricCanvas.selection = true;
                 }
-            } catch (err) {}
-            requestRender(); // Hide eraser circle while panning
+            }
+            requestRender();
             return;
         }
 
+        // 2) TOOL LOGIC (If not panning)
         if (e.button === 0) {
-            // Finish editing text if clicking outside
-            if (editingTextBox !== null) {
-                finishEditingTextBox();
-            }
-            
+            if (editingTextBox !== null) finishEditingTextBox();
+
             if (activeTool === 'select') {
-                const pos = toWorld(e.clientX, e.clientY);
-                
-                // Check if clicking on text box resize handle
-                for (let i = textBoxes.length - 1; i >= 0; i--) {
-                    if (selectedTextBoxes.has(i) && isPointInResizeHandle(pos.x, pos.y, textBoxes[i])) {
-                        isResizingTextBox = true;
-                        editingTextBox = null;
-                        selectedTextBoxes.clear();
-                        selectedTextBoxes.add(i);
-                        resizeStartSize = { 
-                            width: textBoxes[i].width, 
-                            height: textBoxes[i].height 
-                        };
-                        resizeStartMouse = { x: pos.x, y: pos.y };
-                        requestRender();
-                        return;
-                    }
+                // CRITICAL FIX: Explicitly reset Fabric selection state
+                if (fabricCanvas) {
+                    fabricCanvas.skipTargetFind = false;
+                    fabricCanvas.selection = true; // Allow Fabric's own selection
+                    fabricCanvas.discardActiveObject();
+                    // This forces Fabric to process the event as a fresh click
+                    fabricCanvas.requestRenderAll();
                 }
-                
-                // Check if clicking on a text box to move it
+
+                const pos = toWorld(e.clientX, e.clientY);
                 const textBoxIdx = getTextBoxAtPoint(pos.x, pos.y);
+
                 if (textBoxIdx !== -1) {
-                    // If not already selected, select it
                     if (!selectedTextBoxes.has(textBoxIdx)) {
                         selectedTextBoxes.clear();
                         selectedTextBoxes.add(textBoxIdx);
                         selectedStrokes.clear();
                     }
-                    
-                    // Always start moving immediately (grab anywhere on the text box)
                     isMoving = true;
                     canvas.style.cursor = 'move';
                     moveOffset = { x: pos.x, y: pos.y };
                     originalPositions = [];
                     selectedTextBoxes.forEach(idx => {
-                        originalPositions.push({
-                            idx: idx,
-                            type: 'textBox',
-                            x: textBoxes[idx].x,
-                            y: textBoxes[idx].y
-                        });
+                        originalPositions.push({ idx: idx, type: 'textBox', x: textBoxes[idx].x, y: textBoxes[idx].y });
                     });
-                    requestRender();
-                    return;
-                }
-                
-                // Check if clicking on a selected stroke to move it
-                if (selectedStrokes.size > 0 && isPointNearSelectedStrokes(pos.x, pos.y)) {
+                } else if (selectedStrokes.size > 0 && isPointNearSelectedStrokes(pos.x, pos.y)) {
                     isMoving = true;
                     canvas.style.cursor = 'move';
                     moveOffset = { x: pos.x, y: pos.y };
-                    // Store original positions for undo
                     originalPositions = [];
                     selectedStrokes.forEach(idx => {
-                        originalPositions.push({
-                            idx: idx,
-                            type: 'stroke',
-                            points: strokes[idx].points.map(p => ({...p}))
-                        });
+                        originalPositions.push({ idx: idx, type: 'stroke', points: strokes[idx].points.map(p => ({...p})) });
                     });
                 } else {
-                    // Start new selection
+                    // START RECTANGLE SELECT
                     selectedStrokes.clear();
                     selectedTextBoxes.clear();
                     isSelecting = true;
@@ -7519,23 +7491,13 @@
                 isErasing = true;
                 const pos = toWorld(e.clientX, e.clientY);
                 eraserPath = [{ x: pos.x, y: pos.y }];
-                
-                // Store original strokes before erasing
                 strokesBeforeErase = JSON.parse(JSON.stringify(strokes));
-                
-                // Start erasing immediately
                 applyEraserToStrokes();
                 requestRender();
             } else {
                 isDrawing = true;
                 const pos = toWorld(e.clientX, e.clientY);
-                
-                currentStroke = {
-                    tool: activeTool,
-                    points: [{ x: pos.x, y: pos.y }],
-                    color: CONFIG.penColor,
-                    width: CONFIG.penWidth
-                };
+                currentStroke = { tool: activeTool, points: [{ x: pos.x, y: pos.y }], color: CONFIG.penColor, width: CONFIG.penWidth };
                 requestRender();
             }
         }
@@ -7972,22 +7934,23 @@
     window.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
             isSpacePressed = false;
-            if (!isPanning) updateCursor();
-            if (fabricCanvas && prevDrawingMode && !isPanning) {
-                try { fabricCanvas.isDrawingMode = true; fabricCanvas.selection = false; } catch (err) {}
+            if (fabricCanvas) {
+                // Restore selection capability immediately
+                fabricCanvas.skipTargetFind = false;
+                if (activeTool === 'select') {
+                    fabricCanvas.selection = true;
+                }
+                // Restore drawing mode if we were in it
+                if (prevDrawingMode) {
+                    fabricCanvas.isDrawingMode = true;
+                    fabricCanvas.selection = false;
+                }
+                prevDrawingMode = false;
+                updateCursor();
+                fabricCanvas.requestRenderAll();
             }
-            prevDrawingMode = false;
         }
     }, true);
-
-    window.addEventListener('keyup', (e) => {
-        if (e.code === 'Space') {
-            isSpacePressed = false;
-            if (!isPanning) {
-                updateCursor();
-            }
-        }
-    });
 
     // Add paste listener
     window.addEventListener('paste', handleExternalPaste);
