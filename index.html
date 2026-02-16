@@ -3066,7 +3066,8 @@
             if (e.altKey) {
                 const delta = e.deltaY;
                 let zoom = fabricCanvas.getZoom();
-                zoom *= 0.999 ** delta;
+                // Double sensitivity: apply wheel delta * 2 so zoom changes faster
+                zoom *= 0.999 ** (delta * 2);
                 zoom = Math.min(Math.max(CONFIG.minZoom, zoom), CONFIG.maxZoom);
                 
                 fabricCanvas.zoomToPoint(
