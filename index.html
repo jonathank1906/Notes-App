@@ -6,6 +6,11 @@
     <title>Infinite Mind Map</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <!-- Quill.js for rich text editing -->
+
+    <!-- KaTeX for math rendering (used by Quill formula module) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script src="https://unpkg.com/quill-image-resize-module@3.0.0/image-resize.min.js"></script>
@@ -1970,6 +1975,9 @@
             background: #2a2a2a;
             border: 1px solid #444 !important;
             border-radius: 8px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
         #linear-notes-page .ql-container {
             background: #121212;
@@ -2336,6 +2344,29 @@
         .link-divider-text:focus {
             background: #252a33;
             padding: 4px 8px; /* Match the hover padding for consistency */
+        }
+        
+        /* Quill Formula/Tooltip dark mode fixes */
+        #linear-notes-page .ql-tooltip {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border-radius: 6px;
+        }
+        #linear-notes-page .ql-tooltip input[type="text"] {
+            background-color: #1a1a1a;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        #linear-notes-page .ql-tooltip a.ql-action::before {
+            color: #8af;
+        }
+        /* Make rendered math white instead of default black */
+        .ql-editor .katex {
+            color: #e0e0e0;
         }
     </style>
 </head>
@@ -6435,6 +6466,45 @@
     let currentLinearNotesData = null;
     let linearNotesEditor = null;
 
+    // Helper function to convert $math$ and $$math$$ strings into Quill formula objects
+    function processMathInDelta(delta) {
+        let newOps = [];
+        // Match $$...$$ (allows newlines) OR $...$ (single line)
+        const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^\$\n]+)\$/g;
+
+        if (!delta || !Array.isArray(delta.ops)) return delta;
+
+        delta.ops.forEach(op => {
+            if (typeof op.insert === 'string') {
+                let text = op.insert;
+                let lastIndex = 0;
+                let match;
+                mathRegex.lastIndex = 0;
+
+                while ((match = mathRegex.exec(text)) !== null) {
+                    let mathContent = match[1] || match[2];
+                    
+                    // Add preceding standard text
+                    if (match.index > lastIndex) {
+                        newOps.push({ insert: text.slice(lastIndex, match.index), attributes: op.attributes });
+                    }
+                    // Add the formula object
+                    newOps.push({ insert: { formula: mathContent } });
+                    lastIndex = mathRegex.lastIndex;
+                }
+
+                // Add remaining standard text
+                if (lastIndex < text.length) {
+                    newOps.push({ insert: text.slice(lastIndex), attributes: op.attributes });
+                }
+            } else {
+                newOps.push(op); // Push non-text embeds (images, existing formulas) as-is
+            }
+        });
+
+        return { ops: newOps };
+    }
+
     function openLinearNotes(fileHandle, data, fileName = null) {
         currentLinearNotesHandle = fileHandle;
         currentLinearNotesData = data;
@@ -6493,13 +6563,14 @@
             linearNotesEditor = new Quill('#linear-notes-editor', {
                 theme: 'snow',
                 modules: {
+                    formula: true, // enable KaTeX-based formula support
                     toolbar: [
                         [{ 'header': [1, 2, 3, false] }],
                         ['bold', 'italic', 'underline', 'strike'],
                         [{ 'color': [] }, { 'background': [] }],
                         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                         [{ 'indent': '-1'}, { 'indent': '+1' }],
-                        ['blockquote', 'code-block'],
+                        ['blockquote', 'code-block', 'formula'],
                         ['link', 'image'],
                         ['clean']
                     ],
@@ -6508,6 +6579,16 @@
                     }
                 },
                 placeholder: 'Start typing your notes...'
+            });
+
+            // ---> ADD: Auto-parse math when pasting/text-entered via clipboard
+            linearNotesEditor.clipboard.addMatcher(Node.TEXT_NODE, function(node, delta) {
+                try {
+                    return processMathInDelta(delta);
+                } catch (err) {
+                    console.error('processMathInDelta error', err);
+                    return delta;
+                }
             });
 
             // ---> START NEW IMAGE SAVING LOGIC <--- //
@@ -6594,7 +6675,14 @@
         if (!currentLinearNotesData.content) {
             currentLinearNotesData.content = { ops: [] };
         }
-        linearNotesEditor.setContents(currentLinearNotesData.content);
+        // Process existing math strings on load so $...$ and $$...$$ render as formulas
+        try {
+            const processedContent = processMathInDelta(currentLinearNotesData.content);
+            linearNotesEditor.setContents(processedContent);
+        } catch (err) {
+            console.error('Error processing math on load:', err);
+            linearNotesEditor.setContents(currentLinearNotesData.content);
+        }
     }
 
     async function closeLinearNotes() {
