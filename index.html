@@ -2911,6 +2911,81 @@
             updateSaveStatusIndicator();
             addToUndoStack();
         });
+
+        // Double-click to add IText (point text) which naturally hugs the typed text.
+        fabricCanvas.on('mouse:dblclick', (opt) => {
+            try {
+                const e = opt.e;
+                // Only left-button
+                if (e && e.button !== 0) return;
+                // Only allow in select mode (respect existing activeTool if present)
+                if (typeof activeTool !== 'undefined' && activeTool !== 'select') return;
+
+                // If double-clicked an existing object, let Fabric handle editing
+                if (opt.target) {
+                    if (opt.target.enterEditing) {
+                        opt.target.enterEditing();
+                    }
+                    return;
+                }
+
+                const pointer = fabricCanvas.getPointer(e);
+                const itext = new fabric.IText('', {
+                    left: pointer.x,
+                    top: pointer.y,
+                    fontSize: 16,
+                    fill: '#e0e0e0',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                    originX: 'left',
+                    originY: 'top',
+                    padding: 0,
+                    editable: true,
+                    selectable: true,
+                    hasControls: false,
+                    hasBorders: false
+                });
+
+                fabricCanvas.add(itext);
+                fabricCanvas.setActiveObject(itext);
+                itext.enterEditing && itext.enterEditing();
+                // ensure the hidden textarea receives focus
+                try { if (itext.hiddenTextarea) itext.hiddenTextarea.focus(); } catch (err) {}
+                fabricCanvas.requestRenderAll();
+                hasUnsavedChanges = true;
+                try { addToUndoStack && addToUndoStack(); } catch (err) {}
+            } catch (err) {}
+        });
+
+        // When editing starts, hide controls so bounding box isn't visible while typing
+        fabricCanvas.on('text:editing:entered', (opt) => {
+            try {
+                const tb = opt.target;
+                if (tb && (tb.type === 'i-text' || tb instanceof fabric.IText)) {
+                    tb.set({ hasControls: false, hasBorders: false, padding: 0 });
+                    fabricCanvas.requestRenderAll();
+                }
+            } catch (err) {}
+        });
+
+        // When editing exits, if empty remove object; otherwise restore tight bounds
+        fabricCanvas.on('text:editing:exited', (opt) => {
+            try {
+                const tb = opt.target;
+                if (!tb) return;
+                if (tb.text == null || tb.text.trim() === '') {
+                    fabricCanvas.remove(tb);
+                    fabricCanvas.requestRenderAll();
+                    return;
+                }
+
+                // Ensure no padding so bounding box hugs text tightly
+                tb.set({ padding: 0, hasControls: true, hasBorders: true, selectable: true });
+                tb.setCoords();
+                fabricCanvas.requestRenderAll();
+                hasUnsavedChanges = true;
+                try { addToUndoStack && addToUndoStack(); } catch (err) {}
+            } catch (err) {}
+        });
         
         // Mouse events for panning (anchor-based so cursor stays over same world point)
         fabricCanvas.on('mouse:down', (opt) => {
@@ -3742,19 +3817,24 @@
         if (!text || !fabricCanvas || fabricCanvas.getActiveObject()) return;
         
         const pointer = fabricCanvas.getPointer(e);
-        const textbox = new fabric.Textbox(text, {
+        const itext = new fabric.IText(text, {
             left: pointer.x,
             top: pointer.y,
-            width: 200,
             fontSize: 16,
             fill: '#e0e0e0',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-            editable: true
+            padding: 0,
+            originX: 'left',
+            originY: 'top',
+            editable: true,
+            selectable: true,
+            hasControls: false,
+            hasBorders: false
         });
-        
-        fabricCanvas.add(textbox);
-        fabricCanvas.setActiveObject(textbox);
-        textbox.enterEditing();
+
+        fabricCanvas.add(itext);
+        fabricCanvas.setActiveObject(itext);
+        itext.enterEditing && itext.enterEditing();
         fabricCanvas.requestRenderAll();
         
         hasUnsavedChanges = true;
@@ -3790,21 +3870,23 @@
             });
         }
         
-        // Convert textBoxes to Fabric Textboxes
+        // Convert textBoxes to Fabric IText (point text that hugs characters)
         if (data.textBoxes && Array.isArray(data.textBoxes)) {
             data.textBoxes.forEach(tb => {
-                const textbox = new fabric.Textbox(tb.text || '', {
+                const itext = new fabric.IText(tb.text || '', {
                     left: tb.x,
                     top: tb.y,
-                    width: tb.width || 200,
                     fontSize: 16,
                     fill: '#e0e0e0',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                     selectable: true,
-                    editable: true
+                    editable: true,
+                    padding: 0,
+                    originX: 'left',
+                    originY: 'top'
                 });
-                
-                fabricObjects.push(textbox.toObject());
+
+                fabricObjects.push(itext.toObject());
             });
         }
         
@@ -7332,34 +7414,7 @@
     });
 
     // --- INPUT ---
-    canvas.addEventListener('dblclick', (e) => {
-        if (e.button !== 0) return;
-        
-        // Only allow text box creation/editing in select mode
-        if (activeTool !== 'select') return;
-        
-        // Finish editing if currently editing
-        if (editingTextBox !== null) {
-            finishEditingTextBox();
-        }
-        
-        const pos = toWorld(e.clientX, e.clientY);
-        
-        // Check if double-clicking on existing text box to edit it
-        const textBoxIdx = getTextBoxAtPoint(pos.x, pos.y);
-        if (textBoxIdx !== -1) {
-            selectedTextBoxes.clear();
-            selectedTextBoxes.add(textBoxIdx);
-            selectedStrokes.clear();
-            startEditingTextBox(textBoxIdx);
-            requestRender();
-            return;
-        }
-        
-        // Create new text box
-        createTextBox(pos.x, pos.y);
-        requestRender();
-    });
+    // Native double-click handler removed: Fabric.js handles text creation/editing now.
     
     canvas.addEventListener('pointerdown', (e) => {
         canvas.setPointerCapture(e.pointerId);
