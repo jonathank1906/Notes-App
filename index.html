@@ -6840,11 +6840,14 @@
             }
 
             // ---> BROADCAST THE RENAME TO ALL OTHER OPEN WINDOWS <---
+
             localStorage.setItem('app-file-renamed', JSON.stringify({
                 oldName: oldFileName,
                 newName: newFileName,
                 timestamp: Date.now()
             }));
+            // ---> Instantly clean up the walkie-talkie channel! <---
+            localStorage.removeItem('app-file-renamed');
 
             closeRenameModal();
 
