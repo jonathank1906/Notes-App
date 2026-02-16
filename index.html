@@ -2750,6 +2750,8 @@
     // Undo/redo
     let undoStack = [];
     let redoStack = [];
+    // Snapshot of the canvas state before the most recent change
+    let lastSnapshot = null;
 
     // Interaction state
     let isPanning = false;
@@ -2804,6 +2806,9 @@
         fabricCanvas.freeDrawingBrush.color = CONFIG.penColor;
         fabricCanvas.freeDrawingBrush.width = CONFIG.penWidth;
         
+        // Initialize last snapshot
+        lastSnapshot = fabricCanvas.toJSON();
+
         // Event handlers
         fabricCanvas.on('object:modified', () => {
             hasUnsavedChanges = true;
@@ -3353,15 +3358,20 @@
 
     // --- ACTIONS ---
     function addToUndoStack() {
-        const json = fabricCanvas.toJSON();
-        undoStack.push(json);
+        if (!fabricCanvas) return;
+        // Push the snapshot from before the change (stored in lastSnapshot)
+        const prev = lastSnapshot || fabricCanvas.toJSON();
+        undoStack.push(prev);
         redoStack = [];
         if (undoStack.length > 50) undoStack.shift();
+        // Update lastSnapshot to the new current state
+        try { lastSnapshot = fabricCanvas.toJSON(); } catch (e) { lastSnapshot = null; }
     }
 
     function performUndo() {
         if (undoStack.length === 0) return;
 
+        if (!fabricCanvas) return;
         const currentState = fabricCanvas.toJSON();
         redoStack.push(currentState);
 
@@ -3370,12 +3380,14 @@
             fabricCanvas.renderAll();
             hasUnsavedChanges = true;
             updateSaveStatusIndicator();
+            lastSnapshot = previousState;
         });
     }
 
     function performRedo() {
         if (redoStack.length === 0) return;
 
+        if (!fabricCanvas) return;
         const currentState = fabricCanvas.toJSON();
         undoStack.push(currentState);
 
@@ -3384,6 +3396,7 @@
             fabricCanvas.renderAll();
             hasUnsavedChanges = true;
             updateSaveStatusIndicator();
+            lastSnapshot = nextState;
         });
     }
 
@@ -3403,6 +3416,7 @@
         
         undoStack = [];
         redoStack = [];
+        lastSnapshot = fabricCanvas ? fabricCanvas.toJSON() : null;
         camera = { x: 0, y: 0, z: 1 };
         currentFileName = 'untitled';
         currentFileHandle = null;
@@ -3501,6 +3515,7 @@
             
             undoStack = [];
             redoStack = [];
+            lastSnapshot = fabricCanvas ? fabricCanvas.toJSON() : null;
             currentFileName = fileHandle.name;
             currentFileHandle = fileHandle;
             hasUnsavedChanges = false;
@@ -3541,6 +3556,7 @@
         
         undoStack = [];
         redoStack = [];
+        lastSnapshot = fabricCanvas ? fabricCanvas.toJSON() : null;
         currentFileName = 'Untitled';
         currentFileHandle = null;
         hasUnsavedChanges = false;
