@@ -2758,6 +2758,8 @@
     let isSpacePressed = false;
     let activeTool = 'select';
     let lastMouse = { x: 0, y: 0 };
+    // Remember if drawing was active before temporarily disabling for panning
+    let prevDrawingMode = false;
 
     // File state
     let currentStroke = null;
@@ -2832,6 +2834,16 @@
             if (e.e.button === 1 || (e.e.button === 0 && isSpacePressed)) {
                 isPanning = true;
                 lastMouse = { x: e.e.clientX, y: e.e.clientY };
+                // Temporarily disable drawing while panning and remember previous state
+                try {
+                    if (fabricCanvas && fabricCanvas.isDrawingMode) {
+                        prevDrawingMode = true;
+                        fabricCanvas.isDrawingMode = false;
+                        fabricCanvas.selection = true;
+                    }
+                        // Prevent object hit-testing while panning so clicks never select objects
+                        if (fabricCanvas) fabricCanvas.skipTargetFind = true;
+                } catch (err) {}
                 fabricCanvas.selection = false;
                 fabricCanvas.defaultCursor = 'grabbing';
             }
@@ -7244,6 +7256,16 @@
         if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
             isPanning = true;
             canvas.style.cursor = 'grabbing';
+            // Prevent Fabric from selecting objects while legacy panning is active
+            try { if (fabricCanvas) fabricCanvas.skipTargetFind = true; } catch (err) {}
+            // Temporarily disable Fabric drawing if active
+            try {
+                if (fabricCanvas && fabricCanvas.isDrawingMode) {
+                    prevDrawingMode = true;
+                    fabricCanvas.isDrawingMode = false;
+                    fabricCanvas.selection = true;
+                }
+            } catch (err) {}
             requestRender(); // Hide eraser circle while panning
             return;
         }
@@ -7415,6 +7437,7 @@
             const pos = toWorld(e.clientX, e.clientY);
             const dx = pos.x - moveOffset.x;
             const dy = pos.y - moveOffset.y;
+                try { if (fabricCanvas) fabricCanvas.skipTargetFind = false; } catch (e) {}
             
             // Move all selected strokes
             selectedStrokes.forEach(idx => {
@@ -7713,7 +7736,18 @@
         }
 
         if (e.shiftKey && (e.key === 'F' || e.key === 'f')) { e.preventDefault(); toggleFullScreen(); }
-        if (e.code === 'Space') { isSpacePressed = true; if (!isPanning && fabricCanvas) fabricCanvas.defaultCursor = 'grab'; }
+        if (e.code === 'Space') {
+            isSpacePressed = true;
+            // If Fabric drawing is active, remember and disable it so holding Space won't draw
+            if (fabricCanvas && fabricCanvas.isDrawingMode) {
+                try {
+                    prevDrawingMode = true;
+                    fabricCanvas.isDrawingMode = false;
+                    fabricCanvas.selection = true;
+                } catch (err) {}
+            }
+            if (!isPanning && fabricCanvas) fabricCanvas.defaultCursor = 'grab';
+        }
 
         // Tool shortcuts
         if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setTool('pen');
@@ -7753,6 +7787,29 @@
             else if (e.key.toLowerCase() === 'h') { e.preventDefault(); if (document.getElementById('flashcard-page').classList.contains('active')) { closeFlashcard(); } else if (document.getElementById('glossary-page').classList.contains('active')) { closeGlossary(); } else { await showHomeScreen(); } }
         }
     });
+
+    // Capture-phase handlers to ensure Space state is updated before pointer events
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            // Set flag early (capture phase) to avoid race with pointerdown
+            isSpacePressed = true;
+            if (fabricCanvas && fabricCanvas.isDrawingMode) {
+                try { prevDrawingMode = true; fabricCanvas.isDrawingMode = false; fabricCanvas.selection = true; } catch (err) {}
+            }
+            if (!isPanning && fabricCanvas) fabricCanvas.defaultCursor = 'grab';
+        }
+    }, true);
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            isSpacePressed = false;
+            if (!isPanning) updateCursor();
+            if (fabricCanvas && prevDrawingMode && !isPanning) {
+                try { fabricCanvas.isDrawingMode = true; fabricCanvas.selection = false; } catch (err) {}
+            }
+            prevDrawingMode = false;
+        }
+    }, true);
 
     window.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
