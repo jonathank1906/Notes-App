@@ -2738,6 +2738,9 @@
         panSensitivity: 0.25
     };
 
+    // Mouse pan multiplier (lower => less floaty)
+    const PAN_FACTOR = 0.65;
+
     // --- STATE ---
     const canvas = document.getElementById('canvas');
 
@@ -2760,6 +2763,11 @@
     let lastMouse = { x: 0, y: 0 };
     // Remember if drawing was active before temporarily disabling for panning
     let prevDrawingMode = false;
+    // Fabric panning helpers (capture-phase fallback)
+    let fabricIsPanning = false;
+    let fabricLastPosX = 0;
+    let fabricLastPosY = 0;
+    let panAnchorWorld = null;
 
     // File state
     let currentStroke = null;
@@ -2793,6 +2801,81 @@
     window.addEventListener('resize', resize);
     
     resize();
+
+    // CRITICAL: Capture middle mouse button BEFORE other listeners (capture phase)
+    document.addEventListener('mousedown', (e) => {
+        if (e.button === 1) { // Middle mouse button
+            try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+
+            // Manually trigger panning if Fabric is initialized
+            if (fabricCanvas) {
+                isPanning = true;
+                fabricIsPanning = true;
+                // Determine the canvas-relative pointer
+                try {
+                    const rect = fabricCanvas.lowerCanvasEl.getBoundingClientRect();
+                    const pointer = new fabric.Point(e.clientX - rect.left, e.clientY - rect.top);
+                    panAnchorWorld = fabric.util.transformPoint(pointer, fabric.util.invertTransform(fabricCanvas.viewportTransform));
+                } catch (err) {
+                    panAnchorWorld = null;
+                }
+
+                fabricLastPosX = e.clientX;
+                fabricLastPosY = e.clientY;
+
+                try {
+                    if (fabricCanvas.isDrawingMode) {
+                        prevDrawingMode = true;
+                        fabricCanvas.isDrawingMode = false;
+                    }
+                } catch (err) {}
+                try { fabricCanvas.selection = false; } catch (err) {}
+                try { fabricCanvas.defaultCursor = 'grabbing'; } catch (err) {}
+                try { canvas.style.cursor = 'grabbing'; } catch (err) {}
+            }
+        }
+    }, true);
+
+    document.addEventListener('mousemove', (e) => {
+        if (isPanning && fabricCanvas && fabricIsPanning) {
+            try {
+                const rect = fabricCanvas.lowerCanvasEl.getBoundingClientRect();
+                const pointer = new fabric.Point(e.clientX - rect.left, e.clientY - rect.top);
+                if (panAnchorWorld) {
+                    const vpt = fabricCanvas.viewportTransform;
+                    vpt[4] = pointer.x - (vpt[0] * panAnchorWorld.x + vpt[1] * panAnchorWorld.y);
+                    vpt[5] = pointer.y - (vpt[2] * panAnchorWorld.x + vpt[3] * panAnchorWorld.y);
+                    fabricCanvas.requestRenderAll();
+                } else {
+                    // Fallback to relativePan scaled by PAN_FACTOR
+                    const dx = e.clientX - fabricLastPosX;
+                    const dy = e.clientY - fabricLastPosY;
+                    try { fabricCanvas.relativePan(new fabric.Point(dx * PAN_FACTOR, dy * PAN_FACTOR)); } catch (err) { const vpt = fabricCanvas.viewportTransform; vpt[4] += dx * PAN_FACTOR; vpt[5] += dy * PAN_FACTOR; }
+                    fabricCanvas.requestRenderAll();
+                }
+                fabricLastPosX = e.clientX;
+                fabricLastPosY = e.clientY;
+            } catch (err) {}
+        }
+    }, true);
+
+    document.addEventListener('mouseup', (e) => {
+        if (e.button === 1 && isPanning && fabricIsPanning) {
+            isPanning = false;
+            fabricIsPanning = false;
+            panAnchorWorld = null;
+            try { if (fabricCanvas) {
+                if (prevDrawingMode) {
+                    fabricCanvas.isDrawingMode = true;
+                    fabricCanvas.selection = false;
+                } else {
+                    fabricCanvas.selection = true;
+                }
+            }} catch (err) {}
+            prevDrawingMode = false;
+            try { updateCursor(); } catch (err) {}
+        }
+    }, true);
 
     // Initialize Fabric.js canvas
     function initFabricCanvas() {
@@ -2829,11 +2912,21 @@
             addToUndoStack();
         });
         
-        // Mouse events for panning
-        fabricCanvas.on('mouse:down', (e) => {
-            if (e.e.button === 1 || (e.e.button === 0 && isSpacePressed)) {
+        // Mouse events for panning (anchor-based so cursor stays over same world point)
+        fabricCanvas.on('mouse:down', (opt) => {
+            const evt = opt.e;
+            if (evt.button === 1 || (evt.button === 0 && isSpacePressed)) {
+                try { evt.preventDefault(); evt.stopPropagation(); } catch (err) {}
                 isPanning = true;
-                lastMouse = { x: e.e.clientX, y: e.e.clientY };
+                fabricIsPanning = true;
+                // Compute pan anchor in world coordinates (canvas-relative)
+                try {
+                    const rect = fabricCanvas.lowerCanvasEl.getBoundingClientRect();
+                    const pointer = new fabric.Point(evt.clientX - rect.left, evt.clientY - rect.top);
+                    panAnchorWorld = fabric.util.transformPoint(pointer, fabric.util.invertTransform(fabricCanvas.viewportTransform));
+                } catch (err) {
+                    panAnchorWorld = null;
+                }
                 // Temporarily disable drawing while panning and remember previous state
                 try {
                     if (fabricCanvas && fabricCanvas.isDrawingMode) {
@@ -2841,31 +2934,51 @@
                         fabricCanvas.isDrawingMode = false;
                         fabricCanvas.selection = true;
                     }
-                        // Prevent object hit-testing while panning so clicks never select objects
-                        if (fabricCanvas) fabricCanvas.skipTargetFind = true;
+                    if (fabricCanvas) fabricCanvas.skipTargetFind = true;
                 } catch (err) {}
                 fabricCanvas.selection = false;
                 fabricCanvas.defaultCursor = 'grabbing';
-            }
-        });
-        
-        fabricCanvas.on('mouse:move', (e) => {
-            if (isPanning) {
-                const delta = {
-                    x: e.e.clientX - lastMouse.x,
-                    y: e.e.clientY - lastMouse.y
-                };
-                fabricCanvas.relativePan(new fabric.Point(delta.x, delta.y));
-                lastMouse = { x: e.e.clientX, y: e.e.clientY };
                 fabricCanvas.requestRenderAll();
             }
         });
-        
+
+        fabricCanvas.on('mouse:move', (opt) => {
+            const evt = opt.e;
+            if (fabricIsPanning) {
+                try {
+                    const rect = fabricCanvas.lowerCanvasEl.getBoundingClientRect();
+                    const pointer = new fabric.Point(evt.clientX - rect.left, evt.clientY - rect.top);
+                    if (panAnchorWorld) {
+                        const vpt = fabricCanvas.viewportTransform;
+                        vpt[4] = pointer.x - (vpt[0] * panAnchorWorld.x + vpt[1] * panAnchorWorld.y);
+                        vpt[5] = pointer.y - (vpt[2] * panAnchorWorld.x + vpt[3] * panAnchorWorld.y);
+                    } else {
+                        const dx = evt.movementX || (evt.clientX - fabricLastPosX);
+                        const dy = evt.movementY || (evt.clientY - fabricLastPosY);
+                        try { fabricCanvas.relativePan(new fabric.Point(dx * PAN_FACTOR, dy * PAN_FACTOR)); } catch (err) { const vpt = fabricCanvas.viewportTransform; vpt[4] += dx * PAN_FACTOR; vpt[5] += dy * PAN_FACTOR; }
+                    }
+                } catch (err) {}
+                fabricLastPosX = evt.clientX;
+                fabricLastPosY = evt.clientY;
+                fabricCanvas.requestRenderAll();
+            }
+        });
+
         fabricCanvas.on('mouse:up', () => {
-            if (isPanning) {
+            if (fabricIsPanning) {
+                fabricIsPanning = false;
                 isPanning = false;
-                fabricCanvas.selection = true;
+                panAnchorWorld = null;
+                try { if (fabricCanvas) fabricCanvas.skipTargetFind = false; } catch (err) {}
+                try {
+                    if (fabricCanvas && prevDrawingMode) {
+                        fabricCanvas.isDrawingMode = true;
+                        fabricCanvas.selection = false;
+                    }
+                } catch (err) {}
+                prevDrawingMode = false;
                 updateCursor();
+                fabricCanvas.requestRenderAll();
             }
         });
         
@@ -7386,8 +7499,8 @@
         if (isPanning) {
             const dx = curr.x - lastMouse.x;
             const dy = curr.y - lastMouse.y;
-            camera.x += dx;
-            camera.y += dy;
+            camera.x += dx * PAN_FACTOR;
+            camera.y += dy * PAN_FACTOR;
             lastMouse = curr;
             
             // Update text editor position if editing
