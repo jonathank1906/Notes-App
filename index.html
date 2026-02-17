@@ -3848,10 +3848,118 @@
     }
 
     // Handle text paste from external sources
+    async function saveAndAddFabricImage(fileOrBuffer, originalName, worldPos = null) {
+        if (!rootPath || typeof fs === 'undefined') {
+            alert("Cannot save image. Ensure a root folder is selected.");
+            return;
+        }
+        // Define the Assets folder relative to the selected root directory
+        const assetsPath = path.join(rootPath, 'Assets');
+        if (!fs.existsSync(assetsPath)) {
+            fs.mkdirSync(assetsPath, { recursive: true });
+        }
+
+        // Create a safe, unique filename
+        let safeName = (originalName || 'pasted.png').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        if (!safeName.match(/\.(png|jpe?g|gif|webp)$/i)) {
+            safeName += '.png';
+        }
+        const fileName = `img_${Date.now()}_${safeName}`;
+        const destPath = path.join(assetsPath, fileName);
+
+        // Write the file to disk
+        try {
+            if (Buffer.isBuffer(fileOrBuffer)) {
+                fs.writeFileSync(destPath, fileOrBuffer);
+            } else {
+                const arrayBuffer = await fileOrBuffer.arrayBuffer();
+                fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+            }
+        } catch (err) {
+            console.error('Error saving image to disk:', err);
+            alert('Failed to save image: ' + err.message);
+            return;
+        }
+
+        // Format the native path so Chromium can display it
+        const fileUrl = 'file:///' + destPath.replace(/\\/g, '/');
+
+        // Add to Fabric Canvas
+        fabric.Image.fromURL(fileUrl, (img) => {
+            // Scale down if the image is exceptionally large
+            const maxDim = 800;
+            try {
+                if (img.width > maxDim || img.height > maxDim) {
+                    const scale = maxDim / Math.max(img.width, img.height);
+                    img.scale(scale);
+                }
+
+                // Position the image
+                if (worldPos) {
+                    img.set({
+                        left: worldPos.x - (img.width * img.scaleX) / 2,
+                        top: worldPos.y - (img.height * img.scaleY) / 2
+                    });
+                } else {
+                    // Center in viewport if no specific position is given (e.g., from a paste)
+                    const vpt = fabricCanvas.viewportTransform;
+                    const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
+                    const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
+                    img.set({
+                        left: centerX - (img.width * img.scaleX) / 2,
+                        top: centerY - (img.height * img.scaleY) / 2
+                    });
+                }
+
+                fabricCanvas.add(img);
+                try {
+                    // Ensure images are placed beneath drawing objects so drawings remain visible on top
+                    fabricCanvas.sendToBack(img);
+                } catch (err) {}
+                fabricCanvas.setActiveObject(img);
+                fabricCanvas.requestRenderAll();
+
+                // Trigger save state
+                hasUnsavedChanges = true;
+                updateSaveStatusIndicator();
+                addToUndoStack();
+            } catch (err) {
+                console.error('Error adding image to Fabric canvas:', err);
+            }
+        });
+    }
+
+    // Handle text or image paste from external sources
     async function handleExternalPaste(e) {
-        const text = e.clipboardData.getData('text/plain');
-        if (!text || !fabricCanvas || fabricCanvas.getActiveObject()) return;
-        
+        if (!fabricCanvas || fabricCanvas.getActiveObject()) return;
+
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+
+        const items = clipboardData.items || [];
+        let imagePasted = false;
+
+        // 1. Check for images in the clipboard first
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type && items[i].type.indexOf('image/') !== -1) {
+                e.preventDefault();
+                const file = items[i].getAsFile();
+                if (file) {
+                    imagePasted = true;
+                    // Get canvas pointer location if available
+                    let pointer = { x: fabricCanvas.width / 2, y: fabricCanvas.height / 2 };
+                    try { pointer = fabricCanvas.getPointer(e); } catch (err) {}
+                    await saveAndAddFabricImage(file, file.name || 'pasted.png', pointer);
+                }
+            }
+        }
+
+        if (imagePasted) return;
+
+        // 2. Fallback to existing text paste logic
+        const text = clipboardData.getData('text/plain');
+        if (!text) return;
+
         const pointer = fabricCanvas.getPointer(e);
         const itext = new fabric.IText(text, {
             left: pointer.x,
@@ -3872,7 +3980,7 @@
         fabricCanvas.setActiveObject(itext);
         itext.enterEditing && itext.enterEditing();
         fabricCanvas.requestRenderAll();
-        
+
         hasUnsavedChanges = true;
         updateSaveStatusIndicator();
         addToUndoStack();
@@ -8117,18 +8225,6 @@
         e.dataTransfer.dropEffect = 'copy';
     });
     
-    document.body.addEventListener('dragleave', (e) => {
-        // Disable drag and drop in linear notes page
-        if (document.getElementById('linear-notes-page').classList.contains('active')) {
-            return;
-        }
-        e.preventDefault();
-        dragCounter--;
-        if (dragCounter === 0) {
-            dropOverlay.classList.remove('active');
-        }
-    });
-    
     document.body.addEventListener('drop', async (e) => {
         // Disable drag and drop in linear notes page
         if (document.getElementById('linear-notes-page').classList.contains('active')) {
@@ -8137,47 +8233,47 @@
         e.preventDefault();
         dragCounter = 0;
         dropOverlay.classList.remove('active');
-        
+
         const files = e.dataTransfer.files;
         if (files.length === 0) return;
-        
+
         const file = files[0];
-        
+
+        // --- NEW: Handle Image Drops directly onto the Canvas ---
+        if (file.type && file.type.startsWith('image/')) {
+            const isCanvasActive = !document.getElementById('canvas-container').classList.contains('hidden');
+            if (isCanvasActive && fabricCanvas) {
+                // Calculate exactly where the user dropped the image in the canvas world space
+                const rect = canvas.getBoundingClientRect();
+                const pointer = new fabric.Point(e.clientX - rect.left, e.clientY - rect.top);
+                const worldPos = fabric.util.transformPoint(pointer, fabric.util.invertTransform(fabricCanvas.viewportTransform));
+
+                await saveAndAddFabricImage(file, file.name, worldPos);
+                return;
+            }
+        }
+
         // Check if it's a JSON file
         if (!file.name.endsWith('.json')) {
-            alert('Please drop a JSON file');
+            alert('Please drop a JSON file or an image onto the canvas.');
             return;
         }
-        
+
         try {
             // Confirm if there are unsaved changes
-            if (hasUnsavedChanges && (strokes.length > 0 || textBoxes.length > 0)) {
+            if (hasUnsavedChanges && (strokes.length > 0 || textBoxes.length > 0 || (fabricCanvas && fabricCanvas.getObjects().length > 0))) {
                 if (!confirm('Load file? Current work will be lost if not saved.')) {
                     return;
                 }
             }
-            
+
             const text = await file.text();
             const data = JSON.parse(text);
-            
-            if (data.strokes && Array.isArray(data.strokes)) {
-                strokes = data.strokes.filter(s => s.tool !== 'eraser');
-                textBoxes = data.textBoxes || [];
-                camera = data.camera || { x: 0, y: 0, z: 1 };
-                undoStack = [];
-                redoStack = [];
-                selectedStrokes.clear();
-                selectedTextBoxes.clear();
-                editingTextBox = null;
-                
-                // Update file info
+
+            if (data.objects || (data.strokes && Array.isArray(data.strokes))) {
+                loadFromData(data); // Using existing load function
                 currentFileName = file.name;
                 currentFileHandle = null;
-                hasUnsavedChanges = false;
-                updateSaveStatusIndicator();
-                updateFileNameIndicator();
-                
-                requestRender();
                 showNotification('Loaded ' + file.name);
             } else {
                 alert('Invalid mind map file format');
@@ -8187,6 +8283,7 @@
             alert('Error loading file: ' + err.message);
         }
     });
+    
     
     // --- SELECTION HELPER FUNCTIONS ---
     function normalizeRect(x1, y1, x2, y2) {
