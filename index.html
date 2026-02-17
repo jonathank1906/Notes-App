@@ -3894,22 +3894,22 @@
                     img.scale(scale);
                 }
 
-                // Position the image
-                if (worldPos) {
-                    img.set({
-                        left: worldPos.x - (img.width * img.scaleX) / 2,
-                        top: worldPos.y - (img.height * img.scaleY) / 2
-                    });
-                } else {
-                    // Center in viewport if no specific position is given (e.g., from a paste)
-                    const vpt = fabricCanvas.viewportTransform;
-                    const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
-                    const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
-                    img.set({
-                        left: centerX - (img.width * img.scaleX) / 2,
-                        top: centerY - (img.height * img.scaleY) / 2
-                    });
-                }
+                        // Position the image based on mouse coordinates OR screen center
+                        if (worldPos && !isNaN(worldPos.x) && !isNaN(worldPos.y)) {
+                            img.set({
+                                left: worldPos.x - (img.width * img.scaleX) / 2,
+                                top: worldPos.y - (img.height * img.scaleY) / 2
+                            });
+                        } else {
+                            // Auto-center in viewport for keyboard pastes
+                            const vpt = fabricCanvas.viewportTransform;
+                            const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
+                            const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
+                            img.set({
+                                left: centerX - (img.width * img.scaleX) / 2,
+                                top: centerY - (img.height * img.scaleY) / 2
+                            });
+                        }
 
                 fabricCanvas.add(img);
                 try {
@@ -3929,47 +3929,57 @@
         });
     }
 
-    // Handle text or image paste from external sources
-    async function handleExternalPaste(e) {
-        if (!fabricCanvas || fabricCanvas.getActiveObject()) return;
+    // 1. New trigger for Ctrl+V (Uses Electron's native clipboard)
+    async function triggerExternalPaste() {
+        if (!fabricCanvas) return;
 
-        const clipboardData = e.clipboardData || window.clipboardData;
-        if (!clipboardData) return;
-
-        const items = clipboardData.items || [];
-        let imagePasted = false;
-
-        // 1. Check for images in the clipboard first
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type && items[i].type.indexOf('image/') !== -1) {
-                e.preventDefault();
-                const file = items[i].getAsFile();
-                if (file) {
-                    imagePasted = true;
-                    // Get canvas pointer location if available
-                    let pointer = { x: fabricCanvas.width / 2, y: fabricCanvas.height / 2 };
-                    try { pointer = fabricCanvas.getPointer(e); } catch (err) {}
-                    await saveAndAddFabricImage(file, file.name || 'pasted.png', pointer);
-                }
-            }
+        // Try internal Fabric clipboard first (for copied drawing strokes/text boxes)
+        if (clipboard) {
+            pasteFromClipboard();
+            return;
         }
 
-        if (imagePasted) return;
+        // Try Electron Native Clipboard (Robust for OS images & text)
+        if (typeof window.require !== 'undefined') {
+            try {
+                const { clipboard: electronClipboard } = window.require('electron');
+                const nativeImage = electronClipboard.readImage();
+                if (nativeImage && typeof nativeImage.isEmpty === 'function' && !nativeImage.isEmpty()) {
+                    const buffer = nativeImage.toPNG();
+                    fabricCanvas.discardActiveObject();
+                    await saveAndAddFabricImage(buffer, 'pasted_image.png', null);
+                    return;
+                }
 
-        // 2. Fallback to existing text paste logic
-        const text = clipboardData.getData('text/plain');
-        if (!text) return;
+                const text = electronClipboard.readText();
+                if (text && text.trim().length > 0) {
+                    pasteTextIntoFabric(text);
+                    return;
+                }
+            } catch (err) {
+                console.error('Electron clipboard read failed:', err);
+            }
+        }
+    }
 
-        const pointer = fabricCanvas.getPointer(e);
+    // 2. Helper to spawn text in the center of the screen
+    function pasteTextIntoFabric(text) {
+        if (!fabricCanvas) return;
+        const vpt = fabricCanvas.viewportTransform;
+        const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
+        const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
+
+        fabricCanvas.discardActiveObject();
+
         const itext = new fabric.IText(text, {
-            left: pointer.x,
-            top: pointer.y,
+            left: centerX,
+            top: centerY,
             fontSize: 16,
             fill: '#e0e0e0',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
             padding: 0,
-            originX: 'left',
-            originY: 'top',
+            originX: 'center',
+            originY: 'center',
             editable: true,
             selectable: true,
             hasControls: false,
@@ -3978,12 +3988,52 @@
 
         fabricCanvas.add(itext);
         fabricCanvas.setActiveObject(itext);
-        itext.enterEditing && itext.enterEditing();
         fabricCanvas.requestRenderAll();
 
         hasUnsavedChanges = true;
         updateSaveStatusIndicator();
         addToUndoStack();
+    }
+
+    // 3. Updated DOM Paste Fallback (For Right Click -> Paste)
+    async function handleExternalPaste(e) {
+        // Stop if a text object is already actively being typed into
+        if (!fabricCanvas || (fabricCanvas.getActiveObject() && fabricCanvas.getActiveObject().isEditing)) return;
+
+        // Stop if we are typing into standard inputs (like search bars or linear notes)
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+            return;
+        }
+
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+
+        const items = clipboardData.items || [];
+        let imagePasted = false;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type && items[i].type.indexOf('image/') !== -1) {
+                e.preventDefault();
+                const file = items[i].getAsFile();
+                if (file) {
+                    imagePasted = true;
+                    // Attempt to paste exactly where the mouse pointer is
+                    let pointer = null;
+                    try { pointer = fabricCanvas.getPointer(e); } catch(err) {}
+
+                    fabricCanvas.discardActiveObject();
+                    await saveAndAddFabricImage(file, file.name || 'pasted.png', pointer);
+                }
+            }
+        }
+
+        if (imagePasted) return;
+
+        const text = clipboardData.getData('text/plain');
+        if (text) {
+            e.preventDefault();
+            pasteTextIntoFabric(text);
+        }
     }
     // Convert old canvas data to Fabric.js format
     function convertLegacyData(data) {
@@ -8157,7 +8207,7 @@
         // Ctrl/Cmd shortcuts
         if (e.ctrlKey || e.metaKey) {
             if (e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
-            else if (e.key.toLowerCase() === 'v') { e.preventDefault(); pasteFromClipboard(); }
+            else if (e.key.toLowerCase() === 'v') { e.preventDefault(); triggerExternalPaste(); }
             else if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) performRedo(); else performUndo(); }
             else if (e.key.toLowerCase() === 'y') { e.preventDefault(); performRedo(); }
             else if (e.key.toLowerCase() === 's') { e.preventDefault(); saveToFile(); }
