@@ -2520,6 +2520,15 @@
                 <path id="Path_2318" class="cls-1" d="M.3,0C.13,0,0,.13,0,.3V19.7c0,.16,.13,.3,.3,.3,.08,0,.15-.03,.21-.09l5.73-5.74h7.7c.16,0,.3-.13,.3-.3,0-.08-.03-.15-.09-.21L.51,.09C.45,.03,.37,0,.3,0Z"/>
             </svg>
         </button>
+        <button class="tool-btn" id="btn-table" data-tooltip="Insert Table" data-shortcut="T" onclick="promptInsertTable()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="3" y1="15" x2="21" y2="15"></line>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+                <line x1="15" y1="3" x2="15" y2="21"></line>
+            </svg>
+        </button>
         <button class="tool-btn active" id="btn-pen" data-tooltip="Pen Tool" data-shortcut="B">
             <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" style="display:block;">
                 <style type="text/css">
@@ -2777,6 +2786,28 @@
     const PAN_FACTOR = 0.65;
 
     // --- STATE ---
+    // Workaround: normalize invalid textBaseline values (e.g. 'alphabetical' -> 'alphabetic')
+    (function() {
+        try {
+            const proto = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+            if (!proto) return;
+            const desc = Object.getOwnPropertyDescriptor(proto, 'textBaseline');
+            if (desc && typeof desc.set === 'function') {
+                const originalSet = desc.set;
+                const originalGet = desc.get;
+                Object.defineProperty(proto, 'textBaseline', {
+                    configurable: true,
+                    enumerable: true,
+                    get: function() { return originalGet.call(this); },
+                    set: function(v) {
+                        if (v === 'alphabetical') v = 'alphabetic';
+                        return originalSet.call(this, v);
+                    }
+                });
+            }
+        } catch (err) {}
+    })();
+
     const canvas = document.getElementById('canvas');
 
     // Fabric.js canvas
@@ -2919,7 +2950,9 @@
             selection: true,
             isDrawingMode: false,
             perPixelTargetFind: true,
-            targetFindTolerance: 5
+            targetFindTolerance: 5,
+            fireRightClick: true,
+            stopContextMenu: true
         });
         
         // Configure drawing brush
@@ -3119,6 +3152,24 @@
             }
             fabricCanvas.requestRenderAll();
         });
+            // Right-click handler for table context menu
+            fabricCanvas.on('mouse:down', function(opt) {
+                try {
+                    const e = opt.e;
+                    const ctxMenu = document.getElementById('canvas-context-menu');
+                    if (opt.button === 3 && opt.target && opt.target.isTable) {
+                        targetTableGroup = opt.target;
+                        if (ctxMenu) {
+                            ctxMenu.style.left = e.clientX + 'px';
+                            ctxMenu.style.top = e.clientY + 'px';
+                            ctxMenu.style.display = 'block';
+                        }
+                    } else {
+                        if (ctxMenu) ctxMenu.style.display = 'none';
+                        targetTableGroup = null;
+                    }
+                } catch (err) {}
+            });
         
         resize();
     }
@@ -3677,7 +3728,7 @@
                 y: fabricCanvas.viewportTransform[5],
                 z: fabricCanvas.getZoom()
             },
-            ...fabricCanvas.toJSON()
+            ...fabricCanvas.toJSON(['isTable', 'tableRows', 'tableCols'])
         };
         
         if (currentFileHandle && currentDirHandle) {
@@ -3811,7 +3862,7 @@
         if (!active || !active.clone) return;
         active.clone((cloned) => {
             clipboard = cloned;
-        });
+        }, ['isTable', 'tableRows', 'tableCols']);
     }
 
     // Paste from clipboard
@@ -3844,7 +3895,7 @@
             hasUnsavedChanges = true;
             updateSaveStatusIndicator();
             addToUndoStack();
-        });
+        }, ['isTable', 'tableRows', 'tableCols']);
     }
 
     // Handle text paste from external sources
@@ -8179,6 +8230,7 @@
         // Tool shortcuts
         if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setTool('pen');
         if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey) setTool('select');
+        if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey) promptInsertTable();
 
         // Delete
         if (e.key === 'Delete') {
@@ -9079,7 +9131,191 @@
     if (window.location.search.includes('note')) {
         document.getElementById('home-screen').classList.add('hidden');
     }
-
 </script>
+<script>
+    // --- TABLE GENERATION LOGIC ---
+    let targetTableGroup = null; // Stores the currently right-clicked table
+
+    function promptInsertTable() {
+        if (!fabricCanvas) return;
+        
+        // Ensure we are in select mode so the user can immediately move/resize it
+        setTool('select'); 
+        // Try native prompt first; if unavailable (e.g., sandboxed Electron), fall back to modal
+        try {
+            const input = prompt("Enter table dimensions (Rows, Columns)\ne.g., 3,3", "3,3");
+            if (!input) return;
+            const parts = input.split(',');
+            const rows = parseInt(parts[0]) || 3;
+            const cols = parseInt(parts[1]) || 3;
+            insertTable(rows, cols);
+            return;
+        } catch (err) {
+            // prompt() not available — show inline modal
+            showInsertTableModal();
+        }
+    }
+
+    // --- Inline modal fallback for environments without prompt() ---
+    function showInsertTableModal() {
+        let modal = document.getElementById('insert-table-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        const r = modal.querySelector('#insert-table-rows');
+        const c = modal.querySelector('#insert-table-cols');
+        if (r) r.value = '3';
+        if (c) c.value = '3';
+    }
+
+    function hideInsertTableModal() {
+        const modal = document.getElementById('insert-table-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function confirmInsertTableFromModal() {
+        const modal = document.getElementById('insert-table-modal');
+        if (!modal) return;
+        const rows = parseInt(modal.querySelector('#insert-table-rows').value) || 1;
+        const cols = parseInt(modal.querySelector('#insert-table-cols').value) || 1;
+        hideInsertTableModal();
+        insertTable(rows, cols);
+    }
+
+    function insertTable(rows, cols) {
+        const cellWidth = 100;
+        const cellHeight = 50;
+        const totalWidth = cols * cellWidth;
+        const totalHeight = rows * cellHeight;
+        
+        const lines = buildTableLines(rows, cols, cellWidth, cellHeight);
+        
+        // Center the table in the current viewport
+        const vpt = fabricCanvas.viewportTransform;
+        const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
+        const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
+
+        const tableGroup = new fabric.Group(lines, {
+            left: centerX - (totalWidth / 2),
+            top: centerY - (totalHeight / 2),
+            isTable: true,     // Custom property to identify it as a table
+            tableRows: rows,
+            tableCols: cols,
+            transparentCorners: false,
+            cornerColor: '#2196F3',
+            borderColor: '#2196F3'
+        });
+
+        fabricCanvas.add(tableGroup);
+        fabricCanvas.setActiveObject(tableGroup);
+        fabricCanvas.requestRenderAll();
+        
+        hasUnsavedChanges = true;
+        updateSaveStatusIndicator();
+        addToUndoStack();
+    }
+
+    function buildTableLines(rows, cols, cellWidth, cellHeight) {
+        const lines = [];
+        const totalWidth = cols * cellWidth;
+        const totalHeight = rows * cellHeight;
+        
+        const lineOptions = {
+            stroke: '#888888',
+            strokeWidth: 2,
+            selectable: false,
+            strokeUniform: true // CRITICAL: Prevents lines getting thick when scaled!
+        };
+
+        // Draw Horizontal Lines
+        for (let i = 0; i <= rows; i++) {
+            const y = i * cellHeight;
+            lines.push(new fabric.Line([0, y, totalWidth, y], lineOptions));
+        }
+
+        // Draw Vertical Lines
+        for (let j = 0; j <= cols; j++) {
+            const x = j * cellWidth;
+            lines.push(new fabric.Line([x, 0, x, totalHeight], lineOptions));
+        }
+        
+        return lines;
+    }
+
+    // Hide context menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#canvas-context-menu')) {
+            const ctxMenu = document.getElementById('canvas-context-menu');
+            if (ctxMenu) ctxMenu.style.display = 'none';
+        }
+    });
+
+    function modifyActiveTable(rowDelta, colDelta) {
+        const menu = document.getElementById('canvas-context-menu');
+        if (menu) menu.style.display = 'none';
+        if (!targetTableGroup || !fabricCanvas) return;
+
+        const oldGroup = targetTableGroup;
+        const newRows = Math.max(1, oldGroup.tableRows + rowDelta);
+        const newCols = Math.max(1, oldGroup.tableCols + colDelta);
+
+        // Determine base cell size (ignoring scaling)
+        const cellWidth = oldGroup.width / oldGroup.tableCols;
+        const cellHeight = oldGroup.height / oldGroup.tableRows;
+
+        // Generate new internal lines
+        const lines = buildTableLines(newRows, newCols, cellWidth, cellHeight);
+
+        // Rebuild the group exactly where the old one was, preserving user scaling and rotation
+        const newGroup = new fabric.Group(lines, {
+            left: oldGroup.left,
+            top: oldGroup.top,
+            scaleX: oldGroup.scaleX,
+            scaleY: oldGroup.scaleY,
+            angle: oldGroup.angle,
+            isTable: true,
+            tableRows: newRows,
+            tableCols: newCols,
+            transparentCorners: false,
+            cornerColor: '#2196F3',
+            borderColor: '#2196F3'
+        });
+
+        // Swap them out
+        fabricCanvas.remove(oldGroup);
+        fabricCanvas.add(newGroup);
+        fabricCanvas.setActiveObject(newGroup);
+        fabricCanvas.requestRenderAll();
+
+        hasUnsavedChanges = true;
+        updateSaveStatusIndicator();
+        addToUndoStack();
+        targetTableGroup = null;
+    }
+</script>
+    <div id="canvas-context-menu" style="display:none; position:fixed; background:#2a2a2a; border:1px solid #444; border-radius:6px; z-index:10000; padding:6px 0; min-width:150px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <div class="context-menu-item" onclick="modifyActiveTable(1, 0)">+ Add Row</div>
+        <div class="context-menu-item" onclick="modifyActiveTable(-1, 0)">- Remove Row</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="modifyActiveTable(0, 1)">+ Add Column</div>
+        <div class="context-menu-item" onclick="modifyActiveTable(0, -1)">- Remove Column</div>
+    </div>
+    <!-- Insert Table Modal (fallback when prompt() is unavailable) -->
+    <div id="insert-table-modal" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:10001;">
+        <div style="background:#1e1e1e; border:1px solid #333; padding:16px; border-radius:8px; min-width:260px; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+            <div style="font-weight:600; color:#ddd; margin-bottom:8px;">Insert Table</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+                <label style="color:#aaa; width:60px;">Rows</label>
+                <input id="insert-table-rows" type="number" min="1" value="3" style="width:100%; padding:6px; background:#111; border:1px solid #333; color:#fff; border-radius:4px;" />
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+                <label style="color:#aaa; width:60px;">Cols</label>
+                <input id="insert-table-cols" type="number" min="1" value="3" style="width:100%; padding:6px; background:#111; border:1px solid #333; color:#fff; border-radius:4px;" />
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button onclick="hideInsertTableModal()" style="background:transparent; border:1px solid #333; color:#aaa; padding:6px 10px; border-radius:6px;">Cancel</button>
+                <button onclick="confirmInsertTableFromModal()" style="background:#2196F3; border:none; color:white; padding:6px 10px; border-radius:6px;">Insert</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
