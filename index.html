@@ -2650,6 +2650,10 @@
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Exercises
         </div>
+        <div class="new-note-option" onclick="createNewNote('exampractice')">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Exam Practice
+        </div>
         <div class="new-note-option" onclick="openSlidesApp()">
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.09 7 12 11.82 4.91 7 12 4.18zM4 8.82l8 4.64 8-4.64V17l-8 4.18L4 17V8.82z"/></svg>
             Slides
@@ -4591,15 +4595,45 @@
                     const baseName = entry.name.slice(0, -5).toLowerCase();
                     // Only display if it DOES NOT have a matching PDF
                     if (!pdfBaseNames.has(baseName)) {
-                        const file = await entry.getFile();
-                        allNotes.push({
-                            handle: entry,
-                            dirHandle: subject.handle,
-                            name: entry.name.replace('.json', ''),
-                            subject: subject.name,
-                            color: subject.color,
-                            date: file.lastModified
-                        });
+                        try {
+                            const file = await entry.getFile();
+                            const text = await file.text();
+                            let parsed = null;
+                            try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
+                            // Determine a lightweight type token and human label
+                            let typeToken = (parsed && parsed.type) ? parsed.type : null;
+                            if (!typeToken) {
+                                if (parsed && parsed.objects) typeToken = 'note';
+                                else if (parsed && (parsed.strokes || parsed.textBoxes)) typeToken = 'practice';
+                                else typeToken = 'note';
+                            }
+                            const typeLabelMap = {
+                                'flashcard': 'Flashcard',
+                                'glossary': 'Glossary',
+                                'qa': 'Q/A',
+                                'todo': 'To Do',
+                                'linear': 'Linear',
+                                'links': 'Pinboard',
+                                'practice': 'Practice Problems',
+                                'exercises': 'Exercises',
+                                'exampractice': 'Exam Practice',
+                                'note': 'Canvas'
+                            };
+                            const typeLabel = typeLabelMap[typeToken] || 'Canvas';
+
+                            allNotes.push({
+                                handle: entry,
+                                dirHandle: subject.handle,
+                                name: entry.name.replace('.json', ''),
+                                subject: subject.name,
+                                color: subject.color,
+                                date: file.lastModified,
+                                typeToken: typeToken,
+                                typeLabel: typeLabel
+                            });
+                        } catch (err) {
+                            console.error('Error reading note file', entry.name, err);
+                        }
                     }
                 }
             } catch (err) {
@@ -4637,14 +4671,6 @@
         const info = document.createElement('div');
         info.className = 'note-info';
         
-        // Format date
-        const date = new Date(note.date);
-        const formattedDate = date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
-        });
-        
         // Top row: Title only (gets 100% width)
         const title = document.createElement('div');
         title.className = 'note-title';
@@ -4657,7 +4683,8 @@
         
         const dateDiv = document.createElement('div');
         dateDiv.className = 'note-date';
-        dateDiv.textContent = formattedDate;
+        // Show the note type label (e.g. Canvas, Glossary) instead of the file date
+        dateDiv.textContent = note.typeLabel || 'Canvas';
         
         const subjectPill = document.createElement('div');
         subjectPill.className = 'note-subject-pill';
@@ -4731,13 +4758,24 @@
             }
 
             if (data.type === 'practice') {
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path fill="#fff" d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>`;
-                return;
+                // If the practice note contains canvas data, render the canvas preview below.
+                if (!(data.objects || data.strokes || data.textBoxes)) {
+                    previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path fill="#fff" d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>`;
+                    return;
+                }
             }
 
             if (data.type === 'exercises') {
-                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>`;
-                return;
+                if (!(data.objects || data.strokes || data.textBoxes)) {
+                    previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>`;
+                    return;
+                }
+            }
+            if (data.type === 'exampractice') {
+                if (!(data.objects || data.strokes || data.textBoxes)) {
+                    previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>`;
+                    return;
+                }
             }
             // If this is a Fabric.js saved note (new format), render it via a temporary StaticCanvas
             if (data.objects) {
@@ -5138,6 +5176,16 @@
                     strokes: [],
                     textBoxes: []
                 };
+            } else if (type === 'exampractice') {
+                defaultName = `Exam Practice ${formattedDate} ${formattedTime}.json`;
+                blankData = {
+                    type: 'exampractice',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    camera: { x: 0, y: 0, z: 1 },
+                    strokes: [],
+                    textBoxes: []
+                };
             } else if (type === 'exercises') {
                 defaultName = `Exercises ${formattedDate} ${formattedTime}.json`;
                 blankData = {
@@ -5228,6 +5276,8 @@
                 currentNoteType = type;
 
                 if (type === 'practice') {
+                    openNote(fileHandle);
+                } else if (type === 'exampractice') {
                     openNote(fileHandle);
                 } else if (type === 'exercises') {
                     openNote(fileHandle);
