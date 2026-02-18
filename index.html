@@ -2713,6 +2713,7 @@
     let rootPath;
     let noteMap = new Map();
     let currentNoteFileName;
+    let currentFilePath = null; // <-- store absolute path for direct disk saves from detached windows
     // ---> DETACHED WINDOW SYNC FIX <---
     // Listens for rename broadcasts from other windows
     window.addEventListener('storage', (e) => {
@@ -2749,6 +2750,15 @@
             if (item) {
                 item.data = data;
                 try {
+                    // If we have a filesystem path for this item, prefer a direct synchronous write
+                    if (typeof fs !== 'undefined' && item.handle && item.handle.path) {
+                        try {
+                            fs.writeFileSync(item.handle.path, JSON.stringify(data));
+                            return;
+                        } catch (err) {
+                            console.error('Direct write failed, falling back to createWritable:', err);
+                        }
+                    }
                     const writable = await item.handle.createWritable();
                     await writable.write(JSON.stringify(data));
                     await writable.close();
@@ -3749,12 +3759,17 @@
             }
         }
         
-        if (ipcRenderer && currentFileName && currentFileName !== 'untitled') {
-            ipcRenderer.send('save-note', {fileName: currentFileName, data: data});
-            hasUnsavedChanges = false;
-            updateSaveStatusIndicator();
-            showNotification('Saved');
-            return;
+        if (ipcRenderer && currentFilePath && typeof fs !== 'undefined') {
+            try {
+                // Direct synchronous write to disk so detached windows save before closing
+                fs.writeFileSync(currentFilePath, JSON.stringify(data));
+                hasUnsavedChanges = false;
+                updateSaveStatusIndicator();
+                showNotification('Saved');
+                return;
+            } catch (err) {
+                console.error('Direct disk save failed:', err);
+            }
         }
 
         const json = JSON.stringify(data);
@@ -5173,7 +5188,7 @@
         
         // Send to main process to open in new window
         if (ipcRenderer) {
-            ipcRenderer.send('open-note-window', {type: data.type, data: data, fileName: fileHandle.name});
+            ipcRenderer.send('open-note-window', { type: data.type, data: data, fileName: fileHandle.name, filePath: fileHandle.path });
         } else {
             // Fallback for non-Electron
             openNoteLocally(fileHandle, data);
@@ -5201,8 +5216,9 @@
     }
 
     function openNoteFromData(noteData) {
-        const {type, data, fileName} = noteData;
+        const {type, data, fileName, filePath} = noteData;
         currentNoteFileName = fileName;
+        currentFilePath = filePath || null;
         currentNoteType = type;
         if (type === 'flashcard') {
             openFlashcard(null, data, fileName);
@@ -5444,7 +5460,7 @@
             // Open the appropriate editor
             if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note') {
                 if (ipcRenderer) {
-                    ipcRenderer.send('open-note-window', {type: type, data: blankData, fileName: defaultName});
+                    ipcRenderer.send('open-note-window', { type: type, data: blankData, fileName: defaultName, filePath: fileHandle.path });
                 } else {
                     // ---> CRITICAL BUG FIX 2: Set current context variables for the local fallback <---
                     currentFileHandle = fileHandle;
@@ -5968,19 +5984,43 @@
     }
 
     async function saveFlashcardData() {
+        // If no FileHandle (web picker) is available, try direct write if path provided
         if (!currentFlashcardHandle) {
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentFlashcardData));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for flashcard:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentFlashcardData});
             }
             return;
         }
-        
+
         try {
             const writable = await currentFlashcardHandle.createWritable();
             await writable.write(JSON.stringify(currentFlashcardData));
             await writable.close();
         } catch (err) {
             console.error('Error saving flashcard:', err);
+            // Fallback to direct sync write if we have a path (detached window)
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentFlashcardData));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for flashcard:', err2);
+                }
+            }
             alert('Failed to save flashcard');
         }
     }
@@ -6275,18 +6315,40 @@
 
     async function saveGlossaryData() {
         if (!currentGlossaryHandle) {
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentGlossaryData));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for glossary:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentGlossaryData});
             }
             return;
         }
-        
+
         try {
             const writable = await currentGlossaryHandle.createWritable();
             await writable.write(JSON.stringify(currentGlossaryData));
             await writable.close();
         } catch (err) {
             console.error('Error saving glossary:', err);
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentGlossaryData));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for glossary:', err2);
+                }
+            }
             alert('Failed to save glossary');
         }
     }
@@ -6566,20 +6628,46 @@
 
     async function saveQAData() {
         if (!currentQAHandle) {
+            currentQAData.timestamp = new Date().toISOString();
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentQAData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for QA:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
-                currentQAData.timestamp = new Date().toISOString();
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentQAData});
             }
             return;
         }
-        
+
         if (!currentQAData) return;
-        
+
         currentQAData.timestamp = new Date().toISOString();
         const json = JSON.stringify(currentQAData, null, 2);
-        const writable = await currentQAHandle.createWritable();
-        await writable.write(json);
-        await writable.close();
+        try {
+            const writable = await currentQAHandle.createWritable();
+            await writable.write(json);
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving QA:', err);
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, json);
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for QA:', err2);
+                }
+            }
+        }
     }
 
     function filterQA() {
@@ -6707,20 +6795,46 @@
 
     async function saveTodoData() {
         if (!currentTodoHandle) {
+            currentTodoData.timestamp = new Date().toISOString();
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentTodoData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for todo:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
-                currentTodoData.timestamp = new Date().toISOString();
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentTodoData});
             }
             return;
         }
-        
+
         if (!currentTodoData) return;
-        
+
         currentTodoData.timestamp = new Date().toISOString();
         const json = JSON.stringify(currentTodoData, null, 2);
-        const writable = await currentTodoHandle.createWritable();
-        await writable.write(json);
-        await writable.close();
+        try {
+            const writable = await currentTodoHandle.createWritable();
+            await writable.write(json);
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving todo:', err);
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, json);
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for todo:', err2);
+                }
+            }
+        }
     }
 
     // --- LINEAR NOTES FUNCTIONS ---
@@ -6959,25 +7073,52 @@
 
     async function saveLinearNotesData() {
         if (!currentLinearNotesHandle) {
+            if (!currentLinearNotesData || !linearNotesEditor) return;
+            // Save the current editor content
+            currentLinearNotesData.content = linearNotesEditor.getContents();
+            currentLinearNotesData.timestamp = new Date().toISOString();
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentLinearNotesData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for linear notes:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
-                // Save the current editor content
-                currentLinearNotesData.content = linearNotesEditor.getContents();
-                currentLinearNotesData.timestamp = new Date().toISOString();
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentLinearNotesData});
             }
             return;
         }
-        
+
         if (!currentLinearNotesData || !linearNotesEditor) return;
-        
+
         // Save the current editor content
         currentLinearNotesData.content = linearNotesEditor.getContents();
         currentLinearNotesData.timestamp = new Date().toISOString();
-        
+
         const json = JSON.stringify(currentLinearNotesData, null, 2);
-        const writable = await currentLinearNotesHandle.createWritable();
-        await writable.write(json);
-        await writable.close();
+        try {
+            const writable = await currentLinearNotesHandle.createWritable();
+            await writable.write(json);
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving linear notes:', err);
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, json);
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for linear notes:', err2);
+                }
+            }
+        }
     }
 
     let currentLinksHandle = null;
@@ -7022,18 +7163,44 @@
 
     async function saveLinksData() {
         if (!currentLinksHandle) {
+            currentLinksData.timestamp = new Date().toISOString();
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentLinksData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err) {
+                    console.error('Direct write failed for links:', err);
+                }
+            }
             if (ipcRenderer && currentNoteFileName) {
-                currentLinksData.timestamp = new Date().toISOString();
                 ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentLinksData});
             }
             return;
         }
-        
+
         if (!currentLinksData) return;
         currentLinksData.timestamp = new Date().toISOString();
-        const writable = await currentLinksHandle.createWritable();
-        await writable.write(JSON.stringify(currentLinksData, null, 2));
-        await writable.close();
+        try {
+            const writable = await currentLinksHandle.createWritable();
+            await writable.write(JSON.stringify(currentLinksData, null, 2));
+            await writable.close();
+        } catch (err) {
+            console.error('Error saving links:', err);
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentLinksData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                    showNotification('Saved to ' + currentFileName);
+                    return;
+                } catch (err2) {
+                    console.error('Direct write also failed for links:', err2);
+                }
+            }
+        }
     }
 
     function getEmbedUrl(url) {

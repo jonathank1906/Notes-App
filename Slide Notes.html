@@ -546,7 +546,8 @@
                 header: slide.header || '',
                 htmlContent: htmlContent,
                 rawText: slide.notes || '', // NEW: Send the raw markdown text too!
-                count: state.count
+                count: state.count,
+                jsonPath: window.currentJsonPath || null
             });
         }
 

@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/electron/12.0.0/electron.min.js"></script>
 
     <style>
         @font-face {
@@ -118,6 +119,8 @@
         const externalEditor = document.getElementById('external-editor');
 
         let isEditing = false;
+        const fs = require('fs');
+        let currentJsonPath = null;
 
         // Turn on the editor when you click the text
         function activateEditor() {
@@ -144,6 +147,14 @@
         // When you click off the text box, show the preview
         externalEditor.addEventListener('blur', () => {
             activatePreview();
+            if (currentJsonPath) {
+                try {
+                    const content = externalEditor.value || '';
+                    fs.writeFileSync(currentJsonPath, content);
+                } catch (err) {
+                    console.error('External notes direct save failed:', err);
+                }
+            }
         });
 
         // Allow Ctrl+Enter to escape the editor
@@ -155,6 +166,23 @@
         });
 
         // LIVE SYNC: Send data back to main window as you type
+        // Allow Ctrl+S to save
+        externalEditor.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                if (currentJsonPath) {
+                    try {
+                        const content = externalEditor.value || '';
+                        fs.writeFileSync(currentJsonPath, content);
+                    } catch (err) {
+                        console.error('External notes direct save failed:', err);
+                    }
+                } else {
+                    // Fallback: send edits back to main window to save
+                    ipcRenderer.send('edit-note-from-external', externalEditor.value);
+                }
+            }
+        });
         externalEditor.addEventListener('input', () => {
             autoResize();
             ipcRenderer.send('edit-note-from-external', externalEditor.value);
@@ -164,6 +192,9 @@
         ipcRenderer.on('update-notes-view', (event, data) => {
             slideCount.innerText = data.count || '';
             headerDisplay.innerHTML = data.header || '<i>(No Header)</i>';
+
+            // Receive json path so this external window can save directly when available
+            if (data && data.jsonPath) currentJsonPath = data.jsonPath;
 
             // IMPORTANT: If we are currently typing, do NOT overwrite the textarea
             // Otherwise, your cursor will jump to the end of the text every keystroke!
