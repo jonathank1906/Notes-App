@@ -3934,50 +3934,93 @@
         showNotification('Loaded note');
     }
     
-    // Copy selected objects
+    // Offset state to shift objects when pasting multiple times
+    window.pasteOffset = window.pasteOffset || 20;
+
+    // Copy selected objects (same-window only)
     function copySelection() {
         if (!fabricCanvas) return;
-        const activeObjects = fabricCanvas.getActiveObjects();
-        if (activeObjects.length === 0) return;
-        
-        const active = fabricCanvas.getActiveObject();
-        if (!active || !active.clone) return;
-        active.clone((cloned) => {
-            clipboard = cloned;
-        }, ['isTable', 'tableRows', 'tableCols']);
+        const activeObject = fabricCanvas.getActiveObject();
+        if (!activeObject) return;
+
+        // reset offset for a fresh copy
+        window.pasteOffset = 20;
+
+        // Save to local internal clipboard (fast same-window paste)
+        if (typeof activeObject.clone === 'function') {
+            activeObject.clone((cloned) => {
+                clipboard = cloned;
+            }, ['isTable', 'tableRows', 'tableCols']);
+        } else {
+            // Fallback: serialize object(s)
+            try {
+                clipboard = { json: activeObject.toObject(['isTable', 'tableRows', 'tableCols']) };
+            } catch (err) { clipboard = null; }
+        }
     }
 
-    // Paste from clipboard
+    // Paste from internal clipboard (same-window)
     function pasteFromClipboard() {
         if (!clipboard) return;
-        
-        clipboard.clone((clonedObj) => {
-            fabricCanvas.discardActiveObject();
-            clonedObj.set({
-                left: clonedObj.left + 10,
-                top: clonedObj.top + 10,
-                evented: true,
-            });
-            
-            if (clonedObj.type === 'activeSelection') {
-                clonedObj.canvas = fabricCanvas;
-                clonedObj.forEachObject((obj) => {
+
+        // If clipboard is a serialized JSON object
+        if (clipboard.json) {
+            fabric.util.enlivenObjects([clipboard.json], function(enlivened) {
+                if (!enlivened || enlivened.length === 0) return;
+                fabricCanvas.discardActiveObject();
+
+                const obj = enlivened[0];
+                obj.set({ left: (obj.left || 0) + window.pasteOffset, top: (obj.top || 0) + window.pasteOffset, evented: true });
+
+                if (obj.type === 'activeSelection') {
+                    obj.canvas = fabricCanvas;
+                    obj.forEachObject(function(inner) { fabricCanvas.add(inner); });
+                    obj.setCoords();
+                } else {
                     fabricCanvas.add(obj);
+                }
+
+                window.pasteOffset += 20;
+                fabricCanvas.setActiveObject(obj);
+                fabricCanvas.requestRenderAll();
+
+                hasUnsavedChanges = true;
+                updateSaveStatusIndicator();
+                addToUndoStack();
+            }, ['isTable', 'tableRows', 'tableCols']);
+
+            return;
+        }
+
+        // Legacy cloned object stored in memory
+        if (typeof clipboard.clone === 'function') {
+            clipboard.clone((clonedObj) => {
+                fabricCanvas.discardActiveObject();
+                clonedObj.set({
+                    left: (clonedObj.left || 0) + window.pasteOffset,
+                    top: (clonedObj.top || 0) + window.pasteOffset,
+                    evented: true,
                 });
-                clonedObj.setCoords();
-            } else {
-                fabricCanvas.add(clonedObj);
-            }
-            
-            clipboard.top += 10;
-            clipboard.left += 10;
-            fabricCanvas.setActiveObject(clonedObj);
-            fabricCanvas.requestRenderAll();
-            
-            hasUnsavedChanges = true;
-            updateSaveStatusIndicator();
-            addToUndoStack();
-        }, ['isTable', 'tableRows', 'tableCols']);
+
+                if (clonedObj.type === 'activeSelection') {
+                    clonedObj.canvas = fabricCanvas;
+                    clonedObj.forEachObject((obj) => {
+                        fabricCanvas.add(obj);
+                    });
+                    clonedObj.setCoords();
+                } else {
+                    fabricCanvas.add(clonedObj);
+                }
+
+                window.pasteOffset += 20;
+                fabricCanvas.setActiveObject(clonedObj);
+                fabricCanvas.requestRenderAll();
+
+                hasUnsavedChanges = true;
+                updateSaveStatusIndicator();
+                addToUndoStack();
+            }, ['isTable', 'tableRows', 'tableCols']);
+        }
     }
 
     // Handle text paste from external sources
@@ -4062,37 +4105,17 @@
         });
     }
 
-    // 1. New trigger for Ctrl+V (Uses Electron's native clipboard)
+    // 1. New trigger for Ctrl+V (same-window paste)
     async function triggerExternalPaste() {
         if (!fabricCanvas) return;
 
-        // Try internal Fabric clipboard first (for copied drawing strokes/text boxes)
+        // Prefer internal memory clipboard first
         if (clipboard) {
             pasteFromClipboard();
             return;
         }
 
-        // Try Electron Native Clipboard (Robust for OS images & text)
-        if (typeof window.require !== 'undefined') {
-            try {
-                const { clipboard: electronClipboard } = window.require('electron');
-                const nativeImage = electronClipboard.readImage();
-                if (nativeImage && typeof nativeImage.isEmpty === 'function' && !nativeImage.isEmpty()) {
-                    const buffer = nativeImage.toPNG();
-                    fabricCanvas.discardActiveObject();
-                    await saveAndAddFabricImage(buffer, 'pasted_image.png', null);
-                    return;
-                }
-
-                const text = electronClipboard.readText();
-                if (text && text.trim().length > 0) {
-                    pasteTextIntoFabric(text);
-                    return;
-                }
-            } catch (err) {
-                console.error('Electron clipboard read failed:', err);
-            }
-        }
+        // No OS/system clipboard access for now; rely on DOM paste events handled elsewhere
     }
 
     // 2. Helper to spawn text in the center of the screen
@@ -4128,7 +4151,7 @@
         addToUndoStack();
     }
 
-    // 3. Updated DOM Paste Fallback (For Right Click -> Paste)
+    // 3. DOM Paste Fallback (for images/text pasted via keyboard or context menu)
     async function handleExternalPaste(e) {
         // Stop if a text object is already actively being typed into
         if (!fabricCanvas || (fabricCanvas.getActiveObject() && fabricCanvas.getActiveObject().isEditing)) return;
@@ -4141,6 +4164,7 @@
         const clipboardData = e.clipboardData || window.clipboardData;
         if (!clipboardData) return;
 
+        // First, look for image items
         const items = clipboardData.items || [];
         let imagePasted = false;
 
@@ -4162,10 +4186,17 @@
 
         if (imagePasted) return;
 
+        // Otherwise, paste plain text into Fabric
         const text = clipboardData.getData('text/plain');
         if (text) {
             e.preventDefault();
             pasteTextIntoFabric(text);
+        }
+
+        // If nothing else, try internal memory clipboard (paste-from-memory via context menu)
+        if (!imagePasted && !text && clipboard) {
+            e.preventDefault();
+            pasteFromClipboard();
         }
     }
     // Convert old canvas data to Fabric.js format
