@@ -2868,6 +2868,23 @@
         } catch (err) {}
     })();
 
+    // Keyboard shortcut: Ctrl+Shift+L to toggle sidebar
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'l') {
+            e.preventDefault();
+            const sidebar = document.getElementById('linear-sidebar');
+            const toggle = document.getElementById('linear-sidebar-toggle');
+            if (!sidebar) return;
+            sidebar.classList.toggle('active');
+            if (toggle) toggle.classList.toggle('active');
+            if (sidebar.classList.contains('active')) {
+                if (toggle) toggle.style.left = (sidebar.offsetWidth + 10) + 'px';
+            } else {
+                if (toggle) toggle.style.left = '10px';
+            }
+        }
+    });
+
     const canvas = document.getElementById('canvas');
 
     // Fabric.js canvas
@@ -9335,7 +9352,6 @@
     const linearNotesPage = document.createElement('div');
     linearNotesPage.id = 'linear-notes-page';
     linearNotesPage.innerHTML = `
-        <button id="linear-sidebar-toggle" onclick="toggleLinearSidebar()">☰</button>
         <div id="linear-sidebar">
             <div id="linear-resizer"></div>
             <div id="linear-toc-list"></div>
@@ -9378,9 +9394,19 @@
             const sidebar = document.getElementById('linear-sidebar');
             const toggle = document.getElementById('linear-sidebar-toggle');
             if (!sidebar) return;
-            const newWidth = Math.max(150, Math.min(e.clientX, Math.floor(window.innerWidth * 0.8)));
-            sidebar.style.width = newWidth + 'px';
-            if (sidebar.classList.contains('active') && toggle) toggle.style.left = (newWidth + 10) + 'px';
+            const rawWidth = Math.min(e.clientX, Math.floor(window.innerWidth * 0.8));
+            // allow closing by dragging fully left
+            const closeThreshold = 80; // px
+            if (rawWidth < closeThreshold) {
+                // close the sidebar while dragging left
+                sidebar.classList.remove('active');
+                if (toggle) toggle.classList.remove('active');
+                if (toggle) toggle.style.left = '10px';
+            } else {
+                const newWidth = Math.max(150, rawWidth);
+                sidebar.style.width = newWidth + 'px';
+                if (sidebar.classList.contains('active') && toggle) toggle.style.left = (newWidth + 10) + 'px';
+            }
         });
 
         document.addEventListener('mouseup', () => {
