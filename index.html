@@ -8576,8 +8576,8 @@
     let dragCounter = 0;
     
     document.body.addEventListener('dragenter', (e) => {
-        // Disable drag and drop in linear notes page
-        if (document.getElementById('linear-notes-page').classList.contains('active')) {
+        // Disable drag and drop in linear notes page or when the home screen is visible
+        if (document.getElementById('linear-notes-page').classList.contains('active') || !document.getElementById('home-screen').classList.contains('hidden')) {
             return;
         }
         e.preventDefault();
@@ -8588,8 +8588,8 @@
     });
     
     document.body.addEventListener('dragover', (e) => {
-        // Disable drag and drop in linear notes page
-        if (document.getElementById('linear-notes-page').classList.contains('active')) {
+        // Disable drag and drop in linear notes page or when the home screen is visible
+        if (document.getElementById('linear-notes-page').classList.contains('active') || !document.getElementById('home-screen').classList.contains('hidden')) {
             return;
         }
         e.preventDefault();
@@ -8597,8 +8597,8 @@
     });
     
     document.body.addEventListener('drop', async (e) => {
-        // Disable drag and drop in linear notes page
-        if (document.getElementById('linear-notes-page').classList.contains('active')) {
+        // Disable drag and drop in linear notes page or when the home screen is visible
+        if (document.getElementById('linear-notes-page').classList.contains('active') || !document.getElementById('home-screen').classList.contains('hidden')) {
             return;
         }
         e.preventDefault();
@@ -9218,7 +9218,8 @@
     const dropOverlay = document.createElement('div');
     dropOverlay.id = 'drop-overlay';
     dropOverlay.innerHTML = '<div id="drop-message">Drop JSON file to open</div>';
-    document.body.appendChild(dropOverlay);
+    // Do not append the drop overlay to the document — keep the element for safe references
+    // (overlay intentionally disabled so it won't appear in canvas or home views)
 
     // Create flashcard page
     const flashcardPage = document.createElement('div');
