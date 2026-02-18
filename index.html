@@ -1998,6 +1998,53 @@
         #linear-notes-page .ql-editor.ql-blank::before {
             color: #666;
         }
+        /* --- LINEAR NOTES SIDEBAR --- */
+        #linear-sidebar-toggle {
+            position: fixed;
+            top: 60px; /* Aligned below the top toolbar */
+            left: 10px;
+            z-index: 10002;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-size: 20px;
+            padding: 4px 10px;
+            cursor: pointer;
+            color: #888;
+            transition: left 0.2s ease, color 0.2s, background 0.2s;
+        }
+        #linear-sidebar-toggle:hover { color: #fff; background: #222; }
+        #linear-sidebar-toggle.active { left: 260px; }
+
+        #linear-sidebar {
+            position: fixed; top: 0; left: 0; width: 250px; height: 100%;
+            background: #111; border-right: 1px solid #333; z-index: 10001;
+            transform: translateX(-100%); transition: transform 0.2s ease;
+            display: flex; flex-direction: column; padding-top: 0; /* start content at top */
+            min-width: 150px; max-width: 80vw;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+        }
+        #linear-sidebar.active { transform: translateX(0); }
+        
+        #linear-resizer { width: 10px; height: 100%; position: absolute; right: 0; top: 0; cursor: col-resize; z-index: 100; background: transparent; }
+        #linear-resizer:hover { background: rgba(255, 255, 255, 0.1); }
+        
+        #linear-toc-list { overflow-y: auto; flex: 1; padding: 0 10px 10px 10px; }
+        #linear-toc-list::-webkit-scrollbar { width: 5px; }
+        #linear-toc-list::-webkit-scrollbar-thumb { background: #333; }
+        
+        #linear-notes-page .toc-item { padding: 8px; border-bottom: 1px solid #222; cursor: pointer; font-size: 13px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; transition: all 0.15s ease; }
+        #linear-notes-page .toc-item:hover { background: #2a2a2a; color: #fff; border-radius: 4px; }
+        
+        /* removed H-level badge; styling kept for compatibility if needed */
+        #linear-notes-page .toc-num { display: none; }
+        
+        #linear-notes-page .toc-item.level-1 { padding-left: 8px; font-weight: 600; font-size: 14px; color: #ddd; }
+        #linear-notes-page .toc-item.level-2 { padding-left: 20px; font-size: 13px; }
+        #linear-notes-page .toc-item.level-3 { padding-left: 32px; font-size: 13px; }
+        #linear-notes-page .toc-item.level-4 { padding-left: 44px; font-size: 12px; }
+        #linear-notes-page .toc-item.level-5 { padding-left: 56px; font-size: 12px; }
+        #linear-notes-page .toc-item.level-6 { padding-left: 68px; font-size: 12px; }
         /* Reduce bullet indentation */
         #linear-notes-page .ql-editor li {
             padding-left: 0em;
@@ -7043,6 +7090,7 @@
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
                     saveLinearNotesData();
+                    try { updateLinearTOC(); } catch (e) { /* ignore if not ready */ }
                 }, 1000); // Save 1 second after user stops typing
             });
         }
@@ -7055,9 +7103,11 @@
         try {
             const processedContent = processMathInDelta(currentLinearNotesData.content);
             linearNotesEditor.setContents(processedContent);
+            setTimeout(() => { try { updateLinearTOC(); } catch (e) {} }, 100);
         } catch (err) {
             console.error('Error processing math on load:', err);
             linearNotesEditor.setContents(currentLinearNotesData.content);
+            setTimeout(() => { try { updateLinearTOC(); } catch (e) {} }, 100);
         }
     }
 
@@ -9285,6 +9335,11 @@
     const linearNotesPage = document.createElement('div');
     linearNotesPage.id = 'linear-notes-page';
     linearNotesPage.innerHTML = `
+        <button id="linear-sidebar-toggle" onclick="toggleLinearSidebar()">☰</button>
+        <div id="linear-sidebar">
+            <div id="linear-resizer"></div>
+            <div id="linear-toc-list"></div>
+        </div>
         <div class="linear-notes-container">
             <div class="linear-notes-header">
                 <h1>Linear Notes</h1>
@@ -9293,6 +9348,77 @@
         </div>
     `;
     document.body.appendChild(linearNotesPage);
+
+    // --- LINEAR SIDEBAR LOGIC (from Slide Notes) ---
+    function toggleLinearSidebar() {
+        const sidebar = document.getElementById('linear-sidebar');
+        const toggle = document.getElementById('linear-sidebar-toggle');
+        if (!sidebar || !toggle) return;
+        sidebar.classList.toggle('active');
+        toggle.classList.toggle('active');
+        if (sidebar.classList.contains('active')) {
+            toggle.style.left = (sidebar.offsetWidth + 10) + 'px';
+        } else {
+            toggle.style.left = '10px';
+        }
+    }
+
+    // Resize handling
+    (function() {
+        let isResizingLinearSidebar = false;
+        const resizer = document.getElementById('linear-resizer');
+        resizer && resizer.addEventListener('mousedown', (e) => {
+            isResizingLinearSidebar = true;
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizingLinearSidebar) return;
+            const sidebar = document.getElementById('linear-sidebar');
+            const toggle = document.getElementById('linear-sidebar-toggle');
+            if (!sidebar) return;
+            const newWidth = Math.max(150, Math.min(e.clientX, Math.floor(window.innerWidth * 0.8)));
+            sidebar.style.width = newWidth + 'px';
+            if (sidebar.classList.contains('active') && toggle) toggle.style.left = (newWidth + 10) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizingLinearSidebar) {
+                isResizingLinearSidebar = false;
+                document.body.style.cursor = '';
+            }
+        });
+    })();
+
+    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+
+    function updateLinearTOC() {
+        const tocList = document.getElementById('linear-toc-list');
+        if (!tocList) return;
+        tocList.innerHTML = '';
+        const editorEl = document.querySelector('#linear-notes-editor .ql-editor');
+        if (!editorEl) return;
+        const headings = editorEl.querySelectorAll('h1,h2,h3,h4,h5,h6');
+        if (headings.length === 0) {
+            tocList.innerHTML = '<div style="color:#666; padding:20px; font-size:12px; text-align:center; font-style: italic;">No headings found. Add H1-H6 tags to your notes to build a hierarchy.</div>';
+            return;
+        }
+        headings.forEach((heading, index) => {
+            const level = parseInt(heading.tagName.substring(1)) || 1;
+            const text = heading.textContent || '(Empty Heading)';
+            const item = document.createElement('div');
+            item.className = `toc-item level-${level}`;
+            item.innerHTML = `\n                <span class="toc-text">${escapeHtml(text)}</span>\n            `;
+            item.onclick = () => {
+                // Remove existing highlights
+                Array.from(tocList.querySelectorAll('.toc-item')).forEach(el => el.style.borderLeft = 'none');
+                item.style.borderLeft = '3px solid #8af';
+                heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+            tocList.appendChild(item);
+        });
+    }
 
     // Set default tool to select
     setTool('select');
