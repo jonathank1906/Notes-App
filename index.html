@@ -2415,6 +2415,149 @@
         .ql-editor .katex {
             color: #e0e0e0;
         }
+        /* Test Page Styles */
+        #test-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            z-index: 100;
+            overflow-y: auto;
+            color: #e0e0e0;
+        }
+        #test-page.active { display: block; }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 30px;
+            padding-top: 80px; /* space for toggle */
+        }
+        
+        .test-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #8af;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 150;
+        }
+        .test-mode-toggle:hover { background: #333; border-color: #555; }
+        
+        /* Typography for Test View mimicking your example */
+        .test-view-section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 24px; font-weight: 600; letter-spacing: -0.02em;
+            margin-top: 40px; margin-bottom: 16px;
+        }
+        .test-view-section-title:first-child { margin-top: 0; }
+        .test-view-id-badge {
+            color: #8af; font-family: monospace; font-size: 18px;
+        }
+        
+        /* Card container */
+        .test-q-card {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            display: flex; flex-direction: column; gap: 24px;
+            border-radius: 12px; border: 1px solid #333;
+            padding: 24px; margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        /* Sections inside a single continuous card */
+        .test-q-section { display: flex; flex-direction: column; gap: 8px; }
+        .test-q-section + .test-q-section { padding-top: 10px; margin-top: 6px; }
+        .test-q-header {
+            font-weight: 600; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 16px;
+        }
+        .test-q-body { display: flex; flex-direction: column; gap: 12px; }
+        .test-q-text { font-weight: 500; margin-bottom: 8px; font-size: 15px;}
+        
+        /* Options */
+        .test-options-list { display: flex; flex-direction: column; gap: 8px; }
+        .test-option {
+            display: flex; align-items: center; gap: 12px;
+            border-radius: 8px; border: 2px solid #333;
+            padding: 12px 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .test-option:hover:not(.locked) { background: rgba(255,255,255,0.05); }
+        .test-option-letter {
+            display: flex; width: 28px; height: 28px; flex-shrink: 0;
+            align-items: center; justify-content: center;
+            border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+            font-size: 12px; font-weight: 600; transition: all 0.2s;
+        }
+        .test-option-text { font-size: 14px; }
+        
+        /* HIDE DEFAULT RADIO BUTTON */
+        .test-option input[type="radio"] {
+            display: none;
+        }
+        
+        /* Option States */
+        .test-option.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+        .test-option.selected .test-option-letter { border-color: #3b82f6; background: #3b82f6; color: #ffffff; }
+        
+        .test-option.correct { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); cursor: default; }
+        .test-option.correct .test-option-letter { border-color: #22c55e; background: #22c55e; color: #fff; }
+        
+        .test-option.incorrect { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); cursor: default; }
+        .test-option.incorrect .test-option-letter { border-color: #ef4444; background: #ef4444; color: #fff; }
+        
+        /* Explanation Block */
+        .test-explanation {
+            border-radius: 8px; padding: 12px; font-size: 14px;
+            background: rgba(34, 197, 94, 0.1); color: #86efac;
+            display: flex; flex-direction: column; gap: 8px;
+            margin-top: 12px; border: 1px solid #22c55e;
+            animation: slideDownY 0.18s ease forwards;
+            transform-origin: center top;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        
+        /* Submit Button */
+        .test-submit-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; border-radius: 6px; font-size: 14px; font-weight: 600;
+            background: #e0e0e0; color: #121212; border: none;
+            height: 36px; cursor: pointer; transition: 0.2s; align-self: flex-start;
+            padding: 0 16px;
+        }
+        .test-submit-btn:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
+        .test-submit-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+        /* Test Edit Mode Styles */
+        .test-edit-container { display: none; }
+        .test-edit-item {
+            background: #2b2b2b; border: 2px solid #6a6a6a; border-radius: 12px;
+            padding: 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .test-edit-row { display: flex; gap: 15px; align-items: center; }
+        .test-edit-row > div { flex: 1; }
+        .test-edit-input {
+            width: 100%; background: #1a1a1a; border: 1px solid #444; color: #ddd;
+            padding: 10px; border-radius: 4px; font-size: 14px; box-sizing: border-box;
+        }
+        .test-edit-textarea {
+            width: 100%; min-height: 60px; background: #1a1a1a; border: 1px solid #444;
+            color: #ddd; padding: 10px; border-radius: 4px; font-family: inherit; font-size: 14px;
+            resize: vertical; box-sizing: border-box;
+        }
+        .test-edit-input:focus, .test-edit-textarea:focus { border-color: #8af; outline: none; }
+        .test-edit-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .test-add-btn { background: #252; border: 1px solid #353; color: #8f8; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 20px;}
+        .test-add-btn:hover { background: #353; }
+
     </style>
 </head>
 <body>
@@ -2741,6 +2884,10 @@
             <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
             Pinboard
         </div>
+        <div class="new-note-option" onclick="createNewNote('test')">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+            Test
+        </div>
     </div>
 
 <div id="links-page">
@@ -2753,6 +2900,16 @@
     <div id="links-board"></div>
 </div>
 
+<div id="test-page">
+    <button class="test-mode-toggle" id="test-mode-toggle" onclick="toggleTestMode()">Edit Mode</button>
+    <div class="test-container" id="test-view-container">
+        </div>
+    <div class="test-container test-edit-container" id="test-edit-container">
+        <button class="test-add-btn" onclick="addTestQuestion()">+ Add Question</button>
+        <div id="test-edit-list"></div>
+    </div>
+</div>
+
 <script>
     // --- Open Slide Notes in New Electron Window ---
     // Ensure Node.js modules are available if running in Electron
@@ -2761,6 +2918,7 @@
     let noteMap = new Map();
     let currentNoteFileName;
     let currentFilePath = null; // <-- store absolute path for direct disk saves from detached windows
+    let isDetachedWindow = false; // flag to indicate a note opened in its own window
     // ---> DETACHED WINDOW SYNC FIX <---
     // Listens for rename broadcasts from other windows
     window.addEventListener('storage', (e) => {
@@ -2790,6 +2948,8 @@
     // IPC listener for loading note in new window
     if (ipcRenderer) {
         ipcRenderer.on('load-note', (event, noteData) => {
+            // Mark this renderer as a detached/note window so we can adjust global shortcuts
+            isDetachedWindow = true;
             openNoteFromData(noteData);
         });
         ipcRenderer.on('save-note', async (event, {fileName, data}) => {
@@ -4320,6 +4480,7 @@
         document.getElementById('todo-page').classList.remove('active');
         document.getElementById('linear-notes-page').classList.remove('active');
         document.getElementById('links-page').classList.remove('active');
+        document.getElementById('test-page').classList.remove('active');
         document.getElementById('btn-save-status').classList.add('hidden');
         
         // Hide toolbar and help button on home screen
@@ -4936,6 +5097,7 @@
                                 'todo': 'To Do',
                                 'linear': 'Linear Notes',
                                 'links': 'Pinboard',
+                                'test': 'Test', // <--- Add this line
                                 'practice': 'Practice Problems',
                                 'exercises': 'Exercises',
                                 'exampractice': 'Exam Practice',
@@ -5076,6 +5238,11 @@
 
             if (data.type === 'links') {
                 previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></div>`;
+                return;
+            }
+
+            if (data.type === 'test') {
+                previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24"><path fill="#fff" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>`;
                 return;
             }
 
@@ -5303,6 +5470,8 @@
             openLinearNotes(fileHandle, data);
         } else if (data.type === 'links') {
             openLinks(fileHandle, data);
+        } else if (data.type === 'test') {
+            openTest(fileHandle, data);
         } else {
             // Load as canvas note
             loadFromFileHandle(fileHandle);
@@ -5327,6 +5496,8 @@
             openLinearNotes(null, data, fileName);
         } else if (type === 'links') {
             openLinks(null, data, fileName);
+        } else if (type === 'test') {
+            openTest(null, data, fileName);
         } else {
             // Load as canvas note
             loadFromData(data);
@@ -5509,6 +5680,14 @@
                     strokes: [],
                     textBoxes: []
                 };
+            } else if (type === 'test') {
+                defaultName = `Test ${formattedDate} ${formattedTime}.json`;
+                blankData = {
+                    type: 'test',
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    questions: []
+                };
             } else if (type === 'exercises') {
                 defaultName = `Exercises ${formattedDate} ${formattedTime}.json`;
                 blankData = {
@@ -5553,7 +5732,7 @@
                 }
 
             // Open the appropriate editor
-            if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note') {
+            if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note' || type === 'test') {
                 if (ipcRenderer) {
                     ipcRenderer.send('open-note-window', { type: type, data: blankData, fileName: defaultName, filePath: fileHandle.path });
                 } else {
@@ -5575,6 +5754,8 @@
                         openLinearNotes(fileHandle, blankData);
                     } else if (type === 'links') {
                         openLinks(fileHandle, blankData);
+                    } else if (type === 'test') {
+                        openTest(fileHandle, blankData);
                     } else if (type === 'note') {
                         // Initialize blank canvas
                         strokes = [];
@@ -6118,6 +6299,327 @@
             }
             alert('Failed to save flashcard');
         }
+    }
+    // --- TEST FUNCTIONS ---
+    let currentTestHandle = null;
+    let currentTestData = null;
+    let isTestEditMode = false;
+
+    function openTest(fileHandle, data, fileName = null) {
+        currentTestHandle = fileHandle;
+        currentTestData = data;
+        isTestEditMode = false;
+        
+        // Hide other screens
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('canvas-container').classList.add('hidden');
+        document.getElementById('flashcard-page').classList.remove('active');
+        document.getElementById('glossary-page').classList.remove('active');
+        document.getElementById('qa-page').classList.remove('active');
+        document.getElementById('todo-page').classList.remove('active');
+        document.getElementById('linear-notes-page').classList.remove('active');
+        document.getElementById('links-page').classList.remove('active');
+        
+        // Show test page
+        document.getElementById('test-page').classList.add('active');
+        document.getElementById('btn-save-status').classList.add('hidden');
+        document.getElementById('toolbar').classList.add('hidden');
+        document.getElementById('help-btn').classList.add('hidden');
+        
+        if (!currentTestData.questions) currentTestData.questions = [];
+        
+        renderTestUI();
+    }
+
+    async function closeTest() {
+        await saveTestData();
+        document.getElementById('test-page').classList.remove('active');
+        currentTestData = null;
+        currentTestHandle = null;
+        showHomeScreen();
+    }
+
+    async function saveTestData() {
+        if (!currentTestHandle) {
+            currentTestData.timestamp = new Date().toISOString();
+            if (currentFilePath) {
+                try {
+                    fs.writeFileSync(currentFilePath, JSON.stringify(currentTestData, null, 2));
+                    hasUnsavedChanges = false;
+                    updateSaveStatusIndicator();
+                } catch (err) { console.error(err); }
+            }
+            if (ipcRenderer && currentNoteFileName) {
+                ipcRenderer.send('save-note', {fileName: currentNoteFileName, data: currentTestData});
+            }
+            return;
+        }
+
+        currentTestData.timestamp = new Date().toISOString();
+        const json = JSON.stringify(currentTestData, null, 2);
+        try {
+            const writable = await currentTestHandle.createWritable();
+            await writable.write(json);
+            await writable.close();
+            hasUnsavedChanges = false;
+        } catch (err) {
+            console.error('Error saving test:', err);
+        }
+    }
+
+    function toggleTestMode() {
+        isTestEditMode = !isTestEditMode;
+        renderTestUI();
+    }
+
+    function renderTestUI() {
+        const toggleBtn = document.getElementById('test-mode-toggle');
+        const viewContainer = document.getElementById('test-view-container');
+        const editContainer = document.getElementById('test-edit-container');
+
+        if (isTestEditMode) {
+            toggleBtn.textContent = 'Practice Mode';
+            viewContainer.style.display = 'none';
+            editContainer.style.display = 'block';
+            renderTestEditUI();
+        } else {
+            toggleBtn.textContent = 'Edit Mode';
+            viewContainer.style.display = 'block';
+            editContainer.style.display = 'none';
+            renderTestViewUI();
+        }
+    }
+
+    // Stores current user selections in memory during the test
+    let testSessionSelections = {};
+
+    function renderTestViewUI() {
+        const container = document.getElementById('test-view-container');
+        container.innerHTML = '';
+
+        if (!currentTestData.questions || currentTestData.questions.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">No questions yet. Switch to Edit Mode to add some.</div>';
+            return;
+        }
+
+        // Group questions by ID (e.g. "2.4")
+        const grouped = {};
+        currentTestData.questions.forEach((q, i) => {
+            const groupKey = q.id || 'Misc';
+            if (!grouped[groupKey]) grouped[groupKey] = [];
+            grouped[groupKey].push({ ...q, globalIndex: i });
+        });
+
+        // Build a single continuous card that contains all questions
+        const mainCard = document.createElement('div');
+        mainCard.className = 'test-q-card';
+
+        for (const [groupKey, questions] of Object.entries(grouped)) {
+            // (No section header or group/topic shown in practice mode)
+
+            questions.forEach((q, localIndex) => {
+                const qSection = document.createElement('div');
+                qSection.className = 'test-q-section';
+
+                const qBody = document.createElement('div');
+                qBody.className = 'test-q-body';
+
+                const qText = document.createElement('div');
+                qText.className = 'test-q-text';
+                try { qText.innerHTML = marked.parse(q.question || ''); } catch (e) { qText.textContent = q.question; }
+
+                const optionsList = document.createElement('div');
+                optionsList.className = 'test-options-list';
+
+                const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+                const opts = q.options || [];
+
+                let submitBtn = document.createElement('button');
+                submitBtn.className = 'test-submit-btn';
+                submitBtn.textContent = 'Submit';
+                submitBtn.disabled = true; // Disabled until selection
+
+                let currentSelection = null;
+                const isAnswered = testSessionSelections[q.globalIndex] !== undefined;
+
+                opts.forEach((optText, optIdx) => {
+                    const optLabel = document.createElement('label');
+                    optLabel.className = 'test-option';
+                    if (isAnswered) optLabel.classList.add('locked');
+
+                    const optInput = document.createElement('input');
+                    optInput.type = 'radio';
+                    optInput.className = 'sr-only';
+                    optInput.name = `quiz-q-${q.globalIndex}`;
+                    optInput.value = optIdx;
+                    if (isAnswered) optInput.disabled = true;
+
+                    const letterSpan = document.createElement('span');
+                    letterSpan.className = 'test-option-letter';
+                    letterSpan.textContent = labels[optIdx] || '?';
+
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'test-option-text';
+                    textSpan.textContent = optText;
+
+                    optLabel.appendChild(optInput);
+                    optLabel.appendChild(letterSpan);
+                    optLabel.appendChild(textSpan);
+
+                    // Re-apply classes if already answered in this session
+                    if (isAnswered) {
+                        const submittedAns = testSessionSelections[q.globalIndex];
+                        if (optIdx === submittedAns) {
+                            if (submittedAns === q.correctAnswer) optLabel.classList.add('correct');
+                            else optLabel.classList.add('incorrect');
+                        } else if (optIdx === q.correctAnswer) {
+                            optLabel.classList.add('correct'); // Show correct answer if they got it wrong
+                        }
+                    }
+
+                    optInput.addEventListener('change', (e) => {
+                        if (isAnswered) return;
+                        // Deselect all
+                        Array.from(optionsList.querySelectorAll('.test-option')).forEach(l => l.classList.remove('selected'));
+                        optLabel.classList.add('selected');
+                        currentSelection = optIdx;
+                        submitBtn.disabled = false;
+                    });
+
+                    optionsList.appendChild(optLabel);
+                });
+
+                submitBtn.onclick = () => {
+                    if (currentSelection === null) return;
+                    testSessionSelections[q.globalIndex] = currentSelection;
+                    renderTestViewUI(); // Re-render to lock states and show explanation
+                };
+
+                qBody.appendChild(qText);
+                qBody.appendChild(optionsList);
+
+                if (!isAnswered) {
+                    qBody.appendChild(submitBtn);
+                } else if (q.explanation) {
+                    const explDiv = document.createElement('div');
+                    explDiv.className = 'test-explanation';
+
+                    const isCorrect = testSessionSelections[q.globalIndex] === q.correctAnswer;
+                    const statusText = isCorrect ? 'Correct!' : 'Incorrect.';
+
+                    explDiv.innerHTML = `<span class="test-explanation-title">${statusText}</span> <span>${escapeHtml(q.explanation)}</span>`;
+
+                    if (!isCorrect) {
+                        explDiv.style.border = '1px solid #ef4444';
+                        explDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                        explDiv.style.color = '#fca5a5';
+                    }
+
+                    qBody.appendChild(explDiv);
+                }
+
+                qSection.appendChild(qBody);
+                mainCard.appendChild(qSection);
+            });
+        }
+
+        container.appendChild(mainCard);
+    }
+
+    function renderTestEditUI() {
+        const listDiv = document.getElementById('test-edit-list');
+        listDiv.innerHTML = '';
+
+        if (!currentTestData.questions) currentTestData.questions = [];
+
+        currentTestData.questions.forEach((q, index) => {
+            const item = document.createElement('div');
+            item.className = 'test-edit-item';
+            
+            item.innerHTML = `
+                <div class="test-edit-row">
+                    <div>
+                        <label style="color:#aaa; font-size:12px; margin-bottom:4px; display:block;">ID (e.g. 2.4)</label>
+                        <input type="text" class="test-edit-input q-id" value="${escapeHtml(q.id || '')}">
+                    </div>
+                    <div>
+                        <label style="color:#aaa; font-size:12px; margin-bottom:4px; display:block;">Group/Topic</label>
+                        <input type="text" class="test-edit-input q-group" value="${escapeHtml(q.group || '')}">
+                    </div>
+                </div>
+                <div>
+                    <label style="color:#8af; font-size:12px; margin-bottom:4px; display:block;">Question Text (Markdown allowed)</label>
+                    <textarea class="test-edit-textarea q-text">${escapeHtml(q.question || '')}</textarea>
+                </div>
+                <div class="options-container" style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="color:#aaa; font-size:12px;">Options & Correct Answer (Check the correct one)</label>
+                    ${(q.options || ['', '', '', '']).map((opt, oIdx) => `
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="radio" name="edit-correct-${index}" value="${oIdx}" ${q.correctAnswer === oIdx ? 'checked' : ''} style="accent-color:#8af; width:18px; height:18px;">
+                            <input type="text" class="test-edit-input q-opt" value="${escapeHtml(opt)}" placeholder="Option ${String.fromCharCode(65+oIdx)}">
+                        </div>
+                    `).join('')}
+                </div>
+                <div>
+                    <label style="color:#aaa; font-size:12px; margin-bottom:4px; display:block;">Explanation</label>
+                    <textarea class="test-edit-textarea q-expl">${escapeHtml(q.explanation || '')}</textarea>
+                </div>
+                <div class="test-edit-actions">
+                    <button class="fc-btn del-btn" onclick="deleteTestQuestion(${index})">Delete Question</button>
+                    <button class="fc-btn edit-toggle" onclick="saveTestEdit(${index}, this)">Save</button>
+                </div>
+            `;
+            listDiv.appendChild(item);
+        });
+    }
+
+    function addTestQuestion() {
+        currentTestData.questions.push({
+            id: '', group: '', question: '', options: ['', '', '', ''], correctAnswer: 0, explanation: ''
+        });
+        saveTestData();
+        renderTestEditUI();
+    }
+
+    function deleteTestQuestion(index) {
+        if(confirm("Delete this question?")) {
+            currentTestData.questions.splice(index, 1);
+            // Also reset session memory so we don't map to wrong indices
+            testSessionSelections = {};
+            saveTestData();
+            renderTestEditUI();
+        }
+    }
+
+    function saveTestEdit(index, btnEl) {
+        const itemEl = btnEl.closest('.test-edit-item');
+        const q = currentTestData.questions[index];
+        
+        q.id = itemEl.querySelector('.q-id').value;
+        q.group = itemEl.querySelector('.q-group').value;
+        q.question = itemEl.querySelector('.q-text').value;
+        q.explanation = itemEl.querySelector('.q-expl').value;
+        
+        const optInputs = itemEl.querySelectorAll('.q-opt');
+        q.options = Array.from(optInputs).map(i => i.value);
+        
+        const checkedRadio = itemEl.querySelector(`input[name="edit-correct-${index}"]:checked`);
+        q.correctAnswer = checkedRadio ? parseInt(checkedRadio.value) : 0;
+
+        // Reset session memory for this question so it can be re-tested
+        delete testSessionSelections[index];
+
+        saveTestData().then(() => {
+            const originalText = btnEl.textContent;
+            btnEl.textContent = 'Saved!';
+            btnEl.style.backgroundColor = '#22c55e';
+            btnEl.style.color = '#000';
+            setTimeout(() => {
+                btnEl.textContent = originalText;
+                btnEl.style.backgroundColor = '';
+                btnEl.style.color = '';
+            }, 1000);
+        });
     }
 
     // --- GLOSSARY FUNCTIONS ---
@@ -8426,6 +8928,13 @@
     // --- KEYBOARD ---
     window.addEventListener('keydown', async (e) => {
         if (e.repeat) return;
+        // If this window is a detached/note window opened by the main app,
+        // suppress global Escape handling to avoid returning to the home screen.
+        if (isDetachedWindow && e.key === 'Escape') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return;
+        }
         
         // Keep existing flashcard, glossary, qa, todo handlers
         const flashcardPage = document.getElementById('flashcard-page');
@@ -8460,6 +8969,8 @@
         if (qaPage && qaPage.classList.contains('active')) { if (e.key === 'Escape') closeQA(); return; }
         const todoPage = document.getElementById('todo-page');
         if (todoPage && todoPage.classList.contains('active')) { if (e.key === 'Escape') closeTodo(); return; }
+        const testPage = document.getElementById('test-page');
+        if (testPage && testPage.classList.contains('active')) { if (e.key === 'Escape') closeTest(); return; }
 
         let isEditing = false;
         if (fabricCanvas && typeof fabricCanvas.getActiveObject === 'function') {
@@ -9187,6 +9698,10 @@
         @keyframes slideDown {
             from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
             to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes slideDownY {
+            from { transform: translateY(-8px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
         @keyframes slideUp {
             from { transform: translateX(-50%) translateY(0); opacity: 1; }
