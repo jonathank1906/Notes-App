@@ -2558,6 +2558,112 @@
         .test-add-btn { background: #252; border: 1px solid #353; color: #8f8; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 20px;}
         .test-add-btn:hover { background: #353; }
 
+        /* Sidebar Add Menu and Divider styles */
+        #btn-add-sidebar {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s, background 0.15s;
+        }
+        #btn-add-sidebar:hover {
+            background: var(--btn-hover);
+            color: var(--accent);
+        }
+        #sidebar-add-menu {
+            position: absolute;
+            top: 40px;
+            right: 20px;
+            background: #2a2a2a;
+            border: 1px solid var(--ui-border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            flex-direction: column;
+            min-width: 140px;
+            overflow: hidden;
+        }
+        #sidebar-add-menu.show {
+            display: flex;
+        }
+        .sidebar-add-option {
+            padding: 10px 14px;
+            color: var(--accent);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.15s;
+        }
+        .sidebar-add-option:hover {
+            background: #333;
+            color: #fff;
+        }
+        .divider-item {
+            padding: 8px 12px 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            color: #888;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            transition: color 0.15s;
+        }
+        .divider-item:hover {
+            color: #ccc;
+        }
+        .divider-caret {
+            width: 12px;
+            height: 12px;
+            margin-right: 6px;
+            transition: transform 0.2s ease;
+        }
+        .divider-caret.collapsed {
+            transform: rotate(-90deg);
+        }
+        .divider-add-btn {
+            background: transparent;
+            border: none;
+            color: transparent; 
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s, background 0.15s;
+        }
+        .divider-item:hover .divider-add-btn {
+            color: #888;
+        }
+        .divider-add-btn:hover {
+            background: #333;
+            color: #fff !important;
+        }
+        .subject-item.child-subject {
+            padding-left: 36px;
+            position: relative;
+        }
+        .subject-item.child-subject::before {
+            content: '';
+            position: absolute;
+            left: 21px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #333;
+        }
+
     </style>
 </head>
 <body>
@@ -2592,8 +2698,21 @@
                 </div>
             </div>
             <div id="sidebar-divider"></div>
-            <div id="sidebar-subjects-section">
-                <div id="sidebar-title">Subjects</div>
+            <div id="sidebar-subjects-section" style="display:flex; justify-content:space-between; align-items:center; padding: 20px 20px 0 20px; position:relative;">
+                <div id="sidebar-title" style="margin:0;">Subjects</div>
+                <button id="btn-add-sidebar" onclick="toggleSidebarAddMenu(event)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                </button>
+                <div id="sidebar-add-menu">
+                    <div class="sidebar-add-option" onclick="createNewSubject()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        Add Subject
+                    </div>
+                    <div class="sidebar-add-option" onclick="createNewDivider()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+                        Add Divider
+                    </div>
+                </div>
             </div>
             <div id="subjects-list">
                 <!-- Subjects will be dynamically generated -->
@@ -3086,6 +3205,7 @@
     let currentFileHandle = null;
     let currentNoteType = 'note';
     let allSubjects = [];
+    let allDividers = []; // Track dividers and their collapsible state
     let activeSubject = null;
     let allNotesLoaded = false;
     let currentView = 'grid';
@@ -4600,6 +4720,16 @@
             const fullPath = path.join(this.path, name);
             if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
         }
+        async getDirectoryHandle(name, options = {}) {
+            const fullPath = path.join(this.path, name);
+            if (!fs.existsSync(fullPath) && !options.create) {
+                throw new Error('Directory not found');
+            }
+            if (options.create && !fs.existsSync(fullPath)) {
+                fs.mkdirSync(fullPath, { recursive: true });
+            }
+            return new NodeDirectoryHandle(fullPath, name);
+        }
     }
 
     // --- SETTINGS LOGIC --- //
@@ -4673,47 +4803,88 @@
         updateNewNoteButtonVisibility();
     }
 
+    async function countNotesInSubject(subjectHandle) {
+        let count = 0;
+        const pdfBaseNames = new Set();
+        const jsonFiles = [];
+        
+        try {
+            for await (const fileEntry of subjectHandle.values()) {
+                if (fileEntry.kind === 'file') {
+                    const nameLower = fileEntry.name.toLowerCase();
+                    if (nameLower.endsWith('.pdf')) {
+                        pdfBaseNames.add(nameLower.slice(0, -4));
+                    } else if (nameLower.endsWith('.json')) {
+                        jsonFiles.push(fileEntry);
+                    }
+                }
+            }
+            const unlinkedJsonFiles = jsonFiles.filter(f => !pdfBaseNames.has(f.name.slice(0, -5).toLowerCase()));
+            count = unlinkedJsonFiles.length;
+        } catch (err) {
+            console.error('Error counting notes:', err);
+        }
+        return count;
+    }
+
+    function getSubjectColor(index) {
+        // Greyscale theme - return grey for all subjects (keeps original look)
+        return '#666666';
+    }
+
     async function loadSubjects() {
         try {
             const subjects = [];
+            const dividers = [];
             
             for await (const entry of rootDirHandle.values()) {
-                if (entry.kind === 'directory') {
-                    if (entry.name === 'Assets') continue;
+                if (entry.kind === 'directory' && entry.name !== 'Assets') {
                     
-                    const jsonFiles = [];
-                    const pdfBaseNames = new Set();
-                    
+                    let isDivider = false;
                     try {
-                        for await (const fileEntry of entry.values()) {
-                            if (fileEntry.kind === 'file') {
-                                const nameLower = fileEntry.name.toLowerCase();
-                                if (nameLower.endsWith('.pdf')) {
-                                    pdfBaseNames.add(nameLower.slice(0, -4));
-                                } else if (nameLower.endsWith('.json')) {
-                                    jsonFiles.push(fileEntry);
-                                }
+                        // If it has a .divider file inside, treat the folder as a Divider
+                        await entry.getFileHandle('.divider');
+                        isDivider = true;
+                    } catch (e) {}
+                    
+                    if (isDivider) {
+                        // Persist collapse state if it existed previously
+                        const existingDivider = allDividers.find(d => d.name === entry.name);
+                        dividers.push({
+                            name: entry.name,
+                            handle: entry,
+                            collapsed: existingDivider ? existingDivider.collapsed : true
+                        });
+                        
+                        // Load sub-folders as child subjects
+                        for await (const subEntry of entry.values()) {
+                            if (subEntry.kind === 'directory') {
+                                const count = await countNotesInSubject(subEntry);
+                                subjects.push({
+                                    name: subEntry.name,
+                                    handle: subEntry,
+                                    dividerName: entry.name,
+                                    count: count,
+                                    color: getSubjectColor(subjects.length)
+                                });
                             }
                         }
-                    } catch (err) {
-                        console.error('Error reading folder:', entry.name, err);
+                    } else {
+                        // Standard root-level Subject
+                        const count = await countNotesInSubject(entry);
+                        subjects.push({
+                            name: entry.name,
+                            handle: entry,
+                            dividerName: null,
+                            count: count,
+                            color: getSubjectColor(subjects.length)
+                        });
                     }
-                    
-                    // Filter out JSONs that share a name with a PDF
-                    const unlinkedJsonFiles = jsonFiles.filter(f => {
-                        return !pdfBaseNames.has(f.name.slice(0, -5).toLowerCase());
-                    });
-                    
-                    subjects.push({
-                        name: entry.name,
-                        handle: entry,
-                        count: unlinkedJsonFiles.length, // Only count standalone notes!
-                        color: getSubjectColor(subjects.length)
-                    });
                 }
             }
             
-            allSubjects = subjects;
+            allSubjects = subjects.sort((a,b) => a.name.localeCompare(b.name));
+            allDividers = dividers.sort((a,b) => a.name.localeCompare(b.name));
             allNotesLoaded = false;
             displaySubjects();
             
@@ -4723,16 +4894,11 @@
         }
     }
 
-    function getSubjectColor(index) {
-        // Greyscale theme - return grey for all subjects
-        return '#666666';
-    }
-
     function displaySubjects() {
         const subjectsList = document.getElementById('subjects-list');
         subjectsList.innerHTML = '';
         
-        // Update Notes item (above divider)
+        // Render All Notes Item
         const notesItem = document.getElementById('sidebar-notes-item');
         if (notesItem) {
             const isActive = activeSubject === null;
@@ -4753,8 +4919,8 @@
             };
         }
         
-        // Add subject items
-        for (const subject of allSubjects) {
+        // Helper to construct a clickable Subject row
+        const createSubjectEl = (subject) => {
             const isActive = activeSubject === subject;
             const subjectItem = document.createElement('div');
             subjectItem.className = 'subject-item' + (isActive ? ' active' : '');
@@ -4768,11 +4934,161 @@
                 await loadNotesForSubject(subject);
                 displaySubjects();
             };
-            subjectsList.appendChild(subjectItem);
+            return subjectItem;
+        };
+
+        // 1. Render all root-level subjects
+        const rootSubjects = allSubjects.filter(s => !s.dividerName);
+        for (const subject of rootSubjects) {
+            subjectsList.appendChild(createSubjectEl(subject));
+        }
+
+        // 2. Render dividers and their nested subjects
+        for (const divider of allDividers) {
+            const dividerEl = document.createElement('div');
+            dividerEl.className = 'divider-item';
+            dividerEl.innerHTML = `
+                <svg class="divider-caret ${divider.collapsed ? 'collapsed' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <span style="flex:1;">${escapeHtml(divider.name)}</span>
+            `;
+            dividerEl.onclick = () => {
+                divider.collapsed = !divider.collapsed;
+                displaySubjects();
+            };
+            subjectsList.appendChild(dividerEl);
+
+            if (!divider.collapsed) {
+                const childSubjects = allSubjects.filter(s => s.dividerName === divider.name);
+                for (const subject of childSubjects) {
+                    const el = createSubjectEl(subject);
+                    el.classList.add('child-subject');
+                    subjectsList.appendChild(el);
+                }
+            }
         }
         
-        // Update the + New button visibility
         updateNewNoteButtonVisibility();
+    }
+
+    // --- FOLDER CREATION LOGIC ---
+
+    function toggleSidebarAddMenu(event) {
+        event.stopPropagation();
+        if (!rootDirHandle) {
+            alert('Please open a folder first.');
+            return;
+        }
+        const menu = document.getElementById('sidebar-add-menu');
+        menu.classList.toggle('show');
+        
+        if (menu.classList.contains('show')) {
+            setTimeout(() => document.addEventListener('click', closeSidebarAddMenu), 0);
+        }
+    }
+
+    function closeSidebarAddMenu() {
+        const menu = document.getElementById('sidebar-add-menu');
+        if (menu) menu.classList.remove('show');
+        document.removeEventListener('click', closeSidebarAddMenu);
+    }
+
+    async function createNewSubject(targetDividerName = null) {
+        closeSidebarAddMenu();
+        if (!rootDirHandle) return;
+        try {
+            // Use native prompt when available; otherwise fall back to modal
+            let name;
+            try {
+                name = prompt("Enter Subject Name:");
+            } catch (err) {
+                // prompt() not supported — show modal
+                showCreateFolderModal('subject', targetDividerName);
+                return;
+            }
+            if (!name || name.trim() === '') return;
+
+            let targetDir = rootDirHandle;
+            if (targetDividerName) {
+                const divider = allDividers.find(d => d.name === targetDividerName);
+                if (divider) targetDir = divider.handle;
+            }
+            
+            await targetDir.getDirectoryHandle(name.trim(), {create: true});
+            await loadSubjects();
+        } catch (e) {
+            alert('Error creating subject: ' + e.message);
+        }
+    }
+
+    async function createNewDivider() {
+        closeSidebarAddMenu();
+        if (!rootDirHandle) return;
+        try {
+            let name;
+            try {
+                name = prompt("Enter Divider Name:");
+            } catch (err) {
+                showCreateFolderModal('divider');
+                return;
+            }
+            if (!name || name.trim() === '') return;
+
+            try {
+                const newDir = await rootDirHandle.getDirectoryHandle(name.trim(), {create: true});
+                await newDir.getFileHandle('.divider', {create: true});
+                await loadSubjects();
+            } catch (e) {
+                alert('Error creating divider: ' + e.message);
+            }
+        } catch (e) {
+            alert('Error creating divider: ' + e.message);
+        }
+    }
+
+    function showCreateFolderModal(type, targetDividerName = null) {
+        const modal = document.getElementById('create-folder-modal');
+        const title = document.getElementById('create-folder-title');
+        const input = document.getElementById('create-folder-name');
+        modal.style.display = 'flex';
+        input.value = '';
+        modal.dataset.type = type;
+        modal.dataset.target = targetDividerName || '';
+        title.textContent = type === 'divider' ? 'Create Divider' : 'Create Subject';
+        input.focus();
+    }
+
+    function hideCreateFolderModal() {
+        const modal = document.getElementById('create-folder-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function confirmCreateFolderModal() {
+        const modal = document.getElementById('create-folder-modal');
+        if (!modal) return;
+        const name = document.getElementById('create-folder-name').value.trim();
+        if (!name) return;
+        const type = modal.dataset.type;
+        const target = modal.dataset.target || null;
+        hideCreateFolderModal();
+
+        try {
+            if (type === 'divider') {
+                const newDir = await rootDirHandle.getDirectoryHandle(name, { create: true });
+                await newDir.getFileHandle('.divider', { create: true });
+            } else {
+                let targetDir = rootDirHandle;
+                if (target) {
+                    const divider = allDividers.find(d => d.name === target);
+                    if (divider) targetDir = divider.handle;
+                }
+                await targetDir.getDirectoryHandle(name, { create: true });
+            }
+            await loadSubjects();
+        } catch (e) {
+            alert('Error creating folder: ' + e.message);
+        }
     }
 
     function getAllNotesCount() {
@@ -10211,6 +10527,20 @@
             <div style="display:flex; gap:8px; justify-content:flex-end;">
                 <button onclick="hideInsertTableModal()" style="background:transparent; border:1px solid #333; color:#aaa; padding:6px 10px; border-radius:6px;">Cancel</button>
                 <button onclick="confirmInsertTableFromModal()" style="background:#2196F3; border:none; color:white; padding:6px 10px; border-radius:6px;">Insert</button>
+            </div>
+        </div>
+    </div>
+    <!-- Create Folder Modal (fallback when prompt() is unavailable) -->
+    <div id="create-folder-modal" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:10002;">
+        <div style="background:#1e1e1e; border:1px solid #333; padding:16px; border-radius:8px; min-width:320px; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+            <div id="create-folder-title" style="font-weight:600; color:#ddd; margin-bottom:8px;">Create</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+                <label style="color:#aaa; width:80px;">Name</label>
+                <input id="create-folder-name" type="text" style="width:100%; padding:8px; background:#111; border:1px solid #333; color:#fff; border-radius:4px;" />
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button onclick="hideCreateFolderModal()" style="background:transparent; border:1px solid #333; color:#aaa; padding:6px 10px; border-radius:6px;">Cancel</button>
+                <button onclick="confirmCreateFolderModal()" style="background:#2196F3; border:none; color:white; padding:6px 10px; border-radius:6px;">Create</button>
             </div>
         </div>
     </div>
