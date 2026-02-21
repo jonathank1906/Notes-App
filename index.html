@@ -10624,6 +10624,39 @@
     // --- SMART PDF IMPORT LOGIC (Excalidraw Style) ---
     let pdfModalInitialized = false;
 
+    // Parses string like "1,3-5,7" into a sorted array of unique integers: [1,3,4,5,7]
+    function parsePageRange(rangeStr, maxPages) {
+        if (!rangeStr || rangeStr.trim() === '') {
+            return Array.from({length: maxPages}, (_, i) => i + 1);
+        }
+        
+        const pages = new Set();
+        const parts = rangeStr.split(',');
+        
+        for (let part of parts) {
+            part = part.trim();
+            if (part.includes('-')) {
+                const [startStr, endStr] = part.split('-');
+                const start = parseInt(startStr);
+                const end = parseInt(endStr);
+                
+                if (!isNaN(start) && !isNaN(end)) {
+                    const s = Math.max(1, Math.min(start, end));
+                    const e = Math.min(maxPages, Math.max(start, end));
+                    for (let i = s; i <= e; i++) {
+                        pages.add(i);
+                    }
+                }
+            } else {
+                const p = parseInt(part);
+                if (!isNaN(p) && p >= 1 && p <= maxPages) {
+                    pages.add(p);
+                }
+            }
+        }
+        return Array.from(pages).sort((a, b) => a - b);
+    }
+
     function initPdfModalListeners() {
         if (pdfModalInitialized) return;
         
@@ -10631,25 +10664,40 @@
         const gridLabel = document.getElementById('pdf-grid-label');
         const gridInput = document.getElementById('pdf-grid-input');
         const gridVal = document.getElementById('pdf-grid-val');
-        
         const gapInput = document.getElementById('pdf-gap-input');
         const gapVal = document.getElementById('pdf-gap-val');
-
         const scaleInput = document.getElementById('pdf-scale-input');
         const scaleVal = document.getElementById('pdf-scale-val');
+        const fileInput = document.getElementById('pdf-file-input');
+        const pagesInput = document.getElementById('pdf-pages-input');
 
         // Dynamically toggle label based on direction
         dirSelect.addEventListener('change', (e) => {
             gridLabel.textContent = e.target.value === 'lr' ? 'Number of rows' : 'Number of columns';
         });
-        
-        // Initial setup for the label
         gridLabel.textContent = dirSelect.value === 'lr' ? 'Number of rows' : 'Number of columns';
         
         // Live update slider values
         gridInput.addEventListener('input', (e) => gridVal.textContent = e.target.value);
         gapInput.addEventListener('input', (e) => gapVal.textContent = e.target.value);
         scaleInput.addEventListener('input', (e) => scaleVal.textContent = e.target.value + 'x');
+
+        // Automatically detect total pages when a file is selected
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                try {
+                    const file = e.target.files[0];
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    pagesInput.value = `1-${pdf.numPages}`;
+                } catch (err) {
+                    pagesInput.value = '';
+                    pagesInput.placeholder = 'All';
+                }
+            } else {
+                pagesInput.value = '';
+            }
+        });
         
         pdfModalInitialized = true;
     }
@@ -10664,6 +10712,7 @@
         
         document.getElementById('pdf-import-progress').style.display = 'none';
         document.getElementById('pdf-file-input').value = '';
+        document.getElementById('pdf-pages-input').value = ''; // Reset pages
         document.getElementById('pdf-import-confirm-btn').disabled = false;
         document.getElementById('pdf-import-confirm-btn').style.opacity = '1';
     }
@@ -10684,9 +10733,10 @@
         const file = fileInput.files[0];
         const isLocked = document.getElementById('pdf-lock-input').checked;
         const direction = document.getElementById('pdf-direction-input').value; // 'lr' or 'tb'
-        const gridMax = parseInt(document.getElementById('pdf-grid-input').value) || 1; // Represents Rows (lr) or Cols (tb)
+        const gridMax = parseInt(document.getElementById('pdf-grid-input').value) || 1; 
         const gap = parseInt(document.getElementById('pdf-gap-input').value) || 20;
         const scaleMult = parseFloat(document.getElementById('pdf-scale-input').value) || 0.5;
+        const pagesString = document.getElementById('pdf-pages-input').value;
         
         const progressEl = document.getElementById('pdf-import-progress');
         const confirmBtn = document.getElementById('pdf-import-confirm-btn');
@@ -10706,7 +10756,14 @@
             progressEl.textContent = 'Loading PDF engine...';
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const numPages = pdf.numPages;
+            
+            // Parse target pages based on user input
+            const pagesToImport = parsePageRange(pagesString, pdf.numPages);
+            
+            if (pagesToImport.length === 0) {
+                alert("No valid pages selected to import.");
+                throw new Error("Empty page selection");
+            }
             
             const vpt = fabricCanvas.viewportTransform;
             const startX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
@@ -10714,11 +10771,12 @@
             
             let loadedImages = [];
             
-            // 1. Process all pages into Fabric Images
-            for (let i = 1; i <= numPages; i++) {
-                progressEl.textContent = `Rendering page ${i} of ${numPages}...`;
+            // 1. Process specifically selected pages into Fabric Images
+            for (let i = 0; i < pagesToImport.length; i++) {
+                const pageNum = pagesToImport[i];
+                progressEl.textContent = `Rendering page ${pageNum} (${i+1} of ${pagesToImport.length})...`;
                 
-                const page = await pdf.getPage(i);
+                const page = await pdf.getPage(pageNum);
                 const viewport = page.getViewport({ scale: 2.0 }); 
                 
                 const tempCanvas = document.createElement('canvas');
@@ -10742,10 +10800,8 @@
                             lockScalingX: isLocked,
                             lockScalingY: isLocked,
                             hasControls: !isLocked,
-                                // ---> THE FIX IS HERE <---
-                                // Completely disables selection and mouse events so it acts like a background
-                                selectable: !isLocked,
-                                evented: !isLocked
+                            selectable: !isLocked, 
+                            evented: !isLocked
                         });
                         resolve(fabricImg);
                     });
@@ -10757,22 +10813,22 @@
             progressEl.textContent = 'Arranging on canvas...';
             
             // --- 2. INTELLIGENT GRID MATH ---
-            const totalPages = loadedImages.length;
+            const totalImported = loadedImages.length;
             
-            for (let i = 0; i < totalPages; i++) {
+            for (let i = 0; i < totalImported; i++) {
                 const img = loadedImages[i];
                 let colIdx, rowIdx;
 
                 if (direction === 'lr') { 
                     // Left -> Right filling: gridMax acts as the max number of ROWS
-                    const actualRows = Math.min(gridMax, totalPages);
-                    const actualCols = Math.ceil(totalPages / actualRows);
+                    const actualRows = Math.min(gridMax, totalImported);
+                    const actualCols = Math.ceil(totalImported / actualRows);
                     colIdx = i % actualCols;
                     rowIdx = Math.floor(i / actualCols);
                 } else { 
                     // Top -> Down filling: gridMax acts as the max number of COLUMNS
-                    const actualCols = Math.min(gridMax, totalPages);
-                    const actualRows = Math.ceil(totalPages / actualCols);
+                    const actualCols = Math.min(gridMax, totalImported);
+                    const actualRows = Math.ceil(totalImported / actualCols);
                     rowIdx = i % actualRows;
                     colIdx = Math.floor(i / actualRows);
                 }
@@ -10808,8 +10864,10 @@
             confirmBtn.innerHTML = originalBtnText;
 
         } catch (err) {
-            console.error("PDF Import Error:", err);
-            alert("Failed to import PDF. Is the file corrupted or protected?");
+            if (err.message !== "Empty page selection") {
+                console.error("PDF Import Error:", err);
+                alert("Failed to import PDF. Is the file corrupted or protected?");
+            }
             progressEl.textContent = 'Import failed.';
             
             confirmBtn.disabled = false;
@@ -10864,6 +10922,14 @@
                     <option value="lr">Left > Right</option>
                     <option value="tb">Top > Down</option>
                 </select>
+            </div>
+
+            <div class="excal-row" style="align-items: flex-start;">
+                <div>
+                    <div class="excal-label">Pages to import</div>
+                    <div style="font-size:11px; color:#666; margin-top:4px;">e.g.: 1,3-5,7,9-10</div>
+                </div>
+                <input type="text" id="pdf-pages-input" style="width: 150px; background: #2a2a2a; border: 1px solid #444; color: #ddd; padding: 6px 10px; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box;" placeholder="All">
             </div>
 
             <div class="excal-row">
