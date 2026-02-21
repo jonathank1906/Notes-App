@@ -10741,7 +10741,11 @@
                             lockRotation: isLocked,
                             lockScalingX: isLocked,
                             lockScalingY: isLocked,
-                            hasControls: !isLocked
+                            hasControls: !isLocked,
+                                // ---> THE FIX IS HERE <---
+                                // Completely disables selection and mouse events so it acts like a background
+                                selectable: !isLocked,
+                                evented: !isLocked
                         });
                         resolve(fabricImg);
                     });
