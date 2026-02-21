@@ -2222,6 +2222,10 @@
             transform: none; /* Remove scaling to keep it clean */
         }
 
+        #pomodoro-btn:hover {
+            color: var(--accent);
+        }
+
         /* Links Pinboard Page */
         #links-page {
             display: none;
@@ -2671,32 +2675,7 @@
     <!-- Home Screen -->
     <div id="home-screen">
         <div id="subjects-sidebar">
-            <div id="sidebar-header">
-                <button id="settings-btn" title="Settings" onclick="openSettings()">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                    </svg>
-                </button>
-                <div id="sidebar-search-wrapper">
-                    <input id="sidebar-search" type="text" placeholder="Search">
-                    <div id="sidebar-search-icon">
-                        <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div id="sidebar-notes-item" class="subject-item">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
-                        <rect x="3" y="2" width="10" height="12" rx="1" stroke="#888" stroke-width="1.5" fill="none"/>
-                        <line x1="5" y1="5" x2="11" y2="5" stroke="#888" stroke-width="1.2"/>
-                        <line x1="5" y1="7.5" x2="11" y2="7.5" stroke="#888" stroke-width="1.2"/>
-                        <line x1="5" y1="10" x2="9" y2="10" stroke="#888" stroke-width="1.2"/>
-                    </svg>
-                    <div class="subject-name">Notes</div>
-                    <div class="subject-count">0</div>
-                </div>
-            </div>
+            <div id="sidebar-header">                 <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px; margin-left: -2px;">                     <button id="settings-btn" title="Settings" onclick="openSettings()" style="margin: 0;">                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">                             <circle cx="12" cy="12" r="3"></circle>                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>                         </svg>                     </button>                     <button id="pomodoro-btn" title="Open Pomodoro Timer" onclick="launchPomodoro()" style="background: transparent; border: none; color: var(--text-color); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: color 0.15s ease;">                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">                             <circle cx="12" cy="12" r="10"></circle>                             <polyline points="12 6 12 12 16 14"></polyline>                         </svg>                     </button>                 </div>                                  <div id="sidebar-search-wrapper" style="margin-top: 8px; width: 100%;">                     <input id="sidebar-search" type="text" placeholder="Search">                     <div id="sidebar-search-icon">                         <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">                             <path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>                         </svg>                     </div>                 </div>                 <div id="sidebar-notes-item" class="subject-item">                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">                         <rect x="3" y="2" width="10" height="12" rx="1" stroke="#888" stroke-width="1.5" fill="none"/>                         <line x1="5" y1="5" x2="11" y2="5" stroke="#888" stroke-width="1.2"/>                         <line x1="5" y1="7.5" x2="11" y2="7.5" stroke="#888" stroke-width="1.2"/>                         <line x1="5" y1="10" x2="9" y2="10" stroke="#888" stroke-width="1.2"/>                     </svg>                     <div class="subject-name">Notes</div>                     <div class="subject-count">0</div>                 </div>             </div>
             <div id="sidebar-divider"></div>
             <div id="sidebar-subjects-section" style="display:flex; justify-content:space-between; align-items:center; padding: 20px 20px 0 20px; position:relative;">
                 <div id="sidebar-title" style="margin:0;">Subjects</div>
@@ -4759,6 +4738,21 @@
         
         // Reload immediately to apply
         initHomeScreen(); 
+    }
+
+    // Launch Pomodoro popout via Electron's main process
+    function launchPomodoro() {
+        try {
+            const ipc = (window && window.ipcRenderer) ? window.ipcRenderer : ((window && window.require) ? window.require('electron').ipcRenderer : (typeof require !== 'undefined' ? require('electron').ipcRenderer : null));
+            if (ipc && ipc.send) {
+                ipc.send('open-pomodoro-window');
+                return;
+            }
+        } catch (e) {
+            console.warn('launchPomodoro: ipc unavailable', e);
+        }
+        console.warn('IPC not available. Are you running in a browser instead of Electron?');
+        alert('The floating timer requires the desktop app environment.');
     }
 
     async function initHomeScreen() {

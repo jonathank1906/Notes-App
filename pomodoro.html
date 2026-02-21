@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pomodoro</title>
+    <style>
+        :root {
+            --bg-color: rgba(30, 30, 30, 0.95);
+            --accent: #2196F3;
+            --text: #e0e0e0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            color: var(--text);
+            font-family: "SF Pro Display", -apple-system, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        .container {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-color);
+            border: 1px solid #444;
+            border-radius: 12px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+        
+        /* Make the top bar the drag handle */
+        .drag-bar {
+            height: 24px;
+            -webkit-app-region: drag; /* Electron magic to make it draggable */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid #333;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .drag-bar-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            font-weight: 600;
+        }
+        .btn-close {
+            -webkit-app-region: no-drag; /* Buttons must be non-draggable to click */
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            line-height: 1;
+        }
+        .btn-close:hover { color: #f55; }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+        }
+        #time-display {
+            font-size: 36px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 1px;
+        }
+        #time-display.break { color: #8f8; }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            -webkit-app-region: no-drag;
+        }
+        .btn {
+            background: #333;
+            border: none;
+            border-radius: 6px;
+            color: #ddd;
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+        .btn:hover { background: #444; color: #fff; }
+
+        /* Settings Overlay */
+        #settings {
+            position: absolute;
+            inset: 0;
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            -webkit-app-region: no-drag;
+        }
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .setting-row input {
+            width: 50px;
+            background: #111;
+            border: 1px solid #444;
+            color: white;
+            padding: 4px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .save-btn {
+            margin-top: auto;
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .save-btn:hover { background: #1976D2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="drag-bar">
+            <span class="drag-bar-title" id="status-label">Focus</span>
+            <button class="btn-close" onclick="window.close()">×</button>
+        </div>
+        
+        <div class="main-content">
+            <div id="time-display">25:00</div>
+            <div class="controls">
+                <button class="btn" onclick="toggleTimer()">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path id="play-icon" d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+                <button class="btn" onclick="openSettings()" title="Settings & Reset">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="settings">
+            <div class="setting-row">
+                <span>Focus (min)</span>
+                <input type="number" id="focus-input" min="1" max="120">
+            </div>
+            <div class="setting-row">
+                <span>Break (min)</span>
+                <input type="number" id="break-input" min="1" max="60">
+            </div>
+            <button class="save-btn" onclick="saveAndReset()">Save & Reset</button>
+        </div>
+    </div>
+
+    <script>
+        const { shell } = require('electron');
+
+        let interval = null;
+        let state = {
+            isRunning: false,
+            mode: 'focus', 
+            focusDuration: 25 * 60,
+            breakDuration: 5 * 60,
+            secondsRemaining: 25 * 60,
+            targetFinishTime: null 
+        };
+
+        function loadState() {
+            const saved = localStorage.getItem('pomodoroState');
+            if (saved) {
+                try {
+                    state = { ...state, ...JSON.parse(saved) };
+                    // If it was running when app closed, catch up to the current time
+                    if (state.isRunning && state.targetFinishTime) {
+                        const msRemaining = state.targetFinishTime - Date.now();
+                        if (msRemaining <= 0) {
+                            state.secondsRemaining = 0;
+                            state.isRunning = false;
+                            state.targetFinishTime = null;
+                            handleComplete();
+                        } else {
+                            state.secondsRemaining = Math.ceil(msRemaining / 1000);
+                            startInterval();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse Pomodoro state", e);
+                }
+            }
+            updateUI();
+        }
+
+        function saveState() {
+            localStorage.setItem('pomodoroState', JSON.stringify(state));
+        }
+
+        function updateUI() {
+            const timeEl = document.getElementById('time-display');
+            const statusEl = document.getElementById('status-label');
+            const icon = document.getElementById('play-icon');
+
+            const m = Math.floor(state.secondsRemaining / 60);
+            const s = state.secondsRemaining % 60;
+            timeEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+            
+            if (state.mode === 'break') {
+                timeEl.classList.add('break');
+                statusEl.textContent = 'Break';
+            } else {
+                timeEl.classList.remove('break');
+                statusEl.textContent = 'Focus';
+            }
+
+            if (state.isRunning) {
+                // Pause icon
+                icon.setAttribute('d', 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'); 
+            } else {
+                // Play icon
+                icon.setAttribute('d', 'M8 5v14l11-7z'); 
+            }
+        }
+
+        function toggleTimer() {
+            if (state.isRunning) {
+                state.isRunning = false;
+                state.targetFinishTime = null; // Clear target so it pauses properly
+                clearInterval(interval);
+            } else {
+                if (state.secondsRemaining <= 0) {
+                    state.secondsRemaining = state.mode === 'focus' ? state.focusDuration : state.breakDuration;
+                }
+                state.isRunning = true;
+                state.targetFinishTime = Date.now() + (state.secondsRemaining * 1000);
+                startInterval();
+            }
+            saveState();
+            updateUI();
+        }
+
+        function startInterval() {
+            clearInterval(interval);
+            interval = setInterval(() => {
+                const msRemaining = state.targetFinishTime - Date.now();
+                if (msRemaining <= 0) {
+                    state.secondsRemaining = 0;
+                    clearInterval(interval);
+                    state.isRunning = false;
+                    state.targetFinishTime = null;
+                    handleComplete();
+                } else {
+                    state.secondsRemaining = Math.ceil(msRemaining / 1000);
+                    updateUI();
+                    saveState();
+                }
+            }, 1000);
+        }
+
+        function handleComplete() {
+            try {
+                shell.beep(); // Native OS ping sound
+            } catch (e) {}
+
+            if (state.mode === 'focus') {
+                state.mode = 'break';
+                state.secondsRemaining = state.breakDuration;
+            } else {
+                state.mode = 'focus';
+                state.secondsRemaining = state.focusDuration;
+            }
+            saveState();
+            updateUI();
+            
+            // Focus the window when done
+            window.focus(); 
+        }
+
+        // Settings Overlay
+        function openSettings() {
+            document.getElementById('settings').style.display = 'flex';
+            document.getElementById('focus-input').value = Math.floor(state.focusDuration / 60);
+            document.getElementById('break-input').value = Math.floor(state.breakDuration / 60);
+        }
+
+        function saveAndReset() {
+            const f = parseInt(document.getElementById('focus-input').value) || 25;
+            const b = parseInt(document.getElementById('break-input').value) || 5;
+            
+            clearInterval(interval);
+            state.focusDuration = f * 60;
+            state.breakDuration = b * 60;
+            state.mode = 'focus';
+            state.secondsRemaining = state.focusDuration;
+            state.isRunning = false;
+            state.targetFinishTime = null;
+            
+            document.getElementById('settings').style.display = 'none';
+            saveState();
+            updateUI();
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', loadState);
+    </script>
+</body>
+</html>
