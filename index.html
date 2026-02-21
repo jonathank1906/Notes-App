@@ -2668,6 +2668,35 @@
             background: #333;
         }
 
+        /* To Do Counter Badge */
+        .todo-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 700; /* Slightly less bold (was 800) */
+            min-width: 24px;
+            height: 24px;
+            line-height: 1; /* Fixes vertical flexbox centering */
+            padding: 0 6px;
+            box-sizing: border-box;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        /* Adjust position for List View */
+        #notes-grid.list-view .todo-badge {
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+        }
     </style>
 </head>
 <body>
@@ -5415,6 +5444,12 @@
                             };
                             const typeLabel = typeLabelMap[typeToken] || 'Canvas';
 
+                            // --- NEW: Count uncompleted to-dos ---
+                            let pendingTodos = 0;
+                            if (typeToken === 'todo' && parsed && Array.isArray(parsed.todos)) {
+                                pendingTodos = parsed.todos.filter(t => !t.completed).length;
+                            }
+
                             allNotes.push({
                                 handle: entry,
                                 dirHandle: subject.handle,
@@ -5423,7 +5458,8 @@
                                 color: subject.color,
                                 date: file.lastModified,
                                 typeToken: typeToken,
-                                typeLabel: typeLabel
+                                typeLabel: typeLabel,
+                                todoCount: pendingTodos // Store the count
                             });
                         } catch (err) {
                             console.error('Error reading note file', entry.name, err);
@@ -5456,6 +5492,15 @@
         card.className = 'note-card';
         card.dataset.subject = note.subject; // Add subject data attribute for filtering
         card.dataset.noteName = note.name; // Add name for identification
+        
+        // --- NEW: Inject To Do Badge if count > 0 ---
+        if (note.typeToken === 'todo' && note.todoCount > 0) {
+            const badge = document.createElement('div');
+            badge.className = 'todo-badge';
+            // Cap visual numbers at 99+ for a clean UI
+            badge.textContent = note.todoCount > 99 ? '99+' : note.todoCount;
+            card.appendChild(badge);
+        }
         
         const preview = document.createElement('div');
         preview.className = 'note-preview';
