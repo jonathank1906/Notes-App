@@ -10018,7 +10018,6 @@
         
         // Ensure we are in select mode so the user can immediately move/resize it
         setTool('select'); 
-        // Try native prompt first; if unavailable (e.g., sandboxed Electron), fall back to modal
         try {
             const input = prompt("Enter table dimensions (Rows, Columns)\ne.g., 3,3", "3,3");
             if (!input) return;
@@ -10028,12 +10027,10 @@
             insertTable(rows, cols);
             return;
         } catch (err) {
-            // prompt() not available — show inline modal
             showInsertTableModal();
         }
     }
 
-    // --- Inline modal fallback for environments without prompt() ---
     function showInsertTableModal() {
         let modal = document.getElementById('insert-table-modal');
         if (!modal) return;
@@ -10066,7 +10063,6 @@
         
         const lines = buildTableLines(rows, cols, cellWidth, cellHeight);
         
-        // Center the table in the current viewport
         const vpt = fabricCanvas.viewportTransform;
         const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
         const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
@@ -10074,12 +10070,13 @@
         const tableGroup = new fabric.Group(lines, {
             left: centerX - (totalWidth / 2),
             top: centerY - (totalHeight / 2),
-            isTable: true,     // Custom property to identify it as a table
+            isTable: true,
             tableRows: rows,
             tableCols: cols,
             transparentCorners: false,
             cornerColor: '#2196F3',
-            borderColor: '#2196F3'
+            borderColor: '#2196F3',
+            perPixelTargetFind: false // <--- FIX 1: Ensures clicks map to the bounding box!
         });
 
         fabricCanvas.add(tableGroup);
@@ -10096,11 +10093,23 @@
         const totalWidth = cols * cellWidth;
         const totalHeight = rows * cellHeight;
         
+        // <--- FIX 2: Add an almost transparent background rect to act as a solid hit area.
+        // Even if pixels are checked, 0.01 opacity registers as a hit and allows right-clicks.
+        lines.push(new fabric.Rect({
+            left: 0,
+            top: 0,
+            width: totalWidth,
+            height: totalHeight,
+            fill: 'rgba(255, 255, 255, 0.01)',
+            strokeWidth: 0,
+            selectable: false
+        }));
+
         const lineOptions = {
             stroke: '#888888',
             strokeWidth: 2,
             selectable: false,
-            strokeUniform: true // CRITICAL: Prevents lines getting thick when scaled!
+            strokeUniform: true // Prevents lines getting thick when scaled
         };
 
         // Draw Horizontal Lines
@@ -10118,7 +10127,6 @@
         return lines;
     }
 
-    // Hide context menu when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#canvas-context-menu')) {
             const ctxMenu = document.getElementById('canvas-context-menu');
@@ -10135,14 +10143,26 @@
         const newRows = Math.max(1, oldGroup.tableRows + rowDelta);
         const newCols = Math.max(1, oldGroup.tableCols + colDelta);
 
-        // Determine base cell size (ignoring scaling)
-        const cellWidth = oldGroup.width / oldGroup.tableCols;
-        const cellHeight = oldGroup.height / oldGroup.tableRows;
+        // <--- FIX 3: Accurately calculate cell size using the background rect we added.
+        // This stops the table from slowly inflating (drifting) due to 2px stroke-width padding.
+        let baseWidth = oldGroup.width;
+        let baseHeight = oldGroup.height;
+        
+        const firstItem = oldGroup.item(0);
+        if (firstItem && firstItem.type === 'rect') {
+            baseWidth = firstItem.width;
+            baseHeight = firstItem.height;
+        } else {
+            // Fallback for older tables saved before the fix
+            baseWidth -= 2;
+            baseHeight -= 2;
+        }
 
-        // Generate new internal lines
+        const cellWidth = baseWidth / oldGroup.tableCols;
+        const cellHeight = baseHeight / oldGroup.tableRows;
+
         const lines = buildTableLines(newRows, newCols, cellWidth, cellHeight);
 
-        // Rebuild the group exactly where the old one was, preserving user scaling and rotation
         const newGroup = new fabric.Group(lines, {
             left: oldGroup.left,
             top: oldGroup.top,
@@ -10154,10 +10174,10 @@
             tableCols: newCols,
             transparentCorners: false,
             cornerColor: '#2196F3',
-            borderColor: '#2196F3'
+            borderColor: '#2196F3',
+            perPixelTargetFind: false // <--- Apply the fix here as well
         });
 
-        // Swap them out
         fabricCanvas.remove(oldGroup);
         fabricCanvas.add(newGroup);
         fabricCanvas.setActiveObject(newGroup);
