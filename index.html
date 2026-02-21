@@ -3200,7 +3200,8 @@
         maxZoom: 20,
         gridSize: 50,
         gridDotSize: 1.5,
-        zoomSensitivity: 0.003,
+        // Increased for stronger zoom responsiveness
+        zoomSensitivity: 0.006,
         panSensitivity: 0.25
     };
 
@@ -3574,8 +3575,8 @@
             if (e.altKey) {
                 const delta = e.deltaY;
                 let zoom = fabricCanvas.getZoom();
-                // Double sensitivity: apply wheel delta * 2 so zoom changes faster
-                zoom *= 0.999 ** (delta * 2);
+                // Increase sensitivity: apply wheel delta * 4 to make zoom ~2x more sensitive
+                zoom *= 0.999 ** (delta * 6);
                 zoom = Math.min(Math.max(CONFIG.minZoom, zoom), CONFIG.maxZoom);
                 
                 fabricCanvas.zoomToPoint(
