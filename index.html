@@ -2697,6 +2697,72 @@
             right: 20px;
             transform: translateY(-50%);
         }
+        /* PDF Import Excalidraw-style UI */
+        .excal-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .excal-row:last-child {
+            border-bottom: none;
+        }
+        .excal-label {
+            color: #ddd;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .excal-val {
+            color: #ddd;
+            font-size: 14px;
+            min-width: 24px;
+            text-align: right;
+            margin-left: 12px;
+        }
+        .excal-select {
+            background: #2a2a2a;
+            color: #ddd;
+            border: 1px solid #444;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+        }
+        .excal-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+        .excal-switch input { opacity: 0; width: 0; height: 0; }
+        .excal-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #444; transition: .2s; border-radius: 20px;
+        }
+        .excal-slider:before {
+            position: absolute; content: ""; height: 14px; width: 14px;
+            left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%;
+        }
+        .excal-switch input:checked + .excal-slider { background-color: #a882ff; }
+        .excal-switch input:checked + .excal-slider:before { transform: translateX(16px); }
+
+        .excal-range-wrapper {
+            display: flex;
+            align-items: center;
+            flex: 0 0 150px;
+        }
+        .excal-range {
+            -webkit-appearance: none; background: transparent; width: 100%; outline: none;
+        }
+        .excal-range::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+            background: #fff; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .excal-range::-webkit-slider-runnable-track {
+            width: 100%; height: 2px; cursor: pointer; background: #555; border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -10554,14 +10620,47 @@
     }
 </script>
 <script>
-    // --- SMART PDF IMPORT LOGIC ---
+    // --- SMART PDF IMPORT LOGIC (Excalidraw Style) ---
+    let pdfModalInitialized = false;
+
+    function initPdfModalListeners() {
+        if (pdfModalInitialized) return;
+        
+        const dirSelect = document.getElementById('pdf-direction-input');
+        const gridLabel = document.getElementById('pdf-grid-label');
+        const gridInput = document.getElementById('pdf-grid-input');
+        const gridVal = document.getElementById('pdf-grid-val');
+        
+        const gapInput = document.getElementById('pdf-gap-input');
+        const gapVal = document.getElementById('pdf-gap-val');
+
+        const scaleInput = document.getElementById('pdf-scale-input');
+        const scaleVal = document.getElementById('pdf-scale-val');
+
+        // Dynamically toggle label based on direction
+        dirSelect.addEventListener('change', (e) => {
+            gridLabel.textContent = e.target.value === 'lr' ? 'Number of rows' : 'Number of columns';
+        });
+        
+        // Initial setup for the label
+        gridLabel.textContent = dirSelect.value === 'lr' ? 'Number of rows' : 'Number of columns';
+        
+        // Live update slider values
+        gridInput.addEventListener('input', (e) => gridVal.textContent = e.target.value);
+        gapInput.addEventListener('input', (e) => gapVal.textContent = e.target.value);
+        scaleInput.addEventListener('input', (e) => scaleVal.textContent = e.target.value + 'x');
+        
+        pdfModalInitialized = true;
+    }
+
     function promptInsertPdf() {
         if (!fabricCanvas) return;
-        setTool('select'); // Switch to select tool so the user can move the PDF blocks immediately 
+        setTool('select'); 
+        initPdfModalListeners(); 
+        
         const modal = document.getElementById('insert-pdf-modal');
         if (modal) modal.style.display = 'flex';
         
-        // Reset UI states
         document.getElementById('pdf-import-progress').style.display = 'none';
         document.getElementById('pdf-file-input').value = '';
         document.getElementById('pdf-import-confirm-btn').disabled = false;
@@ -10580,16 +10679,27 @@
             return;
         }
         
+        // Fetch User Settings
         const file = fileInput.files[0];
-        const cols = parseInt(document.getElementById('pdf-cols-input').value) || 3;
-        const spacing = parseInt(document.getElementById('pdf-spacing-input').value) || 50;
+        const isLocked = document.getElementById('pdf-lock-input').checked;
+        const direction = document.getElementById('pdf-direction-input').value; // 'lr' or 'tb'
+        const gridMax = parseInt(document.getElementById('pdf-grid-input').value) || 1; // Represents Rows (lr) or Cols (tb)
+        const gap = parseInt(document.getElementById('pdf-gap-input').value) || 20;
+        const scaleMult = parseFloat(document.getElementById('pdf-scale-input').value) || 0.5;
         
         const progressEl = document.getElementById('pdf-import-progress');
         const confirmBtn = document.getElementById('pdf-import-confirm-btn');
+        const originalBtnText = confirmBtn.innerHTML; 
         
         progressEl.style.display = 'block';
+        
+        // Button Spinner UI Update
         confirmBtn.disabled = true;
-        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.opacity = '0.8';
+        confirmBtn.style.display = 'inline-flex';
+        confirmBtn.style.alignItems = 'center';
+        confirmBtn.style.justifyContent = 'center';
+        confirmBtn.innerHTML = `<div class="spinner" style="width: 14px; height: 14px; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; margin: 0 8px 0 0;"></div> Importing...`;
         
         try {
             progressEl.textContent = 'Loading PDF engine...';
@@ -10599,18 +10709,15 @@
             
             const vpt = fabricCanvas.viewportTransform;
             const startX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
-            let currentY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
-            let currentX = startX;
+            const startY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
             
-            let rowMaxHeight = 0;
             let loadedImages = [];
             
-            // Loop through pages and convert them to high-res images
+            // 1. Process all pages into Fabric Images
             for (let i = 1; i <= numPages; i++) {
                 progressEl.textContent = `Rendering page ${i} of ${numPages}...`;
                 
                 const page = await pdf.getPage(i);
-                // Scale factor 2 ensures text stays crisp when zooming in
                 const viewport = page.getViewport({ scale: 2.0 }); 
                 
                 const tempCanvas = document.createElement('canvas');
@@ -10623,12 +10730,17 @@
                 
                 const img = await new Promise((resolve) => {
                     fabric.Image.fromURL(dataUrl, (fabricImg) => {
-                        // Visually scale it back down so it's a manageable size on the canvas
-                        fabricImg.scale(0.5); 
+                        fabricImg.scale(scaleMult); 
                         fabricImg.set({
-                            borderColor: '#2196F3',
-                            cornerColor: '#2196F3',
-                            transparentCorners: false
+                            borderColor: '#a882ff',
+                            cornerColor: '#a882ff',
+                            transparentCorners: false,
+                            lockMovementX: isLocked,
+                            lockMovementY: isLocked,
+                            lockRotation: isLocked,
+                            lockScalingX: isLocked,
+                            lockScalingY: isLocked,
+                            hasControls: !isLocked
                         });
                         resolve(fabricImg);
                     });
@@ -10639,29 +10751,44 @@
             
             progressEl.textContent = 'Arranging on canvas...';
             
-            // Grid layout logic
-            for (let i = 0; i < loadedImages.length; i++) {
+            // --- 2. INTELLIGENT GRID MATH ---
+            const totalPages = loadedImages.length;
+            
+            for (let i = 0; i < totalPages; i++) {
                 const img = loadedImages[i];
-                const colIdx = i % cols;
-                
-                if (colIdx === 0 && i !== 0) {
-                    // Move cursor down to the next row
-                    currentX = startX;
-                    currentY += rowMaxHeight + spacing;
-                    rowMaxHeight = 0;
+                let colIdx, rowIdx;
+
+                if (direction === 'lr') { 
+                    // Left -> Right filling: gridMax acts as the max number of ROWS
+                    const actualRows = Math.min(gridMax, totalPages);
+                    const actualCols = Math.ceil(totalPages / actualRows);
+                    colIdx = i % actualCols;
+                    rowIdx = Math.floor(i / actualCols);
+                } else { 
+                    // Top -> Down filling: gridMax acts as the max number of COLUMNS
+                    const actualCols = Math.min(gridMax, totalPages);
+                    const actualRows = Math.ceil(totalPages / actualCols);
+                    rowIdx = i % actualRows;
+                    colIdx = Math.floor(i / actualRows);
                 }
                 
+                const stepX = loadedImages[0].getScaledWidth() + gap;
+                const stepY = loadedImages[0].getScaledHeight() + gap;
+
                 img.set({
-                    left: currentX,
-                    top: currentY
+                    left: startX + (colIdx * stepX),
+                    top: startY + (rowIdx * stepY)
                 });
                 
                 fabricCanvas.add(img);
-                
-                // Move cursor right for the next column
-                currentX += (img.width * img.scaleX) + spacing;
-                // Keep track of the tallest item in this row to prevent overlaps
-                rowMaxHeight = Math.max(rowMaxHeight, img.height * img.scaleY); 
+                fabricCanvas.sendToBack(img); 
+            }
+            
+            if (!isLocked && loadedImages.length > 1) {
+                const sel = new fabric.ActiveSelection(loadedImages, { canvas: fabricCanvas });
+                fabricCanvas.setActiveObject(sel);
+            } else if (!isLocked && loadedImages.length === 1) {
+                fabricCanvas.setActiveObject(loadedImages[0]);
             }
             
             fabricCanvas.requestRenderAll();
@@ -10670,12 +10797,19 @@
             addToUndoStack();
             
             hideInsertPdfModal();
+            
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+            confirmBtn.innerHTML = originalBtnText;
+
         } catch (err) {
             console.error("PDF Import Error:", err);
             alert("Failed to import PDF. Is the file corrupted or protected?");
             progressEl.textContent = 'Import failed.';
+            
             confirmBtn.disabled = false;
             confirmBtn.style.opacity = '1';
+            confirmBtn.innerHTML = originalBtnText;
         }
     }
 </script>
@@ -10704,33 +10838,62 @@
             </div>
         </div>
     </div>
-    <div id="insert-pdf-modal" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:10001;">
-        <div style="background:#1e1e1e; border:1px solid #333; padding:24px; border-radius:12px; min-width:320px; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
-            <div style="font-weight:600; color:#ddd; margin-bottom:16px; font-size:18px;">Import PDF to Canvas</div>
+    <div id="insert-pdf-modal" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:10001; background:rgba(0,0,0,0.6);">
+        <div style="background:#1e1e1e; border:1px solid #333; padding:24px; border-radius:8px; width: 420px; box-shadow:0 8px 32px rgba(0,0,0,0.8);">
             
-            <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
+            <div style="margin-bottom: 16px;">
+                <input type="file" id="pdf-file-input" accept="application/pdf" style="color:#fff; width:100%; font-size:14px; background: #111; padding: 8px; border: 1px dashed #444; border-radius: 6px; cursor: pointer;">
+            </div>
+
+            <div class="excal-row">
+                <span class="excal-label">Lock pages on canvas after import</span>
+                <label class="excal-switch">
+                    <input type="checkbox" id="pdf-lock-input" checked>
+                    <span class="excal-slider"></span>
+                </label>
+            </div>
+
+            <div class="excal-row">
+                <span class="excal-label">Import direction</span>
+                <select id="pdf-direction-input" class="excal-select">
+                    <option value="lr">Left > Right</option>
+                    <option value="tb">Top > Down</option>
+                </select>
+            </div>
+
+            <div class="excal-row">
+                <span class="excal-label" id="pdf-grid-label">Number of columns</span>
+                <div class="excal-range-wrapper">
+                    <input type="range" id="pdf-grid-input" class="excal-range" min="1" max="10" value="1">
+                    <span class="excal-val" id="pdf-grid-val">1</span>
+                </div>
+            </div>
+
+            <div class="excal-row">
+                <span class="excal-label">Size of gap between pages</span>
+                <div class="excal-range-wrapper">
+                    <input type="range" id="pdf-gap-input" class="excal-range" min="0" max="200" step="10" value="20">
+                    <span class="excal-val" id="pdf-gap-val">20</span>
+                </div>
+            </div>
+
+            <div class="excal-row">
                 <div>
-                    <label style="color:#aaa; font-size:13px; display:block; margin-bottom:6px;">Select PDF File</label>
-                    <input type="file" id="pdf-file-input" accept="application/pdf" style="color:#fff; width:100%; font-size:14px;">
+                    <div class="excal-label">Imported page scale</div>
+                    <div style="font-size:11px; color:#666; margin-top:4px;">Multiplier</div>
                 </div>
-                <div style="display:flex; gap:16px;">
-                    <div style="flex:1;">
-                        <label style="color:#aaa; font-size:13px; display:block; margin-bottom:6px;">Columns</label>
-                        <input id="pdf-cols-input" type="number" min="1" value="3" style="width:100%; padding:8px; background:#111; border:1px solid #333; color:#fff; border-radius:4px; box-sizing:border-box;">
-                    </div>
-                    <div style="flex:1;">
-                        <label style="color:#aaa; font-size:13px; display:block; margin-bottom:6px;">Spacing (px)</label>
-                        <input id="pdf-spacing-input" type="number" min="0" value="50" style="width:100%; padding:8px; background:#111; border:1px solid #333; color:#fff; border-radius:4px; box-sizing:border-box;">
-                    </div>
+                <div class="excal-range-wrapper">
+                    <input type="range" id="pdf-scale-input" class="excal-range" min="0.1" max="2.0" step="0.1" value="0.5">
+                    <span class="excal-val" id="pdf-scale-val">0.5x</span>
                 </div>
             </div>
             
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
-                <button onclick="hideInsertPdfModal()" class="fc-btn" style="background:transparent; border-color:#333;">Cancel</button>
-                <button id="pdf-import-confirm-btn" onclick="confirmInsertPdf()" class="fc-btn" style="border-color:#8af; color:#8af;">Import PDF</button>
+            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 24px;">
+                <button onclick="hideInsertPdfModal()" style="background:transparent; border:none; color:#aaa; cursor:pointer; font-weight: 500;">Cancel</button>
+                <button id="pdf-import-confirm-btn" onclick="confirmInsertPdf()" style="background:#a882ff; border:none; color:white; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer;">Import PDF</button>
             </div>
             
-            <div id="pdf-import-progress" style="display:none; color:#8af; font-size:13px; margin-top:16px; text-align:center; font-weight:500;"></div>
+            <div id="pdf-import-progress" style="display:none; color:#a882ff; font-size:13px; margin-top:16px; text-align:center; font-weight:500;"></div>
         </div>
     </div>
     <!-- Create Folder Modal (fallback when prompt() is unavailable) -->
