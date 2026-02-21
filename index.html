@@ -3593,23 +3593,88 @@
             }
             fabricCanvas.requestRenderAll();
         });
-            // Right-click handler for table context menu
+            // Right-click handler for context menu (Tables & Images)
             fabricCanvas.on('mouse:down', function(opt) {
                 try {
                     const e = opt.e;
                     const ctxMenu = document.getElementById('canvas-context-menu');
-                    if (opt.button === 3 && opt.target && opt.target.isTable) {
-                        targetTableGroup = opt.target;
-                        if (ctxMenu) {
+                    
+                    // Prevent context menu from popping up if we are actively cropping
+                    if (typeof currentCropRect !== 'undefined' && currentCropRect) {
+                        if (ctxMenu) ctxMenu.style.display = 'none';
+                        return;
+                    }
+
+                    if (opt.button === 3) { // Right click
+                        const pointer = fabricCanvas.getPointer(e);
+                        let target = opt.target;
+
+                        // FOOLPROOF HIT DETECTION: 
+                        // If Fabric missed the target (because it's locked or transparent),
+                        // we manually check the mathematical bounding boxes.
+                        if (!target || (target.type !== 'image' && !target.isTable)) {
+                            const objects = fabricCanvas.getObjects();
+                            // Search top-to-bottom so we click the highest layer
+                            for (let i = objects.length - 1; i >= 0; i--) {
+                                const obj = objects[i];
+                                if (obj.type === 'image' || obj.isTable) {
+                                    // Temporarily disable pixel-perfect check to treat transparent backgrounds as solid
+                                    const originalPixelTarget = obj.perPixelTargetFind;
+                                    obj.perPixelTargetFind = false;
+                                    const isHit = obj.containsPoint(pointer);
+                                    obj.perPixelTargetFind = originalPixelTarget;
+
+                                    if (isHit) {
+                                        target = obj;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        let showMenu = false;
+                        const tableActions = document.getElementById('ctx-table-actions');
+                        const imageActions = document.getElementById('ctx-image-actions');
+                        
+                        if (tableActions) tableActions.style.display = 'none';
+                        if (imageActions) imageActions.style.display = 'none';
+
+                        if (target) {
+                            if (target.isTable && tableActions) {
+                                targetTableGroup = target;
+                                tableActions.style.display = 'block';
+                                showMenu = true;
+                            } else if (target.type === 'image' && imageActions) {
+                                targetImageToCrop = target;
+                                imageActions.style.display = 'block';
+                                showMenu = true;
+                            }
+                        }
+
+                        if (showMenu && ctxMenu) {
                             ctxMenu.style.left = e.clientX + 'px';
                             ctxMenu.style.top = e.clientY + 'px';
                             ctxMenu.style.display = 'block';
+                            
+                            // Briefly highlight standard images when right-clicked
+                            if (target && target.evented !== false) {
+                               fabricCanvas.setActiveObject(target);
+                               fabricCanvas.requestRenderAll();
+                            }
+                        } else {
+                            if (ctxMenu) ctxMenu.style.display = 'none';
                         }
                     } else {
+                        // Left or middle click: hide menu
                         if (ctxMenu) ctxMenu.style.display = 'none';
                         targetTableGroup = null;
+                        if (typeof targetImageToCrop !== 'undefined' && (typeof currentCropRect === 'undefined' || !currentCropRect)) {
+                            targetImageToCrop = null;
+                        }
                     }
-                } catch (err) {}
+                } catch (err) {
+                    console.error("Context Menu Error:", err);
+                }
             });
         
         resize();
@@ -10910,13 +10975,175 @@
             confirmBtn.innerHTML = originalBtnText;
         }
     }
+    // --- IMAGE CROP LOGIC ---
+    let targetImageToCrop = null;
+    let currentCropRect = null;
+    let cropOriginalAngle = 0;
+    let cropOriginalLocked = false; 
+
+    function startCrop() {
+        const menu = document.getElementById('canvas-context-menu');
+        if (menu) menu.style.display = 'none';
+        if (!targetImageToCrop || !fabricCanvas) return;
+
+        // Save original states
+        cropOriginalAngle = targetImageToCrop.angle || 0;
+        cropOriginalLocked = targetImageToCrop.evented === false; 
+
+        // Briefly reset rotation to keep the crop bounding box math axis-aligned
+        targetImageToCrop.set('angle', 0);
+        targetImageToCrop.setCoords();
+
+        // Create the crop overlay
+        currentCropRect = new fabric.Rect({
+            left: targetImageToCrop.left,
+            top: targetImageToCrop.top,
+            width: targetImageToCrop.width * targetImageToCrop.scaleX,
+            height: targetImageToCrop.height * targetImageToCrop.scaleY,
+            fill: 'rgba(0, 0, 0, 0.4)',
+            stroke: '#2196F3',
+            strokeWidth: 2,
+            strokeDashArray: [5, 5],
+            cornerColor: '#2196F3',
+            cornerStyle: 'circle',
+            transparentCorners: false,
+            hasRotatingPoint: false,
+            originX: 'left',
+            originY: 'top',
+            lockRotation: true
+        });
+
+        // Lock the image beneath so it isn't accidentally dragged
+        targetImageToCrop.set({ selectable: false, evented: false });
+
+        fabricCanvas.add(currentCropRect);
+        fabricCanvas.setActiveObject(currentCropRect);
+        fabricCanvas.requestRenderAll();
+
+        // Show the Apply/Cancel floating UI
+        const ca = document.getElementById('crop-actions');
+        if (ca) ca.style.display = 'flex';
+    }
+
+    function cancelCrop() {
+        if (!currentCropRect || !fabricCanvas) return;
+        
+        // Restore original interactions and rotation
+        if (targetImageToCrop) {
+            targetImageToCrop.set({ 
+                angle: cropOriginalAngle,
+                selectable: !cropOriginalLocked, 
+                evented: !cropOriginalLocked 
+            });
+            targetImageToCrop.setCoords();
+        }
+
+        fabricCanvas.remove(currentCropRect);
+        currentCropRect = null;
+        targetImageToCrop = null;
+        fabricCanvas.requestRenderAll();
+
+        const ca = document.getElementById('crop-actions');
+        if (ca) ca.style.display = 'none';
+    }
+
+    function applyCrop() {
+        if (!currentCropRect || !targetImageToCrop || !fabricCanvas) return;
+
+        let cropLeft = currentCropRect.left;
+        let cropTop = currentCropRect.top;
+        let cropWidth = currentCropRect.width * currentCropRect.scaleX;
+        let cropHeight = currentCropRect.height * currentCropRect.scaleY;
+
+        let imgLeft = targetImageToCrop.left;
+        let imgTop = targetImageToCrop.top;
+        let scaleX = targetImageToCrop.scaleX;
+        let scaleY = targetImageToCrop.scaleY;
+
+        // Constrain the crop box strictly to the image's existing bounds
+        let finalLeft = Math.max(cropLeft, imgLeft);
+        let finalTop = Math.max(cropTop, imgTop);
+        let finalRight = Math.min(cropLeft + cropWidth, imgLeft + targetImageToCrop.width * scaleX);
+        let finalBottom = Math.min(cropTop + cropHeight, imgTop + targetImageToCrop.height * scaleY);
+
+        let finalW = finalRight - finalLeft;
+        let finalH = finalBottom - finalTop;
+
+        if (finalW > 0 && finalH > 0) {
+            let relLeft = (finalLeft - imgLeft) / scaleX;
+            let relTop = (finalTop - imgTop) / scaleY;
+            let relWidth = finalW / scaleX;
+            let relHeight = finalH / scaleY;
+
+            targetImageToCrop.set({
+                cropX: (targetImageToCrop.cropX || 0) + relLeft,
+                cropY: (targetImageToCrop.cropY || 0) + relTop,
+                width: relWidth,
+                height: relHeight,
+                left: finalLeft,
+                top: finalTop,
+                angle: cropOriginalAngle, 
+                selectable: !cropOriginalLocked, // Restore original lock state
+                evented: !cropOriginalLocked
+            });
+            
+            targetImageToCrop.setCoords();
+            
+            try { hasUnsavedChanges = true; } catch (err) {}
+            try { updateSaveStatusIndicator(); } catch (err) {}
+            try { addToUndoStack(); } catch (err) {}
+        } else {
+            // Crop was outside bounds, safely cancel
+            targetImageToCrop.set({ angle: cropOriginalAngle, selectable: !cropOriginalLocked, evented: !cropOriginalLocked });
+            targetImageToCrop.setCoords();
+        }
+
+        fabricCanvas.remove(currentCropRect);
+        currentCropRect = null;
+        targetImageToCrop = null;
+        fabricCanvas.requestRenderAll();
+
+        const ca = document.getElementById('crop-actions');
+        if (ca) ca.style.display = 'none';
+    }
+
+    // Keyboard shortcuts while cropping: Enter = apply, Escape = cancel
+    document.addEventListener('keydown', (e) => {
+        try {
+            if (typeof currentCropRect === 'undefined' || !currentCropRect) return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyCrop();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelCrop();
+            }
+        } catch (err) {}
+    });
 </script>
     <div id="canvas-context-menu" style="display:none; position:fixed; background:#2a2a2a; border:1px solid #444; border-radius:6px; z-index:10000; padding:6px 0; min-width:150px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-        <div class="context-menu-item" onclick="modifyActiveTable(1, 0)">+ Add Row</div>
-        <div class="context-menu-item" onclick="modifyActiveTable(-1, 0)">- Remove Row</div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" onclick="modifyActiveTable(0, 1)">+ Add Column</div>
-        <div class="context-menu-item" onclick="modifyActiveTable(0, -1)">- Remove Column</div>
+        <div id="ctx-table-actions" style="display:none;">
+            <div class="context-menu-item" onclick="modifyActiveTable(1, 0)">+ Add Row</div>
+            <div class="context-menu-item" onclick="modifyActiveTable(-1, 0)">- Remove Row</div>
+            <div class="context-menu-separator"></div>
+            <div class="context-menu-item" onclick="modifyActiveTable(0, 1)">+ Add Column</div>
+            <div class="context-menu-item" onclick="modifyActiveTable(0, -1)">- Remove Column</div>
+        </div>
+        <div id="ctx-image-actions" style="display:none;">
+            <div class="context-menu-item" onclick="startCrop()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;">
+                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+                </svg>
+                Crop Image
+            </div>
+        </div>
+    </div>
+
+    <div id="crop-actions">
+        <span style="color: #ccc; font-size: 13px; font-weight: 500;">Resize the box to crop</span>
+        <button onclick="cancelCrop()">Cancel</button>
+        <button class="btn-apply" onclick="applyCrop()">Apply Crop</button>
     </div>
     <!-- Insert Table Modal (fallback when prompt() is unavailable) -->
     <div id="insert-table-modal" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:10001;">
