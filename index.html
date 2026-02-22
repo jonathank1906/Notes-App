@@ -3042,6 +3042,10 @@
 
     <!-- New Note Dropdown appended to body for stable stacking/context -->
     <div id="new-note-menu" onclick="event.stopPropagation()" aria-hidden="true">
+        <div class="new-note-option" onclick="createNewNote('markdown')">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41zM11.5 9H9.5L7.5 13 5.5 9H3.5v6h2v-3.5l2 3.5 2-3.5V15h2V9zm7 3.5h-2V9h-2v3.5h-2l3 3.5 3-3.5z"/></svg>
+            Markdown Note
+        </div>
         <div class="new-note-option" onclick="createNewNote('note')">
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path fill="currentColor" d="M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             Canvas
@@ -6146,13 +6150,14 @@
                 const existingFiles = [];
                 
                 for await (const entry of targetDirHandle.values()) {
-                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    if (entry.kind === 'file' && (entry.name.toLowerCase().endsWith('.json') || entry.name.toLowerCase().endsWith('.md'))) {
                         try {
                             const file = await entry.getFile();
                             const text = await file.text();
-                            const data = JSON.parse(text);
+                            let data = null;
+                            try { data = JSON.parse(text); } catch (e) { data = null; }
                             
-                            if (data.type === type) {
+                            if (data && data.type === type) {
                                 existingFiles.push(entry.name);
                             }
                         } catch (err) {
@@ -6163,7 +6168,7 @@
                 
                 if (existingFiles.length > 0) {
                     const typeName = type === 'flashcard' ? 'Flashcard Deck' : (type === 'glossary' ? 'Glossary' : (type === 'qa' ? 'Q/A' : 'To Do List'));
-                    alert(`A ${typeName} already exists for this subject: ${existingFiles[0]}\\n\\nOnly one ${typeName} is allowed per subject. Please open the existing one instead.`);
+                    alert(`A ${typeName} already exists for this subject: ${existingFiles[0]}\n\nOnly one ${typeName} is allowed per subject. Please open the existing one instead.`);
                     return;
                 }
             }
@@ -6176,7 +6181,10 @@
             
             let defaultName, blankData;
             
-            if (type === 'flashcard') {
+            if (type === 'markdown') {
+                defaultName = `Markdown Note ${formattedDate} ${formattedTime}.md`;
+                blankData = `# New Markdown Note\n\nStart typing here...`;
+            } else if (type === 'flashcard') {
                 defaultName = `Flashcard Deck ${formattedDate} ${formattedTime}.json`;
                 blankData = {
                     type: 'flashcard',
@@ -6223,7 +6231,6 @@
                     version: '1.0',
                     timestamp: new Date().toISOString(),
                     sectionNames: {},
-                    // Ensure at least one blank card exists for a "scratch" start
                     cards: [{ section: 0, headline: '', text: '', url: '', image: '' }] 
                 };
             } else if (type === 'practice') {
@@ -6282,32 +6289,57 @@
 
             // Write to file
             const writable = await fileHandle.createWritable();
-            await writable.write(JSON.stringify(blankData));
+            if (type === 'markdown') {
+                await writable.write(blankData);
+            } else {
+                await writable.write(JSON.stringify(blankData));
+            }
             await writable.close();
 
+            // Register the new file in noteMap
+            noteMap.set(defaultName, { handle: fileHandle, data: blankData });
 
-                // ---> CRITICAL BUG FIX 1: Register the new file in noteMap so Electron knows how to save it! <---
-                noteMap.set(defaultName, { handle: fileHandle, data: blankData });
-
-                // Reload notes to show the new file
-                allNotesLoaded = false;
-                if (activeSubject) {
-                    await loadNotesForSubject(activeSubject);
-                } else {
-                    await loadAllNotes();
-                }
+            // Reload notes to show the new file in the grid immediately
+            allNotesLoaded = false;
+            if (activeSubject) {
+                await loadNotesForSubject(activeSubject);
+            } else {
+                await loadAllNotes();
+            }
 
             // Open the appropriate editor
-            if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note' || type === 'test') {
+            if (type === 'markdown') {
+                if (typeof require !== 'undefined') {
+                    const { shell } = require('electron');
+                    
+                    // Same robust Obsidian launch logic as clicking a card (Advanced URI)
+                    const vaultName = "Semester 4";
+                    const fullPath = (fileHandle.path || '').replace(/\\/g, '/');
+                    let relativePath = fullPath;
+                    const marker = vaultName + '/';
+                    if (fullPath.includes(marker)) {
+                        relativePath = fullPath.split(marker)[1];
+                    } else {
+                        relativePath = fileHandle.name || relativePath; 
+                    }
+                    const obsidianUri = `obsidian://advanced-uri?vault=${encodeURIComponent(vaultName)}&filepath=${encodeURIComponent(relativePath)}&openmode=window`;
+                    try {
+                        shell.openExternal(obsidianUri);
+                    } catch (err) {
+                        try {
+                            const fallback = 'obsidian://open?path=' + encodeURIComponent(fileHandle.path || fileHandle.name);
+                            shell.openExternal(fallback);
+                        } catch (e) {}
+                    }
+                }
+            } else if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'linear' || type === 'links' || type === 'note' || type === 'test') {
                 if (ipcRenderer) {
                     ipcRenderer.send('open-note-window', { type: type, data: blankData, fileName: defaultName, filePath: fileHandle.path });
                 } else {
-                    // ---> CRITICAL BUG FIX 2: Set current context variables for the local fallback <---
                     currentFileHandle = fileHandle;
                     currentFileName = defaultName;
                     currentNoteType = type;
 
-                    // Fallback to local opening
                     if (type === 'flashcard') {
                         openFlashcard(fileHandle, blankData);
                     } else if (type === 'glossary') {
@@ -6323,7 +6355,6 @@
                     } else if (type === 'test') {
                         openTest(fileHandle, blankData);
                     } else if (type === 'note') {
-                        // Initialize blank canvas
                         strokes = [];
                         textBoxes = [];
                         undoStack = [];
@@ -6334,39 +6365,16 @@
                         camera = { x: 0, y: 0, z: 1 };
                         hasUnsavedChanges = false;
 
-                        // Show canvas for drawing
                         showCanvas();
                         requestRender();
                     }
                 }
             } else {
-                // Set as current file
+                // Fallback for Practice/Exercises local view
                 currentFileHandle = fileHandle;
                 currentFileName = defaultName;
                 currentNoteType = type;
-
-                if (type === 'practice') {
-                    openNote(fileHandle);
-                } else if (type === 'exampractice') {
-                    openNote(fileHandle);
-                } else if (type === 'exercises') {
-                    openNote(fileHandle);
-                } else {
-                    // Initialize blank canvas
-                    strokes = [];
-                    textBoxes = [];
-                    undoStack = [];
-                    redoStack = [];
-                    selectedStrokes.clear();
-                    selectedTextBoxes.clear();
-                    editingTextBox = null;
-                    camera = { x: 0, y: 0, z: 1 };
-                    hasUnsavedChanges = false;
-
-                    // Show canvas for drawing
-                    showCanvas();
-                    requestRender();
-                }
+                openNote(fileHandle);
             }
 
             showNotification(`Created ${defaultName}`);
