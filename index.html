@@ -4978,12 +4978,16 @@
                     const nameLower = fileEntry.name.toLowerCase();
                     if (nameLower.endsWith('.pdf')) {
                         pdfBaseNames.add(nameLower.slice(0, -4));
-                    } else if (nameLower.endsWith('.json')) {
+                    } else if (nameLower.endsWith('.json') || nameLower.endsWith('.md')) {
                         jsonFiles.push(fileEntry);
                     }
                 }
             }
-            const unlinkedJsonFiles = jsonFiles.filter(f => !pdfBaseNames.has(f.name.slice(0, -5).toLowerCase()));
+            const unlinkedJsonFiles = jsonFiles.filter(f => {
+                const isMd = f.name.toLowerCase().endsWith('.md');
+                const base = f.name.slice(0, -(isMd ? 3 : 5)).toLowerCase();
+                return !pdfBaseNames.has(base);
+            });
             count = unlinkedJsonFiles.length;
         } catch (err) {
             console.error('Error counting notes:', err);
@@ -5548,18 +5552,38 @@
                         const nameLower = entry.name.toLowerCase();
                         if (nameLower.endsWith('.pdf')) {
                             pdfBaseNames.add(nameLower.slice(0, -4));
-                        } else if (nameLower.endsWith('.json')) {
+                        } else if (nameLower.endsWith('.json') || nameLower.endsWith('.md')) {
                             jsonEntries.push(entry);
                         }
                     }
                 }
-                
+
                 for (const entry of jsonEntries) {
-                    const baseName = entry.name.slice(0, -5).toLowerCase();
+                    const isMd = entry.name.toLowerCase().endsWith('.md');
+                    const extLength = isMd ? 3 : 5;
+                    const baseName = entry.name.slice(0, -extLength).toLowerCase();
                     // Only display if it DOES NOT have a matching PDF
                     if (!pdfBaseNames.has(baseName)) {
                         try {
                             const file = await entry.getFile();
+
+                            // ---> NEW: Handle Markdown files immediately <---
+                            if (isMd) {
+                                allNotes.push({
+                                    handle: entry,
+                                    dirHandle: subject.handle,
+                                    name: entry.name.slice(0, -3), // Strip the .md extension for the UI
+                                    subject: subject.name,
+                                    color: subject.color,
+                                    date: file.lastModified,
+                                    typeToken: 'markdown',
+                                    typeLabel: 'Markdown',
+                                    todoCount: 0
+                                });
+                                continue; // Skip the JSON parsing below
+                            }
+                            // ---> END NEW <---
+
                             const text = await file.text();
                             let parsed = null;
                             try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
@@ -5682,10 +5706,49 @@
         
         // Generate preview asynchronously
         generateNotePreview(note.handle, preview);
-        
+
         card.onclick = async (e) => {
             // Don't open if context menu was just shown
             if (e.button !== 0) return;
+
+            // Launch external Markdown files in a NEW Obsidian window (Advanced URI plugin required)
+            if (note.typeToken === 'markdown') {
+                if (typeof require !== 'undefined') {
+                    const { shell } = require('electron');
+
+                    // 1. Hardcode your exact Obsidian Vault name to fix "Vault not found"
+                    const vaultName = "Semester 4";
+
+                    // 2. Get the file path and convert Windows backslashes (\) to forward slashes (/)
+                    const fullPath = (note.handle.path || '').replace(/\\/g, '/');
+
+                    // 3. Extract the relative path AFTER the vault folder name
+                    let relativePath = fullPath;
+                    const marker = vaultName + '/';
+                    if (fullPath.includes(marker)) {
+                        relativePath = fullPath.split(marker)[1];
+                    } else {
+                        // Fallback to filename if we couldn't compute a relative path
+                        relativePath = note.handle.name || relativePath;
+                    }
+
+                    // 4. Build the Advanced URI (openmode=window requests a new window)
+                    const obsidianUri = 'obsidian://advanced-uri?vault=' + encodeURIComponent(vaultName) + '&filepath=' + encodeURIComponent(relativePath) + '&openmode=window';
+
+                    // Launch via shell; Obsidian's Advanced URI plugin will handle new-window behavior
+                    try {
+                        shell.openExternal(obsidianUri);
+                    } catch (err) {
+                        console.error('Failed to open Advanced URI, falling back to standard path URI', err);
+                        try {
+                            const fallback = 'obsidian://open?path=' + encodeURIComponent(note.handle.path || note.handle.name);
+                            shell.openExternal(fallback);
+                        } catch (e) {}
+                    }
+                }
+                return;
+            }
+
             await openNote(note.handle);
         };
         
@@ -5700,6 +5763,13 @@
     }
 
     async function generateNotePreview(fileHandle, previewEl) {
+        // ---> NEW: Markdown Icon <---
+        if (fileHandle.name.toLowerCase().endsWith('.md')) {
+            previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41zM11.5 9H9.5L7.5 13 5.5 9H3.5v6h2v-3.5l2 3.5 2-3.5V15h2V9zm7 3.5h-2V9h-2v3.5h-2l3 3.5 3-3.5z"/></svg></div>`;
+            return;
+        }
+        // ---> END NEW <---
+
         try {
             const file = await fileHandle.getFile();
             const text = await file.text();
@@ -8812,8 +8882,10 @@
         }
 
         const sanitizedName = newName.trim();
-        const newFileName = sanitizedName + '.json';
-        const oldFileName = oldName + '.json';
+        const isMd = renamingNote.typeToken === 'markdown';
+        const ext = isMd ? '.md' : '.json';
+        const newFileName = sanitizedName + ext;
+        const oldFileName = oldName + ext;
 
         try {
             const dirHandle = renamingNote.dirHandle;
@@ -8909,7 +8981,8 @@
         if (!contextMenuNote) return;
         
         const noteName = contextMenuNote.name;
-        const fileName = noteName + '.json';
+        const isMd = contextMenuNote.typeToken === 'markdown';
+        const fileName = noteName + (isMd ? '.md' : '.json');
         const confirmed = confirm(`Are you sure you want to delete "${noteName}"?\n\nThis action cannot be undone.`);
         
         if (!confirmed) return;
