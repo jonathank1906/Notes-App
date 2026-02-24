@@ -728,7 +728,8 @@
 
                                     // SUPER-CHOPPER: remove leading generic prefixes like
                                     // "Slide 8:", "Slide: 8", "Slide 8 - ", "Page 8:", etc.
-                                    let cleanTitle = bookmarkTitle.replace(/^(?:slide|page)\s*[:\-.]?\s*\d+\s*[:\-.]?\s*/i, '').trim();
+                                    // Upgraded to catch "Number", "No.", "num", and "#" variants
+                                    let cleanTitle = bookmarkTitle.replace(/^(?:slide|page)\s*(?:number|num|no\.?|#)?\s*[:\-.]?\s*\d+\s*[:\-.]?\s*/i, '').trim();
 
                                     if (cleanTitle !== '') {
                                         slide.header = cleanTitle;
