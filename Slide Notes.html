@@ -626,7 +626,7 @@
                     splitBtn.style.opacity = '1';
                     splitBtn.style.cursor = 'pointer';
 
-                    if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); }
+                    if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); extractPdfBookmarks(pdfDoc_); }
                     updateUIForMode(); setTimeout(() => renderPage(), 0);
                 }).catch(err => {
                     console.error('Error loading PDF:', err);
@@ -702,6 +702,55 @@
         function checkIfDirty() { if (state.slides.length > 1) return true; const s = state.slides[0]; if (s.header && s.header.trim() !== "") return true; if (s.notes && s.notes.trim() !== "") return true; return false; }
         function saveData() { /* Memory Only */ }
         function autoResizeTextarea() { editor.style.height = 'auto'; editor.style.height = (editor.scrollHeight) + 'px'; }
+
+        async function extractPdfBookmarks(pdf) {
+            try {
+                const outline = await pdf.getOutline();
+                if (!outline) return;
+
+                for (const item of outline) {
+                    if (item.dest) {
+                        let dest = item.dest;
+                        if (typeof dest === 'string') {
+                            dest = await pdf.getDestination(dest);
+                        }
+
+                        if (dest && dest[0]) {
+                            try {
+                                const pageIndex = await pdf.getPageIndex(dest[0]);
+                                const pageNum = pageIndex + 1;
+
+                                const slide = state.slides.find(s => s.type === 'pdf' && s.pdfPage === pageNum);
+                                
+                                // Only overwrite if the current header is completely blank
+                                if (slide && (!slide.header || slide.header.trim() === '')) {
+                                    let bookmarkTitle = (item.title || '').trim();
+
+                                    // SUPER-CHOPPER: remove leading generic prefixes like
+                                    // "Slide 8:", "Slide: 8", "Slide 8 - ", "Page 8:", etc.
+                                    let cleanTitle = bookmarkTitle.replace(/^(?:slide|page)\s*[:\-.]?\s*\d+\s*[:\-.]?\s*/i, '').trim();
+
+                                    if (cleanTitle !== '') {
+                                        slide.header = cleanTitle;
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('Could not map bookmark to page', e);
+                            }
+                        }
+                    }
+                }
+
+                // Force the UI to refresh with the new headers
+                updateDisplay();
+                updateSidebar();
+                isDirty = true;
+                debouncedSave();
+                updateSaveStatusIndicator();
+            } catch (error) {
+                console.error('Error extracting PDF bookmarks:', error);
+            }
+        }
 
         function handleInput() {
             const idx = state.count - 1; const newText = editor.value; isDirty = true; debouncedSave(); updateSaveStatusIndicator(); autoResizeTextarea();
@@ -1314,7 +1363,7 @@
                         splitBtn.style.opacity = '1';
                         splitBtn.style.cursor = 'pointer';
 
-                        if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); }
+                        if (state.slides.length <= 1 && !state.slides[0].notes && !state.slides[0].header) { state.slides = []; for(let i=1; i<=pdfDoc.numPages; i++) { state.slides.push({ type:'pdf', pdfPage:i, header:"", notes:"" }); } state.count = 1; updateDisplay(); extractPdfBookmarks(pdfDoc_); }
                         updateUIForMode(); setTimeout(() => renderPage(), 0); document.getElementById('pdf-upload').blur();
                     });
                 }; fileReader.readAsArrayBuffer(file);
