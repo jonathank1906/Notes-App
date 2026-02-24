@@ -119,8 +119,6 @@
         const externalEditor = document.getElementById('external-editor');
 
         let isEditing = false;
-        const fs = require('fs');
-        let currentJsonPath = null;
 
         // Turn on the editor when you click the text
         function activateEditor() {
@@ -147,14 +145,8 @@
         // When you click off the text box, show the preview
         externalEditor.addEventListener('blur', () => {
             activatePreview();
-            if (currentJsonPath) {
-                try {
-                    const content = externalEditor.value || '';
-                    fs.writeFileSync(currentJsonPath, content);
-                } catch (err) {
-                    console.error('External notes direct save failed:', err);
-                }
-            }
+            // FIX: Removed the fs.writeFileSync that was destroying the JSON.
+            // Syncing is handled purely through the 'input' event below.
         });
 
         // Allow Ctrl+Enter to escape the editor
@@ -165,33 +157,25 @@
             }
         });
 
+        // NAVIGATE SLIDES: Send Ctrl + Left/Right Arrow commands to the main window
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                e.preventDefault();
+                const direction = e.key === 'ArrowRight' ? 'forward' : 'backward';
+                ipcRenderer.send('navigate-slide-from-external', direction);
+            }
+        });
+
         // LIVE SYNC: Send data back to main window as you type
-        // Allow Ctrl+S to save
         externalEditor.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
-                if (currentJsonPath) {
-                    try {
-                        const content = externalEditor.value || '';
-                        fs.writeFileSync(currentJsonPath, content);
-                    } catch (err) {
-                        console.error('External notes direct save failed:', err);
-                    }
-                } else {
-                    // Fallback: send edits back to main window to save
-                    ipcRenderer.send('edit-note-from-external', externalEditor.value);
-                }
+                // FIX: Instead of saving a broken file, tell the main window to update its state.
+                // (The main window already auto-saves to the real JSON file when it receives this).
+                ipcRenderer.send('edit-note-from-external', externalEditor.value);
             }
         });
-            // NAVIGATE SLIDES: Send Ctrl + Left/Right Arrow commands to the main window
-            document.addEventListener('keydown', (e) => {
-                // Check if we are focusing the editor or just the window
-                if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-                    e.preventDefault();
-                    const direction = e.key === 'ArrowRight' ? 'forward' : 'backward';
-                    ipcRenderer.send('navigate-slide-from-external', direction);
-                }
-            });
+
         externalEditor.addEventListener('input', () => {
             autoResize();
             ipcRenderer.send('edit-note-from-external', externalEditor.value);
@@ -201,9 +185,6 @@
         ipcRenderer.on('update-notes-view', (event, data) => {
             slideCount.innerText = data.count || '';
             headerDisplay.innerHTML = data.header || '<i>(No Header)</i>';
-
-            // Receive json path so this external window can save directly when available
-            if (data && data.jsonPath) currentJsonPath = data.jsonPath;
 
             // IMPORTANT: If we are currently typing, do NOT overwrite the textarea
             // Otherwise, your cursor will jump to the end of the text every keystroke!
