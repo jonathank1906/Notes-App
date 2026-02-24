@@ -190,6 +190,14 @@ ipcMain.on('edit-note-from-external', (event, text) => {
     });
 });
 
+// NAVIGATION: Relay slide navigation from external window to main window
+ipcMain.on('navigate-slide-from-external', (event, direction) => {
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win.webContents !== event.sender) {
+            win.webContents.send('trigger-slide-nav', direction);
+        }
+    });
+});
 // NEW: Open Pomodoro window with snapping when requested
 ipcMain.on('open-pomodoro-window', (event) => {
     console.log('main: open-pomodoro-window IPC received');

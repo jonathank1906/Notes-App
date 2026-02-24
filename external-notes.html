@@ -183,6 +183,15 @@
                 }
             }
         });
+            // NAVIGATE SLIDES: Send Ctrl + Left/Right Arrow commands to the main window
+            document.addEventListener('keydown', (e) => {
+                // Check if we are focusing the editor or just the window
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                    e.preventDefault();
+                    const direction = e.key === 'ArrowRight' ? 'forward' : 'backward';
+                    ipcRenderer.send('navigate-slide-from-external', direction);
+                }
+            });
         externalEditor.addEventListener('input', () => {
             autoResize();
             ipcRenderer.send('edit-note-from-external', externalEditor.value);

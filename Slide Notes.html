@@ -578,6 +578,10 @@
             broadcastNotes();
         });
 
+            // NAVIGATION: Receive slide navigation event from main window
+            ipcRenderer.on('trigger-slide-nav', (event, direction) => {
+                handleNav(direction);
+            });
         ipcRenderer.on('split-screen-closed', () => {
             if (isSplitScreen) toggleSplitScreen();
         });
