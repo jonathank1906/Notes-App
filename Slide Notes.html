@@ -352,6 +352,7 @@
         <button class="menu-item" onclick="shiftContent(-1)">Shift Content Up</button>
         <button class="menu-item" onclick="shiftContent(1)">Shift Content Down</button>
         <button class="menu-item" onclick="syncPdfSlides()">Force Sync PDF Pages</button>
+        <button class="menu-item" onclick="applyPdfBookmarksOverwrite()">Apply PDF Bookmarks (Overwrite Labels)</button>
     </div>
 
     <div id="appearance-menu" class="menu-dropdown" style="left: 195px;">
@@ -752,6 +753,59 @@
                 console.error('Error extracting PDF bookmarks:', error);
             }
         }
+
+                // Apply PDF bookmarks and OVERWRITE any existing slide headers.
+                // Useful when you want to force-set slide labels from the PDF at any time.
+                async function applyPdfBookmarksOverwrite() {
+                    if (!pdfDoc) {
+                        alert('Load a PDF first.');
+                        return;
+                    }
+
+                    try {
+                        const outline = await pdfDoc.getOutline();
+                        if (!outline) {
+                            alert('No bookmarks found in PDF.');
+                            return;
+                        }
+
+                        for (const item of outline) {
+                            if (item.dest) {
+                                let dest = item.dest;
+                                if (typeof dest === 'string') {
+                                    dest = await pdfDoc.getDestination(dest);
+                                }
+
+                                if (dest && dest[0]) {
+                                    try {
+                                        const pageIndex = await pdfDoc.getPageIndex(dest[0]);
+                                        const pageNum = pageIndex + 1;
+
+                                        const slide = state.slides.find(s => s.type === 'pdf' && s.pdfPage === pageNum);
+                                        if (slide) {
+                                            let bookmarkTitle = (item.title || '').trim();
+                                            let cleanTitle = bookmarkTitle.replace(/^(?:slide|page)\s*(?:number|num|no\.?|#)?\s*[:\-.]?\s*\d+\s*[:\-.]?\s*/i, '').trim();
+                                            // Overwrite even if non-empty; fall back to raw title if cleaning removed everything
+                                            slide.header = cleanTitle !== '' ? cleanTitle : bookmarkTitle;
+                                        }
+                                    } catch (e) {
+                                        console.warn('Could not map bookmark to page', e);
+                                    }
+                                }
+                            }
+                        }
+
+                        updateDisplay();
+                        updateSidebar();
+                        isDirty = true;
+                        debouncedSave();
+                        updateSaveStatusIndicator();
+                        alert('PDF bookmarks applied — slide labels overwritten.');
+                    } catch (err) {
+                        console.error('Error applying PDF bookmarks (overwrite):', err);
+                        alert('Error applying bookmarks. See console for details.');
+                    }
+                }
 
         function handleInput() {
             const idx = state.count - 1; const newText = editor.value; isDirty = true; debouncedSave(); updateSaveStatusIndicator(); autoResizeTextarea();
