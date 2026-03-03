@@ -1,6 +1,8 @@
 const { app, BrowserWindow, session, ipcMain, dialog, screen } = require('electron')
 const path = require('path')
 
+let pomodoroWindow = null; // Keep track of the Pomodoro window
+
 function createWindow () {
     const win = new BrowserWindow({
         width: 1200,
@@ -11,6 +13,15 @@ function createWindow () {
         }
     });
     win.loadFile(path.join(__dirname, 'index.html')); // Loads Mind Map
+    
+    // When a main window closes, check if we should destroy the Pomodoro window
+    win.on('closed', () => {
+        const mainWindows = BrowserWindow.getAllWindows().filter(w => w !== pomodoroWindow);
+        if (mainWindows.length === 0 && pomodoroWindow && !pomodoroWindow.isDestroyed()) {
+            pomodoroWindow.destroy();
+            pomodoroWindow = null;
+        }
+    });
 }
 
 // 1. Function to open the MAIN Slide Notes App
@@ -32,6 +43,15 @@ function launchSlideNotesApp(pdfBuffer = null, jsonContent = null, jsonPath = nu
             slideAppWin.webContents.send('load-pdf-buffer', { pdfBuffer, jsonContent, jsonPath });
         });
     }
+    
+    // Cleanup Pomodoro when this window closes
+    slideAppWin.on('closed', () => {
+        const mainWindows = BrowserWindow.getAllWindows().filter(w => w !== pomodoroWindow);
+        if (mainWindows.length === 0 && pomodoroWindow && !pomodoroWindow.isDestroyed()) {
+            pomodoroWindow.destroy();
+            pomodoroWindow = null;
+        }
+    });
 }
 
 // 2. Function to open a note in a new window
@@ -52,6 +72,15 @@ function launchNoteApp(noteData) {
         noteWin.webContents.send('load-note', noteData);
     });
     noteWin.focus();
+    
+    // Cleanup Pomodoro when this window closes
+    noteWin.on('closed', () => {
+        const mainWindows = BrowserWindow.getAllWindows().filter(w => w !== pomodoroWindow);
+        if (mainWindows.length === 0 && pomodoroWindow && !pomodoroWindow.isDestroyed()) {
+            pomodoroWindow.destroy();
+            pomodoroWindow = null;
+        }
+    });
 }
 
 // 3. Function to open the SPLIT SCREEN window
@@ -71,12 +100,27 @@ function openExternalNotesWindow() {
         BrowserWindow.getAllWindows().forEach(win => {
             win.webContents.send('split-screen-closed');
         });
+        
+        // Cleanup Pomodoro if no main windows remain
+        const mainWindows = BrowserWindow.getAllWindows().filter(w => w !== pomodoroWindow);
+        if (mainWindows.length === 0 && pomodoroWindow && !pomodoroWindow.isDestroyed()) {
+            pomodoroWindow.destroy();
+            pomodoroWindow = null;
+        }
     });
 }
 
 // 4. NEW: Function to open the POMODORO Timer window with Magnetic Snapping
 function openPomodoroWindow() {
     console.log('Creating Pomodoro window...');
+    
+    // If window already exists, just show it and bring to front
+    if (pomodoroWindow && !pomodoroWindow.isDestroyed()) {
+        pomodoroWindow.show();
+        pomodoroWindow.focus();
+        return;
+    }
+    
     const pomoWin = new BrowserWindow({
         width: 240,
         height: 110,
@@ -91,6 +135,15 @@ function openPomodoroWindow() {
     });
   
     pomoWin.loadFile(path.join(__dirname, 'pomodoro.html'));
+
+    // Prevent closing the window from quitting the app - just hide it instead
+    pomoWin.on('close', (event) => {
+        event.preventDefault();
+        pomoWin.hide();
+    });
+    
+    // Store reference to the window
+    pomodoroWindow = pomoWin;
 
     // --- MAGNETIC EDGE SNAPPING LOGIC ---
     // This triggers exactly when the user finishes dragging and drops the window
