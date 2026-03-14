@@ -5872,18 +5872,14 @@
     }
 
     function applyCardVisibility(targetCards) {
+        const notesGrid = document.getElementById('notes-grid');
         const targetSet = new Set(targetCards);
+        const allCardsInGrid = notesGrid ? Array.from(notesGrid.querySelectorAll('.note-card')) : [];
 
-        for (const card of currentVisibleCardSet) {
-            if (!targetSet.has(card)) {
-                card.style.display = 'none';
-            }
-        }
-
-        for (const card of targetSet) {
-            if (!currentVisibleCardSet.has(card)) {
-                card.style.display = '';
-            }
+        // Always compute visibility from current DOM state so refreshes (e.g. rename)
+        // cannot leave stale cards visible when currentVisibleCardSet was reset.
+        for (const card of allCardsInGrid) {
+            card.style.display = targetSet.has(card) ? '' : 'none';
         }
 
         currentVisibleCardSet = targetSet;
