@@ -6101,8 +6101,9 @@
 
             const title = document.createElement('div');
             title.className = 'note-title';
-            title.textContent = pdf.name;
-            title.title = pdf.name;
+            const pdfDisplayName = pdf.name.replace(/\.pdf$/i, '');
+            title.textContent = pdfDisplayName;
+            title.title = pdfDisplayName;
 
             const metaDiv = document.createElement('div');
             metaDiv.className = 'note-meta';
