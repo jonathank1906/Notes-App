@@ -1645,7 +1645,10 @@
             background: #121212;
             z-index: 100;
             overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
+        #glossary-page::-webkit-scrollbar { width: 0; height: 0; }
         #glossary-page.active { display: block; }
 
         .glossary-container {
@@ -1878,6 +1881,68 @@
         }
         .glossary-letter-divider::after {
             margin-left: 15px;
+        }
+
+        /* Glossary alphabet jump rail (always visible) */
+        #glossary-alpha-rail {
+            position: fixed;
+            right: 6px;
+            top: 12px;
+            bottom: 12px;
+            width: 18px;
+            display: grid;
+            grid-template-rows: repeat(26, minmax(0, 1fr));
+            justify-items: stretch;
+            align-items: stretch;
+            padding: 6px 2px;
+            border-radius: 8px;
+            background: rgba(22, 22, 22, 0.65);
+            border: none;
+            z-index: 220;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease;
+            user-select: none;
+        }
+
+        #glossary-alpha-rail.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .glossary-alpha-letter {
+            width: 100%;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            --letter-color: #9a9a9a;
+            color: var(--letter-color);
+            font-family: "Adobe Clean", "AdobeClean", "Segoe UI", Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0;
+            padding: 0;
+            cursor: pointer;
+            text-align: center;
+            border-radius: 2px;
+        }
+
+        .glossary-alpha-letter:hover {
+            color: var(--letter-color) !important;
+            background: transparent;
+        }
+
+        .glossary-alpha-letter.enabled {
+            --letter-color: #d0d0d0;
+        }
+
+        .glossary-alpha-letter.active {
+            --letter-color: #8ab4ff;
+            background: transparent;
         }
 
         /* Q/A Page */
@@ -7867,6 +7932,100 @@
     // --- GLOSSARY FUNCTIONS ---
     let currentGlossaryData = null;
     let currentGlossaryHandle = null;
+    const GLOSSARY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    let glossaryRailHideTimer = null;
+
+    function initGlossaryAlphabetRail() {
+        const rail = document.getElementById('glossary-alpha-rail');
+        if (!rail || rail.childElementCount > 0) return;
+
+        for (const letter of GLOSSARY_ALPHABET) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'glossary-alpha-letter';
+            btn.textContent = letter;
+            btn.dataset.letter = letter;
+            btn.setAttribute('aria-label', `Jump to ${letter}`);
+            btn.addEventListener('click', () => jumpGlossaryToLetter(letter));
+            rail.appendChild(btn);
+        }
+
+        const glossaryPageEl = document.getElementById('glossary-page');
+        if (glossaryPageEl) {
+            glossaryPageEl.addEventListener('scroll', () => {
+                showGlossaryAlphabetRailTemporarily();
+                updateGlossaryActiveLetter();
+            }, { passive: true });
+        }
+    }
+
+    function showGlossaryAlphabetRailTemporarily() {
+        const rail = document.getElementById('glossary-alpha-rail');
+        if (!rail) return;
+
+        rail.classList.add('show');
+    }
+
+    function updateGlossaryAlphabetRailState() {
+        const rail = document.getElementById('glossary-alpha-rail');
+        if (!rail) return;
+
+        const presentLetters = new Set(
+            Array.from(document.querySelectorAll('#glossary-list .glossary-letter-divider'))
+                .map(el => el.dataset.letter)
+                .filter(Boolean)
+        );
+
+        rail.querySelectorAll('.glossary-alpha-letter').forEach(btn => {
+            const hasSection = presentLetters.has(btn.dataset.letter);
+            btn.classList.toggle('enabled', hasSection);
+        });
+
+        updateGlossaryActiveLetter();
+    }
+
+    function updateGlossaryActiveLetter() {
+        const rail = document.getElementById('glossary-alpha-rail');
+        const glossaryPageEl = document.getElementById('glossary-page');
+        if (!rail || !glossaryPageEl) return;
+
+        const pageRect = glossaryPageEl.getBoundingClientRect();
+        const probeY = pageRect.top + 180;
+        const dividers = Array.from(document.querySelectorAll('#glossary-list .glossary-letter-divider'));
+
+        let activeLetter = null;
+        for (const divider of dividers) {
+            const rect = divider.getBoundingClientRect();
+            if (rect.top <= probeY) {
+                activeLetter = divider.dataset.letter || divider.textContent.trim().charAt(0).toUpperCase();
+            } else {
+                break;
+            }
+        }
+
+        rail.querySelectorAll('.glossary-alpha-letter').forEach(btn => {
+            btn.classList.toggle('active', !!activeLetter && btn.dataset.letter === activeLetter);
+        });
+    }
+
+    function jumpGlossaryToLetter(letter) {
+        const glossaryPageEl = document.getElementById('glossary-page');
+        if (!glossaryPageEl) return;
+
+        const dividers = Array.from(document.querySelectorAll('#glossary-list .glossary-letter-divider'));
+        if (dividers.length === 0) return;
+
+        const target = dividers.find(el => (el.dataset.letter || '').toUpperCase() === letter)
+            || dividers.find(el => (el.dataset.letter || '').toUpperCase() > letter)
+            || dividers[dividers.length - 1];
+
+        if (!target) return;
+
+        const scrollOffset = target.offsetTop - 80;
+        glossaryPageEl.scrollTo({ top: Math.max(0, scrollOffset), behavior: 'smooth' });
+        showGlossaryAlphabetRailTemporarily();
+        updateGlossaryActiveLetter();
+    }
 
     // --- Q/A FUNCTIONS ---
     let currentQAData = null;
@@ -7896,12 +8055,20 @@
         // Update title
         const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Glossary');
         document.getElementById('glossary-title').textContent = fileNameStr;
+
+        initGlossaryAlphabetRail();
         
         renderGlossaryList();
     }
 
     function closeGlossary() {
         document.getElementById('glossary-page').classList.remove('active');
+        const rail = document.getElementById('glossary-alpha-rail');
+        if (rail) rail.classList.remove('show');
+        if (glossaryRailHideTimer) {
+            clearTimeout(glossaryRailHideTimer);
+            glossaryRailHideTimer = null;
+        }
         currentGlossaryData = null;
         currentGlossaryHandle = null;
         showHomeScreen();
@@ -7910,9 +8077,11 @@
     function renderGlossaryList() {
         const listDiv = document.getElementById('glossary-list');
         const searchTerm = document.getElementById('glossary-search-input').value.toLowerCase();
+        initGlossaryAlphabetRail();
         
         if (!currentGlossaryData || !currentGlossaryData.glossary || currentGlossaryData.glossary.length === 0) {
             listDiv.innerHTML = '<p style="color:#666;text-align:center;">No glossary entries yet. Add one above.</p>';
+            updateGlossaryAlphabetRailState();
             return;
         }
 
@@ -7927,6 +8096,7 @@
         
         if (filteredGlossary.length === 0) {
             listDiv.innerHTML = '<p style="color:#666;text-align:center;">No matching entries found.</p>';
+            updateGlossaryAlphabetRailState();
             return;
         }
         
@@ -7978,6 +8148,7 @@
                 currentLetter = firstLetter;
                 const dividerDiv = document.createElement('div');
                 dividerDiv.className = 'glossary-letter-divider';
+                dividerDiv.dataset.letter = currentLetter;
                 dividerDiv.textContent = currentLetter;
                 listDiv.appendChild(dividerDiv);
             }
@@ -8028,7 +8199,7 @@
             itemDiv.innerHTML = `
                 <div class="glossary-term-row">
                     <span class="glossary-term">${termHTML}</span>
-                    <span class="glossary-carrow" title="Show/hide definition">
+                    <span class="glossary-carrow">
                         <svg viewBox="0 0 20 20">
                             <polygon fill="#fff" points="20 5.79 10 15.79 0 5.79 2.34 3.45 10 11.11 17.66 3.45 20 5.79"/>
                         </svg>
@@ -8070,6 +8241,8 @@
             
             listDiv.appendChild(itemDiv);
         });
+
+        updateGlossaryAlphabetRailState();
     }
 
     async function addGlossaryEntry() {
@@ -10682,6 +10855,8 @@
             <div class="glossary-search">
                 <input type="text" id="glossary-search-input" placeholder="Search glossary..." oninput="filterGlossary()">
             </div>
+
+            <div id="glossary-alpha-rail" aria-label="Glossary alphabet shortcuts"></div>
             
             <div class="glossary-list" id="glossary-list"></div>
         </div>
