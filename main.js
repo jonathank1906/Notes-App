@@ -1,7 +1,59 @@
-const { app, BrowserWindow, session, ipcMain, dialog, screen } = require('electron')
+const { app, BrowserWindow, session, ipcMain, dialog, screen, Tray, Menu } = require('electron')
 const path = require('path')
 
 let pomodoroWindow = null; // Keep track of the Pomodoro window
+let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+function showMainWindow() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow();
+        return;
+    }
+
+    mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+}
+
+function createTray() {
+    if (tray) return;
+
+    tray = new Tray(path.join(__dirname, 'Logo.ico'));
+    tray.setToolTip('Slide Notes');
+
+    const trayMenu = Menu.buildFromTemplate([
+        {
+            label: 'Show Slide Notes',
+            click: () => showMainWindow()
+        },
+        {
+            type: 'separator'
+        },
+        {
+            label: 'Quit',
+            click: () => {
+                isQuitting = true;
+                app.quit();
+            }
+        }
+    ]);
+
+    tray.setContextMenu(trayMenu);
+    tray.on('click', () => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            showMainWindow();
+            return;
+        }
+
+        if (mainWindow.isVisible()) {
+            mainWindow.hide();
+        } else {
+            showMainWindow();
+        }
+    });
+}
 
 function createWindow () {
     const win = new BrowserWindow({
@@ -15,11 +67,22 @@ function createWindow () {
             contextIsolation: false
         }
     });
+    mainWindow = win;
     win.loadFile(path.join(__dirname, 'index.html')); // Loads Mind Map
     win.maximize(); // Open maximized, but not fullscreen
+
+    // Hide to tray instead of quitting when closing the main window.
+    win.on('close', (event) => {
+        if (isQuitting) return;
+        event.preventDefault();
+        win.hide();
+    });
     
     // When a main window closes, check if we should destroy the Pomodoro window
     win.on('closed', () => {
+        if (mainWindow === win) {
+            mainWindow = null;
+        }
         const mainWindows = BrowserWindow.getAllWindows().filter(w => w !== pomodoroWindow);
         if (mainWindows.length === 0 && pomodoroWindow && !pomodoroWindow.isDestroyed()) {
             pomodoroWindow.destroy();
@@ -28,7 +91,7 @@ function createWindow () {
     });
 
     // Hides the default menu bar (File, Edit, etc.) for a cleaner look
-    win.setMenu(null)
+    //win.setMenu(null)
 }
 
 // 1. Function to open the MAIN Slide Notes App
@@ -271,6 +334,7 @@ ipcMain.on('open-pomodoro-window', (event) => {
 });
 
 app.whenReady().then(() => {
+    app.setAppUserModelId('SlideNotes.App');
     session.defaultSession.webRequest.onBeforeSendHeaders(
         { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
         (details, callback) => {
@@ -279,11 +343,23 @@ app.whenReady().then(() => {
         }
     );
     createWindow();
+    createTray();
     app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            createWindow();
+        } else {
+            showMainWindow();
+        }
     });
 });
 
+app.on('before-quit', () => {
+    isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+    // Keep running in the tray unless the user explicitly quits.
+    if (isQuitting) {
+        app.quit();
+    }
 })
