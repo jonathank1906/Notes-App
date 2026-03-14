@@ -1046,6 +1046,30 @@
             will-change: transform;
         }
 
+        #startup-preload-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            z-index: 20000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        #startup-preload-progress.show {
+            opacity: 1;
+        }
+
+        #startup-preload-progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #9fb6ff, #d0dbff);
+            transition: width 0.12s linear;
+        }
+
         .card.is-flipped {
             transform: rotateX(180deg) !important;
         }
@@ -2553,6 +2577,9 @@
     </style>
 </head>
 <body>
+    <div id="startup-preload-progress" aria-hidden="true">
+        <div id="startup-preload-progress-bar"></div>
+    </div>
 
     <!-- Home Screen -->
     <div id="home-screen">
@@ -3065,6 +3092,14 @@
     let allNotesLoaded = false;
     let currentView = 'grid';
     let pdfPreviewCache = {};
+    let notePreviewObserver = null;
+    let noteCardMap = new Map();
+    let noteCardsBySubject = new Map();
+    let allNoteCards = [];
+    let currentVisibleCardSet = new Set();
+    let noteDataCache = new Map();
+    let subjectPdfCache = new Map();
+    let startupWarmupRunning = false;
     // --- INIT ---
     function resize() {
         const w = window.innerWidth;
@@ -4852,8 +4887,8 @@
             }
             notesItem.onclick = async () => {
                 activeSubject = null;
-                await loadAllNotes();
                 displaySubjects();
+                await loadAllNotes();
             };
         }
         
@@ -4869,8 +4904,8 @@
             `;
             subjectItem.onclick = async () => {
                 activeSubject = subject;
-                await loadNotesForSubject(subject);
                 displaySubjects();
+                await loadNotesForSubject(subject);
             };
             return subjectItem;
         };
@@ -5103,13 +5138,7 @@
         const pdfCards = notesGrid.querySelectorAll('.pdf-card');
         pdfCards.forEach(card => card.remove());
         
-        // Show all cards
-        const allCards = notesGrid.querySelectorAll('.note-card');
-        let visibleCount = 0;
-        allCards.forEach(card => {
-            card.style.display = '';
-            visibleCount++;
-        });
+        const visibleCount = applyCardVisibility(allNoteCards);
         
         // Handle empty state
         if (visibleCount === 0) {
@@ -5159,17 +5188,8 @@
             await loadNotesIntoDom();
         }
         
-        // Show only cards that match this subject
-        const allCards = notesGrid.querySelectorAll('.note-card');
-        let visibleCount = 0;
-        allCards.forEach(card => {
-            if (card.dataset.subject === subject.name) {
-                card.style.display = '';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
+        const subjectCards = noteCardsBySubject.get(subject.name) || [];
+        const visibleCount = applyCardVisibility(subjectCards);
         
         // Handle empty state
         if (visibleCount === 0) {
@@ -5185,14 +5205,11 @@
         await loadPdfsForSubject(subject);
     }
 
-    async function loadPdfsForSubject(subject) {
-        const notesGrid = document.getElementById('notes-grid');
-        
-        // Remove existing PDF cards for this subject
-        const existingPdfCards = notesGrid.querySelectorAll('.pdf-card[data-subject="' + subject.name + '"]');
-        existingPdfCards.forEach(card => card.remove());
-        
-        // Scan the subject folder for PDFs
+    async function getPdfsForSubject(subject, useCache = true) {
+        if (useCache && subjectPdfCache.has(subject.name)) {
+            return subjectPdfCache.get(subject.name);
+        }
+
         const pdfs = [];
         try {
             for await (const entry of subject.handle.values()) {
@@ -5206,6 +5223,20 @@
         } catch (err) {
             console.error('Error scanning PDFs for subject:', subject.name, err);
         }
+
+        subjectPdfCache.set(subject.name, pdfs);
+        return pdfs;
+    }
+
+    async function loadPdfsForSubject(subject) {
+        const notesGrid = document.getElementById('notes-grid');
+        
+        // Remove all existing PDF cards so only the selected subject's PDFs are shown.
+        const existingPdfCards = notesGrid.querySelectorAll('.pdf-card');
+        existingPdfCards.forEach(card => card.remove());
+        
+        // Use preloaded PDF list when available.
+        const pdfs = await getPdfsForSubject(subject, true);
         
         // Create PDF cards
         for (const pdf of pdfs) {
@@ -5335,6 +5366,13 @@
         const notesGrid = document.getElementById('notes-grid');
         const emptyState = document.getElementById('empty-notes-state');
         notesGrid.innerHTML = '';
+        noteCardMap = new Map();
+        noteCardsBySubject = new Map();
+        allNoteCards = [];
+        currentVisibleCardSet = new Set();
+        noteDataCache = new Map();
+        subjectPdfCache = new Map();
+        resetNotePreviewObserver();
         
         const allNotes = [];
         
@@ -5360,70 +5398,20 @@
                     const baseName = entry.name.slice(0, -extLength).toLowerCase();
                     // Only display if it DOES NOT have a matching PDF
                     if (!pdfBaseNames.has(baseName)) {
-                        try {
-                            const file = await entry.getFile();
-
-                            // ---> NEW: Handle Markdown files immediately <---
-                            if (isMd) {
-                                allNotes.push({
-                                    handle: entry,
-                                    dirHandle: subject.handle,
-                                    name: entry.name.slice(0, -3), // Strip the .md extension for the UI
-                                    subject: subject.name,
-                                    color: subject.color,
-                                    date: file.lastModified,
-                                    typeToken: 'markdown',
-                                    typeLabel: 'Markdown',
-                                    todoCount: 0
-                                });
-                                continue; // Skip the JSON parsing below
-                            }
-                            // ---> END NEW <---
-
-                            const text = await file.text();
-                            let parsed = null;
-                            try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
-                            // Determine a lightweight type token and human label
-                            let typeToken = (parsed && parsed.type) ? parsed.type : null;
-                            if (!typeToken) {
-                                if (parsed && parsed.objects) typeToken = 'note';
-                                else if (parsed && (parsed.strokes || parsed.textBoxes)) typeToken = 'practice';
-                                else typeToken = 'note';
-                            }
-                            const typeLabelMap = {
-                                'flashcard': 'Flashcards',
-                                'glossary': 'Glossary',
-                                'qa': 'Q&A',
-                                'todo': 'To Do',
-                                'links': 'Pinboard',
-                                'test': 'Test',
-                                'practice': 'Practice Problems',
-                                'exercises': 'Exercises',
-                                'exampractice': 'Exam Practice',
-                                'note': 'Non-Linear Notes'
-                            };
-                            const typeLabel = typeLabelMap[typeToken] || 'Canvas';
-
-                            // --- NEW: Count uncompleted to-dos ---
-                            let pendingTodos = 0;
-                            if (typeToken === 'todo' && parsed && Array.isArray(parsed.todos)) {
-                                pendingTodos = parsed.todos.filter(t => !t.completed).length;
-                            }
-
-                            allNotes.push({
-                                handle: entry,
-                                dirHandle: subject.handle,
-                                name: entry.name.replace('.json', ''),
-                                subject: subject.name,
-                                color: subject.color,
-                                date: file.lastModified,
-                                typeToken: typeToken,
-                                typeLabel: typeLabel,
-                                todoCount: pendingTodos // Store the count
-                            });
-                        } catch (err) {
-                            console.error('Error reading note file', entry.name, err);
-                        }
+                        const noteName = isMd ? entry.name.slice(0, -3) : entry.name.replace('.json', '');
+                        const noteKey = `${subject.name}::${noteName}`;
+                        allNotes.push({
+                            handle: entry,
+                            dirHandle: subject.handle,
+                            name: noteName,
+                            noteKey: noteKey,
+                            subject: subject.name,
+                            color: subject.color,
+                            date: 0,
+                            typeToken: isMd ? 'markdown' : 'note',
+                            typeLabel: isMd ? 'Markdown' : 'Loading...',
+                            todoCount: 0
+                        });
                     }
                 }
             } catch (err) {
@@ -5443,8 +5431,227 @@
             const card = createNoteCard(note);
             notesGrid.appendChild(card);
         }
+
+        // Warm up the cache and subject PDF lists with a visible startup progress bar.
+        runStartupWarmup(allNotes).catch((err) => {
+            console.error('Startup warmup failed:', err);
+        });
         
         allNotesLoaded = true;
+    }
+
+    function applyCardVisibility(targetCards) {
+        const targetSet = new Set(targetCards);
+
+        for (const card of currentVisibleCardSet) {
+            if (!targetSet.has(card)) {
+                card.style.display = 'none';
+            }
+        }
+
+        for (const card of targetSet) {
+            if (!currentVisibleCardSet.has(card)) {
+                card.style.display = '';
+            }
+        }
+
+        currentVisibleCardSet = targetSet;
+        return targetSet.size;
+    }
+
+    function getNoteTypeLabel(typeToken) {
+        const typeLabelMap = {
+            'flashcard': 'Flashcards',
+            'glossary': 'Glossary',
+            'qa': 'Q&A',
+            'todo': 'To Do',
+            'links': 'Pinboard',
+            'test': 'Test',
+            'practice': 'Practice Problems',
+            'exercises': 'Exercises',
+            'exampractice': 'Exam Practice',
+            'note': 'Non-Linear Notes',
+            'markdown': 'Markdown'
+        };
+        return typeLabelMap[typeToken] || 'Canvas';
+    }
+
+    function parseNoteMetadata(parsed) {
+        let typeToken = (parsed && parsed.type) ? parsed.type : null;
+        if (!typeToken) {
+            if (parsed && parsed.objects) typeToken = 'note';
+            else if (parsed && (parsed.strokes || parsed.textBoxes)) typeToken = 'practice';
+            else typeToken = 'note';
+        }
+
+        let pendingTodos = 0;
+        if (typeToken === 'todo' && parsed && Array.isArray(parsed.todos)) {
+            pendingTodos = parsed.todos.filter(t => !t.completed).length;
+        }
+
+        return {
+            typeToken,
+            typeLabel: getNoteTypeLabel(typeToken),
+            todoCount: pendingTodos
+        };
+    }
+
+    function setStartupProgress(loaded, total) {
+        const wrap = document.getElementById('startup-preload-progress');
+        const bar = document.getElementById('startup-preload-progress-bar');
+        if (!wrap || !bar) return;
+
+        const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+        bar.style.width = `${pct}%`;
+    }
+
+    function showStartupProgress() {
+        const wrap = document.getElementById('startup-preload-progress');
+        const bar = document.getElementById('startup-preload-progress-bar');
+        if (!wrap || !bar) return;
+        bar.style.width = '0%';
+        wrap.classList.add('show');
+    }
+
+    function hideStartupProgress() {
+        const wrap = document.getElementById('startup-preload-progress');
+        const bar = document.getElementById('startup-preload-progress-bar');
+        if (!wrap || !bar) return;
+        bar.style.width = '100%';
+        setTimeout(() => {
+            wrap.classList.remove('show');
+            bar.style.width = '0%';
+        }, 200);
+    }
+
+    async function runStartupWarmup(notes) {
+        if (startupWarmupRunning) return;
+        startupWarmupRunning = true;
+
+        try {
+            const metadataTotal = notes.filter(n => n.typeToken !== 'markdown').length;
+            const pdfTotal = allSubjects.length;
+            const total = metadataTotal + pdfTotal;
+
+            if (total <= 0) return;
+
+            let loaded = 0;
+            showStartupProgress();
+            setStartupProgress(loaded, total);
+
+            await hydrateNoteMetadataAndBadges(notes, () => {
+                loaded++;
+                setStartupProgress(loaded, total);
+            });
+
+            for (const subject of allSubjects) {
+                await getPdfsForSubject(subject, false);
+                loaded++;
+                setStartupProgress(loaded, total);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        } finally {
+            hideStartupProgress();
+            startupWarmupRunning = false;
+        }
+    }
+
+    async function hydrateNoteMetadataAndBadges(notes, onProgress = null) {
+        for (const note of notes) {
+            if (note.typeToken === 'markdown') {
+                continue;
+            }
+
+            try {
+                const file = await note.handle.getFile();
+                note.date = file.lastModified;
+
+                const text = await file.text();
+                const parsed = JSON.parse(text);
+                noteDataCache.set(note.noteKey, parsed);
+                const metadata = parseNoteMetadata(parsed);
+
+                note.typeToken = metadata.typeToken;
+                note.typeLabel = metadata.typeLabel;
+                note.todoCount = metadata.todoCount;
+
+                const card = noteCardMap.get(note.noteKey);
+                if (!card) continue;
+
+                const dateDiv = card.querySelector('.note-date');
+                if (dateDiv) {
+                    dateDiv.textContent = note.typeLabel || 'Canvas';
+                }
+
+                let badge = card.querySelector('.todo-badge');
+                if (note.typeToken === 'todo' && note.todoCount > 0) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'todo-badge';
+                        card.insertBefore(badge, card.firstChild);
+                    }
+                    badge.textContent = note.todoCount > 99 ? '99+' : note.todoCount;
+                } else if (badge) {
+                    badge.remove();
+                }
+            } catch (err) {
+                // Ignore non-JSON and malformed files during background hydration.
+            }
+
+            if (onProgress) onProgress();
+
+            // Yield to keep the UI responsive while hydrating many notes.
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+
+    function resetNotePreviewObserver() {
+        if (notePreviewObserver) {
+            notePreviewObserver.disconnect();
+        }
+
+        notePreviewObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+
+                const previewEl = entry.target;
+                notePreviewObserver.unobserve(previewEl);
+                loadNotePreviewWhenNeeded(previewEl);
+            }
+        }, {
+            root: null,
+            rootMargin: '300px 0px',
+            threshold: 0.01
+        });
+    }
+
+    function queueNotePreview(note, previewEl) {
+        if (!notePreviewObserver) {
+            resetNotePreviewObserver();
+        }
+
+        previewEl.dataset.previewState = 'queued';
+        previewEl.__previewHandle = note.handle;
+        previewEl.__previewNoteKey = note.noteKey;
+        previewEl.innerHTML = '';
+        notePreviewObserver.observe(previewEl);
+    }
+
+    async function loadNotePreviewWhenNeeded(previewEl) {
+        if (!previewEl || previewEl.dataset.previewState === 'loading' || previewEl.dataset.previewState === 'loaded') {
+            return;
+        }
+
+        const fileHandle = previewEl.__previewHandle;
+        if (!fileHandle) return;
+
+        const cachedData = noteDataCache.get(previewEl.__previewNoteKey);
+
+        previewEl.dataset.previewState = 'loading';
+        await generateNotePreview(fileHandle, previewEl, cachedData || null);
+        previewEl.dataset.previewState = 'loaded';
+        delete previewEl.__previewHandle;
+        delete previewEl.__previewNoteKey;
     }
 
     function createNoteCard(note) {
@@ -5452,6 +5659,13 @@
         card.className = 'note-card';
         card.dataset.subject = note.subject; // Add subject data attribute for filtering
         card.dataset.noteName = note.name; // Add name for identification
+        card.dataset.noteKey = note.noteKey;
+        noteCardMap.set(note.noteKey, card);
+        if (!noteCardsBySubject.has(note.subject)) {
+            noteCardsBySubject.set(note.subject, []);
+        }
+        noteCardsBySubject.get(note.subject).push(card);
+        allNoteCards.push(card);
         
         // --- NEW: Inject To Do Badge if count > 0 ---
         if (note.typeToken === 'todo' && note.todoCount > 0) {
@@ -5499,8 +5713,8 @@
         card.appendChild(preview);
         card.appendChild(info);
         
-        // Generate preview asynchronously
-        generateNotePreview(note.handle, preview);
+        // Queue preview rendering so names appear first and previews load on demand.
+        queueNotePreview(note, preview);
 
         card.onclick = async (e) => {
             // Don't open if context menu was just shown
@@ -5544,7 +5758,8 @@
                 return;
             }
 
-            await openNote(note.handle);
+            const cachedData = noteDataCache.get(note.noteKey) || null;
+            await openNote(note.handle, note.noteKey, cachedData);
         };
         
         // Add context menu support
@@ -5557,7 +5772,7 @@
         return card;
     }
 
-    async function generateNotePreview(fileHandle, previewEl) {
+    async function generateNotePreview(fileHandle, previewEl, prefetchedData = null) {
         // ---> NEW: Markdown Icon <---
         if (fileHandle.name.toLowerCase().endsWith('.md')) {
             previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41zM11.5 9H9.5L7.5 13 5.5 9H3.5v6h2v-3.5l2 3.5 2-3.5V15h2V9zm7 3.5h-2V9h-2v3.5h-2l3 3.5 3-3.5z"/></svg></div>`;
@@ -5566,9 +5781,12 @@
         // ---> END NEW <---
 
         try {
-            const file = await fileHandle.getFile();
-            const text = await file.text();
-            const data = JSON.parse(text);
+            let data = prefetchedData;
+            if (!data) {
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                data = JSON.parse(text);
+            }
             
             // Handle different note types
             if (data.type === 'flashcard') {
@@ -5794,11 +6012,17 @@
         }
     }
 
-    async function openNote(fileHandle) {
+    async function openNote(fileHandle, noteKey = null, prefetchedData = null) {
         // Check note type first before loading
-        const file = await fileHandle.getFile();
-        const text = await file.text();
-        const data = JSON.parse(text);
+        let data = prefetchedData;
+        if (!data) {
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            data = JSON.parse(text);
+        }
+        if (noteKey && data) {
+            noteDataCache.set(noteKey, data);
+        }
         
         // Store in map for saving
         noteMap.set(fileHandle.name, {handle: fileHandle, data: data});
