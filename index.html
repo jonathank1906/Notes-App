@@ -887,7 +887,7 @@
 
         .note-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            box-shadow: none;
             border-color: #555;
         }
 
@@ -931,7 +931,7 @@
 
         /* --- REPLACE THE OLD .note-info CSS WITH THIS --- */
         .note-info {
-            padding: 8px 8px;
+            padding: 6px 8px;
             cursor: pointer;
             display: flex;
             flex-direction: column;
@@ -962,9 +962,10 @@
             font-weight: 620;
             color: var(--accent);
             overflow: hidden;
-            text-overflow: ellipsis;
+            text-overflow: clip;
             white-space: nowrap;
             width: 100%;
+            text-align: center;
         }
 
         .note-date {
@@ -972,19 +973,28 @@
             color: var(--text-color);
         }
 
+        /* Hide metadata line for cleaner, tighter cards */
+        .note-meta,
+        .note-date,
+        .note-subject-pill {
+            display: none;
+        }
+
         /* List view overrides */
         #notes-grid.list-view .note-info {
-            padding: 0 20px;
+            padding: 0 14px;
             flex-direction: row;
             align-items: center;
             flex: 1;
-            gap: 24px;
+            gap: 0;
         }
 
         #notes-grid.list-view .note-title {
             margin-bottom: 0;
             font-size: 15px;
             flex: 1;
+            width: 100%;
+            text-align: center;
         }
 
         #notes-grid.list-view .note-meta {
@@ -1105,6 +1115,8 @@
             font-size: 14px;
             font-weight: 550;
             color: #d7d7d7;
+            text-align: left;
+            text-overflow: ellipsis;
         }
 
         #empty-notes-state {
