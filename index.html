@@ -4604,86 +4604,158 @@
         }
     }
 
-    // Handle text paste from external sources
-    async function saveAndAddFabricImage(fileOrBuffer, originalName, worldPos = null) {
-        if (!rootPath || typeof fs === 'undefined') {
-            alert("Cannot save image. Ensure a root folder is selected.");
-            return;
-        }
-        // Define the Assets folder relative to the selected root directory
-        const assetsPath = path.join(rootPath, 'Assets');
-        if (!fs.existsSync(assetsPath)) {
-            fs.mkdirSync(assetsPath, { recursive: true });
-        }
+    function getCanvasCenterWorldPosition() {
+        if (!fabricCanvas) return { x: 0, y: 0 };
+        const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+        return {
+            x: (fabricCanvas.width / 2 - vpt[4]) / vpt[0],
+            y: (fabricCanvas.height / 2 - vpt[5]) / vpt[3]
+        };
+    }
 
-        // Create a safe, unique filename
-        let safeName = (originalName || 'pasted.png').replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        if (!safeName.match(/\.(png|jpe?g|gif|webp)$/i)) {
-            safeName += '.png';
-        }
-        const fileName = `img_${Date.now()}_${safeName}`;
-        const destPath = path.join(assetsPath, fileName);
-
-        // Write the file to disk
+    function getWorldPositionFromPointerEvent(evt) {
+        if (!fabricCanvas) return null;
         try {
-            if (Buffer.isBuffer(fileOrBuffer)) {
-                fs.writeFileSync(destPath, fileOrBuffer);
-            } else {
-                const arrayBuffer = await fileOrBuffer.arrayBuffer();
-                fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+            const pointer = fabricCanvas.getPointer(evt);
+            if (pointer && Number.isFinite(pointer.x) && Number.isFinite(pointer.y)) {
+                return pointer;
             }
-        } catch (err) {
-            console.error('Error saving image to disk:', err);
-            alert('Failed to save image: ' + err.message);
-            return;
-        }
+        } catch (err) {}
 
-        // Format the native path so Chromium can display it
-        const fileUrl = 'file:///' + destPath.replace(/\\/g, '/');
+        const targetCanvas = fabricCanvas.upperCanvasEl || canvas;
+        if (!targetCanvas || !evt || !Number.isFinite(evt.clientX) || !Number.isFinite(evt.clientY)) return null;
 
-        // Add to Fabric Canvas
-        fabric.Image.fromURL(fileUrl, (img) => {
-            // Scale down if the image is exceptionally large
-            const maxDim = 800;
-            try {
-                if (img.width > maxDim || img.height > maxDim) {
-                    const scale = maxDim / Math.max(img.width, img.height);
-                    img.scale(scale);
+        const rect = targetCanvas.getBoundingClientRect();
+        const x = evt.clientX - rect.left;
+        const y = evt.clientY - rect.top;
+        const vpt = fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+
+        return {
+            x: (x - vpt[4]) / vpt[0],
+            y: (y - vpt[5]) / vpt[3]
+        };
+    }
+
+    async function addImageToFabricCanvas(src, worldPos = null) {
+        if (!fabricCanvas || !src) return false;
+
+        return await new Promise((resolve) => {
+            fabric.Image.fromURL(src, (img) => {
+                if (!img) {
+                    resolve(false);
+                    return;
                 }
 
-                        // Position the image based on mouse coordinates OR screen center
-                        if (worldPos && !isNaN(worldPos.x) && !isNaN(worldPos.y)) {
-                            img.set({
-                                left: worldPos.x - (img.width * img.scaleX) / 2,
-                                top: worldPos.y - (img.height * img.scaleY) / 2
-                            });
-                        } else {
-                            // Auto-center in viewport for keyboard pastes
-                            const vpt = fabricCanvas.viewportTransform;
-                            const centerX = (fabricCanvas.width / 2 - vpt[4]) / vpt[0];
-                            const centerY = (fabricCanvas.height / 2 - vpt[5]) / vpt[3];
-                            img.set({
-                                left: centerX - (img.width * img.scaleX) / 2,
-                                top: centerY - (img.height * img.scaleY) / 2
-                            });
-                        }
-
-                fabricCanvas.add(img);
                 try {
-                    // Ensure images are placed beneath drawing objects so drawings remain visible on top
-                    fabricCanvas.sendToBack(img);
-                } catch (err) {}
-                fabricCanvas.setActiveObject(img);
-                fabricCanvas.requestRenderAll();
+                    const maxDim = 800;
+                    if (img.width > maxDim || img.height > maxDim) {
+                        const scale = maxDim / Math.max(img.width, img.height);
+                        img.scale(scale);
+                    }
 
-                // Trigger save state
-                hasUnsavedChanges = true;
-                updateSaveStatusIndicator();
-                addToUndoStack();
-            } catch (err) {
-                console.error('Error adding image to Fabric canvas:', err);
-            }
+                    const insertAt = (worldPos && Number.isFinite(worldPos.x) && Number.isFinite(worldPos.y))
+                        ? worldPos
+                        : getCanvasCenterWorldPosition();
+
+                    img.set({
+                        left: insertAt.x - (img.width * img.scaleX) / 2,
+                        top: insertAt.y - (img.height * img.scaleY) / 2
+                    });
+
+                    fabricCanvas.add(img);
+                    try {
+                        // Keep drawings visible above newly inserted images.
+                        fabricCanvas.sendToBack(img);
+                    } catch (err) {}
+                    fabricCanvas.setActiveObject(img);
+                    fabricCanvas.requestRenderAll();
+
+                    hasUnsavedChanges = true;
+                    updateSaveStatusIndicator();
+                    addToUndoStack();
+                    resolve(true);
+                } catch (err) {
+                    console.error('Error adding image to Fabric canvas:', err);
+                    resolve(false);
+                }
+            });
         });
+    }
+
+    function getAssetsFolderPath() {
+        if (!path) return null;
+
+        // Always prefer the configured default notes root from Settings.
+        try {
+            const configuredRoot = (localStorage.getItem('defaultMindMapFolder') || '').trim();
+            if (configuredRoot) {
+                return path.join(configuredRoot, 'Assets');
+            }
+        } catch (err) {}
+
+        // Fallback to the currently selected root folder for this app session.
+        if (rootPath) {
+            return path.join(rootPath, 'Assets');
+        }
+
+        return null;
+    }
+
+    function inferImageExtension(fileOrBuffer, originalName) {
+        const fromName = (originalName || '').toLowerCase();
+        const nameMatch = fromName.match(/\.(png|jpe?g|gif|webp)$/i);
+        if (nameMatch) {
+            return nameMatch[0].toLowerCase();
+        }
+
+        const mimeType = (fileOrBuffer && fileOrBuffer.type ? String(fileOrBuffer.type).toLowerCase() : '');
+        if (mimeType === 'image/jpeg') return '.jpg';
+        if (mimeType === 'image/gif') return '.gif';
+        if (mimeType === 'image/webp') return '.webp';
+        return '.png';
+    }
+
+    // Handle image paste/drop sources and insert into the Fabric canvas.
+    async function saveAndAddFabricImage(fileOrBuffer, originalName, worldPos = null) {
+        try {
+            const assetsPath = getAssetsFolderPath();
+            if (!assetsPath || !fs || !path || typeof Buffer === 'undefined') {
+                alert('Cannot import image until the note root is available. Open the note from the main folder view first.');
+                return false;
+            }
+
+            if (!fs.existsSync(assetsPath)) {
+                fs.mkdirSync(assetsPath, { recursive: true });
+            }
+
+            const ext = inferImageExtension(fileOrBuffer, originalName);
+            const baseName = String(originalName || 'pasted')
+                .replace(/\.[^.]+$/, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_') || 'pasted';
+            const fileName = `img_${Date.now()}_${baseName}${ext}`;
+            const destPath = path.join(assetsPath, fileName);
+
+            if (Buffer.isBuffer(fileOrBuffer)) {
+                fs.writeFileSync(destPath, fileOrBuffer);
+            } else if (fileOrBuffer && typeof fileOrBuffer.arrayBuffer === 'function') {
+                const arrayBuffer = await fileOrBuffer.arrayBuffer();
+                fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+            } else {
+                throw new Error('Unsupported image payload for disk save.');
+            }
+
+            const fileUrl = 'file:///' + destPath.replace(/\\/g, '/');
+            const inserted = await addImageToFabricCanvas(fileUrl, worldPos);
+            if (!inserted) {
+                throw new Error('Image saved but could not be inserted on canvas.');
+            }
+
+            return true;
+        } catch (err) {
+            console.error('Assets image import failed:', err);
+            alert('Failed to save/import image into Assets.');
+            return false;
+        }
     }
 
     // 1. New trigger for Ctrl+V (same-window paste)
@@ -4778,6 +4850,46 @@
         if (!imagePasted && !text && clipboard) {
             e.preventDefault();
             pasteFromClipboard();
+        }
+    }
+
+    function isCanvasDropTargetAvailable() {
+        const container = document.getElementById('canvas-container');
+        return !!(fabricCanvas && container && !container.classList.contains('hidden'));
+    }
+
+    function getDroppedImageFiles(e) {
+        const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        return files.filter(file => file && file.type && file.type.startsWith('image/'));
+    }
+
+    function handleCanvasImageDragOver(e) {
+        if (!isCanvasDropTargetAvailable()) return;
+        const imageFiles = getDroppedImageFiles(e);
+        if (imageFiles.length === 0) return;
+
+        e.preventDefault();
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy';
+        }
+    }
+
+    async function handleCanvasImageDrop(e) {
+        if (!isCanvasDropTargetAvailable()) return;
+        const imageFiles = getDroppedImageFiles(e);
+        if (imageFiles.length === 0) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const basePos = getWorldPositionFromPointerEvent(e);
+        fabricCanvas.discardActiveObject();
+
+        for (let i = 0; i < imageFiles.length; i++) {
+            const file = imageFiles[i];
+            const offset = i * 24;
+            const worldPos = basePos ? { x: basePos.x + offset, y: basePos.y + offset } : null;
+            await saveAndAddFabricImage(file, file.name || 'dropped.png', worldPos);
         }
     }
     // Convert old canvas data to Fabric.js format
@@ -10475,6 +10587,8 @@
 
     // Add paste listener
     window.addEventListener('paste', handleExternalPaste);
+    window.addEventListener('dragover', handleCanvasImageDragOver);
+    window.addEventListener('drop', handleCanvasImageDrop);
     
     
     // --- SELECTION HELPER FUNCTIONS ---
