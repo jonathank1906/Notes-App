@@ -1,0 +1,1 @@
+// Image crop tool behavior.

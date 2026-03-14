@@ -1,0 +1,1 @@
+// Central app state container.
