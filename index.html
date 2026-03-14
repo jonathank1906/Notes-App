@@ -6070,6 +6070,45 @@
         return sorted;
     }
 
+    async function ensurePdfPreviewCached(subjectName, pdf) {
+        const cacheKey = `${subjectName}/${pdf.name}`;
+
+        const file = await pdf.handle.getFile();
+        const lastModified = file.lastModified;
+        const fileSize = file.size;
+
+        const cached = pdfPreviewCache[cacheKey];
+        if (cached && cached.lastModified === lastModified && cached.fileSize === fileSize) {
+            return cached;
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 0.7 });
+
+        const renderCanvas = document.createElement('canvas');
+        renderCanvas.width = viewport.width;
+        renderCanvas.height = viewport.height;
+
+        const renderContext = {
+            canvasContext: renderCanvas.getContext('2d'),
+            viewport: viewport
+        };
+
+        await page.render(renderContext).promise;
+
+        const dataUrl = renderCanvas.toDataURL();
+        const previewData = {
+            dataUrl: dataUrl,
+            lastModified: lastModified,
+            fileSize: fileSize
+        };
+
+        pdfPreviewCache[cacheKey] = previewData;
+        return previewData;
+    }
+
     async function loadPdfsForSubject(subject) {
         const notesGrid = document.getElementById('notes-grid');
         const requestId = ++pdfLoadRequestId;
@@ -6154,27 +6193,18 @@
                     };
                     img.src = pdfPreviewCache[cacheKey].dataUrl;
                 } else {
-                    // Render new preview
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
-                    const page = await pdfDoc.getPage(1);
-                    const viewport = page.getViewport({ scale: 0.7 });
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    const renderContext = {
-                        canvasContext: ctx,
-                        viewport: viewport
-                    };
-                    await page.render(renderContext).promise;
+                    // Render and cache new preview
+                    const previewData = await ensurePdfPreviewCached(subjectName, pdf);
                     if (isPdfLoadStale(requestId, subjectName)) return;
 
-                    // Cache the rendered preview
-                    const dataUrl = canvas.toDataURL();
-                    pdfPreviewCache[cacheKey] = {
-                        dataUrl: dataUrl,
-                        lastModified: lastModified,
-                        fileSize: fileSize
+                    const img = new Image();
+                    img.onload = () => {
+                        if (isPdfLoadStale(requestId, subjectName)) return;
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
                     };
+                    img.src = previewData.dataUrl;
                 }
             } catch (err) {
                 if (isPdfLoadStale(requestId, subjectName)) return;
@@ -6692,8 +6722,19 @@
 
         try {
             const metadataTotal = notes.filter(n => n.typeToken !== 'markdown').length;
-            const pdfTotal = allSubjects.length;
-            const total = metadataTotal + pdfTotal;
+            const notePreviewTargets = allNoteCards
+                .map(card => card.querySelector('.note-preview'))
+                .filter(previewEl => previewEl && previewEl.dataset.previewState !== 'loaded');
+            const subjectPdfEntries = [];
+
+            for (const subject of allSubjects) {
+                const pdfs = await getPdfsForSubject(subject, false);
+                subjectPdfEntries.push({ subjectName: subject.name, pdfs });
+            }
+
+            const notePreviewTotal = notePreviewTargets.length;
+            const pdfPreviewTotal = subjectPdfEntries.reduce((sum, entry) => sum + entry.pdfs.length, 0);
+            const total = metadataTotal + notePreviewTotal + pdfPreviewTotal;
 
             if (total <= 0) return;
 
@@ -6707,11 +6748,30 @@
             });
             if (currentView === 'organized') renderOrganizedSections();
 
-            for (const subject of allSubjects) {
-                await getPdfsForSubject(subject, false);
+            for (const previewEl of notePreviewTargets) {
+                try {
+                    await loadNotePreviewWhenNeeded(previewEl);
+                } catch (err) {
+                    console.error('Startup note preview warmup failed:', err);
+                }
+
                 loaded++;
                 setStartupProgress(loaded, total);
                 await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            for (const entry of subjectPdfEntries) {
+                for (const pdf of entry.pdfs) {
+                    try {
+                        await ensurePdfPreviewCached(entry.subjectName, pdf);
+                    } catch (err) {
+                        console.error('Startup PDF preview warmup failed:', entry.subjectName, pdf.name, err);
+                    }
+
+                    loaded++;
+                    setStartupProgress(loaded, total);
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
         } finally {
             hideStartupProgress();
