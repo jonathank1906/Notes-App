@@ -7,12 +7,16 @@ function createWindow () {
     const win = new BrowserWindow({
         width: 1200,
         height: 800,
+        autoHideMenuBar: true,
+        // frame: false,
+        icon: path.join(__dirname, 'Logo.ico'), // Set your .ico file here
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
         }
     });
     win.loadFile(path.join(__dirname, 'index.html')); // Loads Mind Map
+    win.maximize(); // Open maximized, but not fullscreen
     
     // When a main window closes, check if we should destroy the Pomodoro window
     win.on('closed', () => {
@@ -22,6 +26,9 @@ function createWindow () {
             pomodoroWindow = null;
         }
     });
+
+    // Hides the default menu bar (File, Edit, etc.) for a cleaner look
+    win.setMenu(null)
 }
 
 // 1. Function to open the MAIN Slide Notes App
