@@ -2585,7 +2585,7 @@
                     <div id="content-title">Notes</div>
                 </div>
                 <div id="content-header-right">
-                    <button id="btn-refresh" class="tool-btn" title="Refresh (Ctrl+R)" onclick="location.reload()" aria-label="Refresh page" style="font-size:16px;padding:6px 10px;">
+                    <button id="btn-refresh" class="tool-btn" title="Refresh (Ctrl+R)" onclick="refreshCurrentNotesView()" aria-label="Refresh page" style="font-size:16px;padding:6px 10px;">
                         ⟳
                     </button>
                     <button id="btn-view-switcher" onclick="event.stopPropagation(); toggleViewMenu()">
@@ -5120,6 +5120,32 @@
         } else {
             emptyState.style.display = 'none';
         }
+    }
+
+    async function refreshCurrentNotesView() {
+        if (!currentDirHandle) return;
+
+        const activeSubjectName = activeSubject ? activeSubject.name : null;
+
+        await loadSubjects();
+
+        if (activeSubjectName) {
+            activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
+        } else {
+            activeSubject = null;
+        }
+
+        displaySubjects();
+
+        // Force a fresh rescan from disk while preserving the current view.
+        allNotesLoaded = false;
+        if (activeSubject) {
+            await loadNotesForSubject(activeSubject);
+        } else {
+            await loadAllNotes();
+        }
+
+        updateNewNoteButtonVisibility();
     }
 
     async function loadNotesForSubject(subject) {
@@ -9084,6 +9110,7 @@
             else if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) performRedo(); else performUndo(); }
             else if (e.key.toLowerCase() === 'y') { e.preventDefault(); performRedo(); }
             else if (e.key.toLowerCase() === 's') { e.preventDefault(); saveToFile(); }
+            else if (e.key.toLowerCase() === 'r') { e.preventDefault(); await refreshCurrentNotesView(); }
             else if (e.key.toLowerCase() === 'h') { e.preventDefault(); if (document.getElementById('flashcard-page').classList.contains('active')) { closeFlashcard(); } else if (document.getElementById('glossary-page').classList.contains('active')) { closeGlossary(); } else { await showHomeScreen(); } }
         }
     });
