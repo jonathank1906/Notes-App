@@ -1017,24 +1017,39 @@
             border-bottom: 1px solid var(--ui-border);
             margin-bottom: 18px;
             user-select: none;
-            /* Sticky scroll behaviour */
+            background: transparent;
+        }
+
+        .organized-sticky-header {
             position: sticky;
             top: 0;
-            z-index: 10;
-            background: var(--bg-color);
+            z-index: 15;
             margin-left: -32px;
             margin-right: -32px;
-            padding-left: 32px;
-            padding-right: 32px;
-            transition: box-shadow 0.2s ease;
+            margin-bottom: 18px;
+            padding: 10px 32px;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--ui-border);
         }
 
-        .type-section-header-card.is-stuck {
-            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
-            color: var(--accent);
+        .organized-sticky-label {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .type-section-header-card:first-child {
+        .organized-sticky-quick-access-slot {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
+
+        .organized-sticky-header #notes-quick-access {
+            flex-wrap: nowrap;
+        }
+
+        .type-section-wrapper:first-child .type-section-header-card {
             padding-top: 0;
         }
 
@@ -5511,6 +5526,120 @@
         wrap.style.display = visibleCount > 0 ? 'flex' : 'none';
     }
 
+    let organizedStickyScrollRoot = null;
+    let organizedStickyScrollHandler = null;
+
+    function restoreQuickAccessToTopHeader() {
+        const wrap = document.getElementById('notes-quick-access');
+        const headerRight = document.getElementById('content-header-right');
+        if (!wrap || !headerRight) return;
+
+        const newBtn = document.getElementById('btn-new-note');
+        if (newBtn && newBtn.parentElement === headerRight) {
+            headerRight.insertBefore(wrap, newBtn);
+        } else {
+            headerRight.appendChild(wrap);
+        }
+    }
+
+    function ensureOrganizedStickyHeader() {
+        const notesGrid = document.getElementById('notes-grid');
+        if (!notesGrid) return null;
+
+        let sticky = document.getElementById('organized-sticky-header');
+        if (!sticky) {
+            sticky = document.createElement('div');
+            sticky.id = 'organized-sticky-header';
+            sticky.className = 'type-section-header-card organized-sticky-header';
+
+            const label = document.createElement('span');
+            label.id = 'organized-sticky-label';
+            label.className = 'organized-sticky-label';
+            label.textContent = 'Notes';
+
+            const quickAccessSlot = document.createElement('div');
+            quickAccessSlot.className = 'organized-sticky-quick-access-slot';
+
+            sticky.appendChild(label);
+            sticky.appendChild(quickAccessSlot);
+            notesGrid.insertBefore(sticky, notesGrid.firstChild);
+        }
+
+        return sticky;
+    }
+
+    function dockQuickAccessInOrganizedStickyHeader() {
+        const wrap = document.getElementById('notes-quick-access');
+        const sticky = ensureOrganizedStickyHeader();
+        if (!wrap || !sticky) return;
+
+        const slot = sticky.querySelector('.organized-sticky-quick-access-slot');
+        if (slot && wrap.parentElement !== slot) {
+            slot.appendChild(wrap);
+        }
+    }
+
+    function updateOrganizedStickyHeaderLabel() {
+        if (currentView !== 'organized') return;
+
+        const sticky = document.getElementById('organized-sticky-header');
+        const labelEl = document.getElementById('organized-sticky-label');
+        if (!sticky || !labelEl) return;
+
+        const wrappers = Array.from(document.querySelectorAll('#notes-grid .type-section-wrapper'));
+        if (wrappers.length === 0) {
+            labelEl.textContent = 'Notes';
+            return;
+        }
+
+        const probeY = sticky.getBoundingClientRect().bottom + 1;
+        let activeLabel = wrappers[0].dataset.sectionLabel || 'Notes';
+
+        for (const wrapper of wrappers) {
+            const rect = wrapper.getBoundingClientRect();
+            if (rect.top <= probeY) {
+                activeLabel = wrapper.dataset.sectionLabel || activeLabel;
+            } else {
+                break;
+            }
+        }
+
+        labelEl.textContent = activeLabel;
+    }
+
+    function attachOrganizedStickyHeaderTracking() {
+        const scrollRoot = document.getElementById('notes-content');
+        if (!scrollRoot) return;
+
+        if (organizedStickyScrollRoot && organizedStickyScrollHandler) {
+            organizedStickyScrollRoot.removeEventListener('scroll', organizedStickyScrollHandler);
+            window.removeEventListener('resize', organizedStickyScrollHandler);
+        }
+
+        organizedStickyScrollRoot = scrollRoot;
+        organizedStickyScrollHandler = () => {
+            updateOrganizedStickyHeaderLabel();
+        };
+
+        organizedStickyScrollRoot.addEventListener('scroll', organizedStickyScrollHandler, { passive: true });
+        window.addEventListener('resize', organizedStickyScrollHandler);
+        updateOrganizedStickyHeaderLabel();
+    }
+
+    function teardownOrganizedStickyHeader() {
+        if (organizedStickyScrollRoot && organizedStickyScrollHandler) {
+            organizedStickyScrollRoot.removeEventListener('scroll', organizedStickyScrollHandler);
+            window.removeEventListener('resize', organizedStickyScrollHandler);
+        }
+        organizedStickyScrollRoot = null;
+        organizedStickyScrollHandler = null;
+
+        const sticky = document.getElementById('organized-sticky-header');
+        if (sticky) sticky.remove();
+
+        restoreQuickAccessToTopHeader();
+    }
+
     async function openQuickAccessNote(type) {
         const note = findQuickAccessNote(type);
         if (!note) return;
@@ -5575,10 +5704,11 @@
 
             const wrapper = document.createElement('div');
             wrapper.className = 'type-section-wrapper';
+            wrapper.dataset.sectionLabel = typeNameMap[type] || getNoteTypeLabel(type);
 
             const header = document.createElement('div');
             header.className = 'type-section-header-card';
-            header.textContent = typeNameMap[type] || getNoteTypeLabel(type);
+            header.textContent = wrapper.dataset.sectionLabel;
 
             const cardsGrid = document.createElement('div');
             cardsGrid.className = 'type-section-cards';
@@ -5598,9 +5728,11 @@
             notesGrid.appendChild(card);
         }
 
-        // Use IntersectionObserver to add .is-stuck when a header is pinned
-        attachStickyHeaderObserver();
+        ensureOrganizedStickyHeader();
+        dockQuickAccessInOrganizedStickyHeader();
+        attachOrganizedStickyHeaderTracking();
         updateQuickAccessButtons();
+        updateOrganizedStickyHeaderLabel();
     }
 
     let stickyHeaderObserver = null;
@@ -5634,6 +5766,7 @@
     }
 
     function flattenOrganizedSections() {
+        teardownOrganizedStickyHeader();
         if (stickyHeaderObserver) {
             stickyHeaderObserver.disconnect();
             stickyHeaderObserver = null;
