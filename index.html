@@ -957,6 +957,55 @@
             font-size: 12px;
         }
 
+        /* Organized view */
+        #notes-grid.organized-view {
+            display: block;
+            padding: 32px;
+        }
+
+        .type-section-header-card {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 28px 0 10px;
+            border-bottom: 1px solid var(--ui-border);
+            margin-bottom: 18px;
+            user-select: none;
+            /* Sticky scroll behaviour */
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg-color);
+            margin-left: -32px;
+            margin-right: -32px;
+            padding-left: 32px;
+            padding-right: 32px;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .type-section-header-card.is-stuck {
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+            color: var(--accent);
+        }
+
+        .type-section-header-card:first-child {
+            padding-top: 0;
+        }
+
+        .type-section-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 24px;
+            align-content: start;
+            margin-bottom: 8px;
+        }
+
         #empty-notes-state {
             text-align: center;
             padding: 80px 32px;
@@ -2769,13 +2818,17 @@
                     <button id="btn-view-switcher" onclick="event.stopPropagation(); toggleViewMenu()">
                         •••
                         <div id="view-menu" onclick="event.stopPropagation()">
-                            <div class="view-option active" onclick="setView('grid')">
+                            <div class="view-option" onclick="setView('grid')">
                                 <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
                                 Grid View
                             </div>
                             <div class="view-option" onclick="setView('list')">
                                 <svg viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h18v2H3z"/></svg>
                                 List View
+                            </div>
+                            <div class="view-option active" onclick="setView('organized')">
+                                <svg viewBox="0 0 24 24"><path d="M3 3h8v2H3zm0 4h8v2H3zm0 4h8v2H3zm10-8h8v2h-8zm0 4h8v2h-8zm0 4h8v2h-8zM3 15h18v2H3zm0 4h18v2H3z"/></svg>
+                                Organized
                             </div>
                         </div>
                     </button>
@@ -3241,7 +3294,7 @@
     let allDividers = []; // Track dividers and their collapsible state
     let activeSubject = null;
     let allNotesLoaded = false;
-    let currentView = 'grid';
+    let currentView = 'organized';
     let pdfPreviewCache = {};
     let notePreviewObserver = null;
     let noteCardMap = new Map();
@@ -5256,27 +5309,152 @@
     }
 
     function setView(view) {
+        const wasOrganized = currentView === 'organized';
         currentView = view;
         const notesGrid = document.getElementById('notes-grid');
         const options = document.querySelectorAll('.view-option');
-        
+
+        // Flatten organized sections before switching away
+        if (wasOrganized && view !== 'organized') {
+            flattenOrganizedSections();
+        }
+
         // Update grid class
+        notesGrid.classList.remove('list-view', 'organized-view');
         if (view === 'list') {
             notesGrid.classList.add('list-view');
-        } else {
-            notesGrid.classList.remove('list-view');
+        } else if (view === 'organized') {
+            notesGrid.classList.add('organized-view');
+            renderOrganizedSections();
         }
-        
+
         // Update active state
         options.forEach(option => {
             option.classList.remove('active');
-            const optionView = option.textContent.includes('Grid') ? 'grid' : 'list';
+            const text = option.textContent.trim();
+            let optionView = 'grid';
+            if (text.includes('List')) optionView = 'list';
+            else if (text.includes('Organized')) optionView = 'organized';
             if (optionView === view) {
                 option.classList.add('active');
             }
         });
-        
+
         closeViewMenu();
+    }
+
+    function renderOrganizedSections() {
+        if (currentView !== 'organized') return;
+        const notesGrid = document.getElementById('notes-grid');
+
+        // Type display order
+        const typeOrder = ['note', 'markdown', 'flashcard', 'glossary', 'qa',
+                           'todo', 'links', 'test', 'practice', 'exercises', 'exampractice', 'pdf'];
+        const typeNameMap = {
+            'pdf':         'Slide Notes',
+            'note':        'Non-Linear Notes',
+            'markdown':    'Markdown',
+            'flashcard':   'Flashcards',
+            'glossary':    'Glossary',
+            'qa':          'Q&A',
+            'todo':        'To Do',
+            'links':       'Pinboard',
+            'test':        'Test',
+            'practice':    'Practice Problems',
+            'exercises':   'Exercises',
+            'exampractice':'Exam Practice'
+        };
+
+        // Collect all visible regular cards + any live PDF cards
+        const cardPool = new Set(currentVisibleCardSet);
+        notesGrid.querySelectorAll('.pdf-card').forEach(c => cardPool.add(c));
+
+        // Group pool by type
+        const grouped = new Map();
+        for (const card of cardPool) {
+            const type = card.dataset.noteType || 'note';
+            if (!grouped.has(type)) grouped.set(type, []);
+            grouped.get(type).push(card);
+        }
+
+        // Detach pooled cards from current location
+        cardPool.forEach(card => card.remove());
+
+        // Remove old section wrappers (hidden cards inside them remain hidden outside)
+        notesGrid.querySelectorAll('.type-section-wrapper').forEach(s => {
+            // Move any hidden cards back to grid before removing wrapper
+            s.querySelectorAll('.note-card').forEach(c => notesGrid.appendChild(c));
+            s.remove();
+        });
+
+        // Build sections in canonical order
+        for (const type of typeOrder) {
+            const cards = grouped.get(type);
+            if (!cards || cards.length === 0) continue;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'type-section-wrapper';
+
+            const header = document.createElement('div');
+            header.className = 'type-section-header-card';
+            header.textContent = typeNameMap[type] || getNoteTypeLabel(type);
+
+            const cardsGrid = document.createElement('div');
+            cardsGrid.className = 'type-section-cards';
+
+            for (const card of cards) {
+                cardsGrid.appendChild(card);
+            }
+
+            wrapper.appendChild(header);
+            wrapper.appendChild(cardsGrid);
+            notesGrid.appendChild(wrapper);
+        }
+
+        // Use IntersectionObserver to add .is-stuck when a header is pinned
+        attachStickyHeaderObserver();
+    }
+
+    let stickyHeaderObserver = null;
+    function attachStickyHeaderObserver() {
+        if (stickyHeaderObserver) {
+            stickyHeaderObserver.disconnect();
+            stickyHeaderObserver = null;
+        }
+        const scrollRoot = document.getElementById('notes-content');
+        if (!scrollRoot) return;
+        stickyHeaderObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                // When the sentinel (1px element at top of wrapper) is not visible
+                // the sticky header is in a "stuck" state
+                entry.target.closest('.type-section-wrapper')
+                    ?.querySelector('.type-section-header-card')
+                    ?.classList.toggle('is-stuck', !entry.isIntersecting);
+            }
+        }, { root: scrollRoot, threshold: [1], rootMargin: '-1px 0px 0px 0px' });
+        // Observe a tiny sentinel at the top of each wrapper
+        document.querySelectorAll('.type-section-wrapper').forEach(wrapper => {
+            let sentinel = wrapper.querySelector('.sticky-sentinel');
+            if (!sentinel) {
+                sentinel = document.createElement('div');
+                sentinel.className = 'sticky-sentinel';
+                sentinel.style.cssText = 'height:1px;width:100%;pointer-events:none;visibility:hidden;';
+                wrapper.insertBefore(sentinel, wrapper.firstChild);
+            }
+            stickyHeaderObserver.observe(sentinel);
+        });
+    }
+
+    function flattenOrganizedSections() {
+        if (stickyHeaderObserver) {
+            stickyHeaderObserver.disconnect();
+            stickyHeaderObserver = null;
+        }
+        const notesGrid = document.getElementById('notes-grid');
+        notesGrid.querySelectorAll('.type-section-wrapper').forEach(wrapper => {
+            wrapper.querySelectorAll('.note-card').forEach(card => notesGrid.appendChild(card));
+            wrapper.remove();
+        });
     }
 
     async function loadAllNotes() {
@@ -5359,6 +5537,7 @@
         
         // Load PDFs for this subject
         await loadPdfsForSubject(subject);
+        if (currentView === 'organized') renderOrganizedSections();
     }
 
     function sortPdfEntriesByName(entries) {
@@ -5416,6 +5595,7 @@
             const card = document.createElement('div');
             card.className = 'note-card pdf-card';
             card.dataset.subject = subjectName;
+            card.dataset.noteType = 'pdf';
 
             const preview = document.createElement('div');
             preview.className = 'note-preview';
@@ -5605,8 +5785,10 @@
         
         if (currentView === 'list') {
             notesGrid.classList.add('list-view');
+        } else if (currentView === 'organized') {
+            notesGrid.classList.add('organized-view');
         } else {
-            notesGrid.classList.remove('list-view');
+            notesGrid.classList.remove('list-view', 'organized-view');
         }
         
         for (const note of allNotes) {
@@ -5640,6 +5822,7 @@
         }
 
         currentVisibleCardSet = targetSet;
+        if (currentView === 'organized') renderOrganizedSections();
         return targetSet.size;
     }
 
@@ -6030,6 +6213,7 @@
                 loaded++;
                 setStartupProgress(loaded, total);
             });
+            if (currentView === 'organized') renderOrganizedSections();
 
             for (const subject of allSubjects) {
                 await getPdfsForSubject(subject, false);
@@ -6064,6 +6248,8 @@
 
                 const card = noteCardMap.get(note.noteKey);
                 if (!card) continue;
+
+                card.dataset.noteType = note.typeToken;
 
                 const dateDiv = card.querySelector('.note-date');
                 if (dateDiv) {
@@ -6147,6 +6333,7 @@
         card.dataset.subject = note.subject; // Add subject data attribute for filtering
         card.dataset.noteName = note.name; // Add name for identification
         card.dataset.noteKey = note.noteKey;
+        card.dataset.noteType = note.typeToken;
         noteCardMap.set(note.noteKey, card);
         if (!noteCardsBySubject.has(note.subject)) {
             noteCardsBySubject.set(note.subject, []);
