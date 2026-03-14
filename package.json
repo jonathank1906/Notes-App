@@ -1,6 +1,6 @@
 {
-  "name": "mindmapapp",
-  "version": "1.0.0",
+  "name": "notes-app",
+  "version": "1.0.1",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -16,8 +16,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.mindmap.app",
-    "productName": "MindMapApp",
+    "appId": "com.notesapp.app",
+    "productName": "Notes App",
     "win": {
       "target": "nsis"
     }
