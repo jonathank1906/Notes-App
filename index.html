@@ -1061,6 +1061,52 @@
             margin-bottom: 8px;
         }
 
+        /* Compact file list in organized view (Markdown + Test) */
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list,
+        #notes-grid.organized-view .type-section-cards.test-compact-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-card,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-card {
+            border-radius: 0;
+            border: none;
+            border-bottom: 1px solid var(--ui-border);
+            background: transparent;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-card:hover,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-card:hover {
+            background: var(--btn-hover);
+            border-bottom-color: var(--ui-border);
+            transform: none;
+            box-shadow: none;
+        }
+
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-preview,
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-meta,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-preview,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-meta {
+            display: none;
+        }
+
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-info,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-info {
+            padding: 12px 6px;
+            gap: 0;
+        }
+
+        #notes-grid.organized-view .type-section-cards.markdown-compact-list .note-title,
+        #notes-grid.organized-view .type-section-cards.test-compact-list .note-title {
+            font-size: 14px;
+            font-weight: 550;
+            color: #d7d7d7;
+        }
+
         #empty-notes-state {
             text-align: center;
             padding: 80px 32px;
@@ -5824,6 +5870,8 @@
 
             const cardsGrid = document.createElement('div');
             cardsGrid.className = 'type-section-cards';
+            if (type === 'markdown') cardsGrid.classList.add('markdown-compact-list');
+            if (type === 'test') cardsGrid.classList.add('test-compact-list');
 
             for (const card of cards) {
                 cardsGrid.appendChild(card);
