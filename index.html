@@ -3085,7 +3085,7 @@
     let noteMap = new Map();
     let currentNoteFileName;
     let currentFilePath = null; // <-- store absolute path for direct disk saves from detached windows
-    let isDetachedWindow = false; // flag to indicate a note opened in its own window
+    let isDetachedWindow = window.location.search.includes('note'); // flag to indicate a note opened in its own window
     // ---> DETACHED WINDOW SYNC FIX <---
     // Listens for rename broadcasts from other windows
     window.addEventListener('storage', (e) => {
@@ -3250,6 +3250,7 @@
     let currentVisibleCardSet = new Set();
     let noteDataCache = new Map();
     let subjectPdfCache = new Map();
+    let pdfLoadRequestId = 0;
     let startupWarmupRunning = false;
     let loadedNotesForSearch = [];
     let globalSearchIndex = new Map();
@@ -5360,9 +5361,20 @@
         await loadPdfsForSubject(subject);
     }
 
+    function sortPdfEntriesByName(entries) {
+        return [...entries].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }
+
+    function isPdfLoadStale(requestId, subjectName) {
+        return requestId !== pdfLoadRequestId || !activeSubject || activeSubject.name !== subjectName;
+    }
+
     async function getPdfsForSubject(subject, useCache = true) {
         if (useCache && subjectPdfCache.has(subject.name)) {
-            return subjectPdfCache.get(subject.name);
+            const cached = subjectPdfCache.get(subject.name) || [];
+            return sortPdfEntriesByName(cached);
         }
 
         const pdfs = [];
@@ -5379,77 +5391,86 @@
             console.error('Error scanning PDFs for subject:', subject.name, err);
         }
 
-        subjectPdfCache.set(subject.name, pdfs);
-        return pdfs;
+        const sorted = sortPdfEntriesByName(pdfs);
+        subjectPdfCache.set(subject.name, sorted);
+        return sorted;
     }
 
     async function loadPdfsForSubject(subject) {
         const notesGrid = document.getElementById('notes-grid');
-        
+        const requestId = ++pdfLoadRequestId;
+        const subjectName = subject.name;
+
         // Remove all existing PDF cards so only the selected subject's PDFs are shown.
         const existingPdfCards = notesGrid.querySelectorAll('.pdf-card');
         existingPdfCards.forEach(card => card.remove());
-        
+
         // Use preloaded PDF list when available.
         const pdfs = await getPdfsForSubject(subject, true);
-        
+        if (isPdfLoadStale(requestId, subjectName)) return;
+
         // Create PDF cards
         for (const pdf of pdfs) {
+            if (isPdfLoadStale(requestId, subjectName)) return;
+
             const card = document.createElement('div');
             card.className = 'note-card pdf-card';
-            card.dataset.subject = subject.name;
-            
+            card.dataset.subject = subjectName;
+
             const preview = document.createElement('div');
             preview.className = 'note-preview';
             preview.innerHTML = '<canvas width="120" height="160" style="width: 100%; height: 100%; object-fit: contain;"></canvas>';
-            
+
             const info = document.createElement('div');
             info.className = 'note-info';
-            
+
             const title = document.createElement('div');
             title.className = 'note-title';
             title.textContent = pdf.name;
             title.title = pdf.name;
-            
+
             const metaDiv = document.createElement('div');
             metaDiv.className = 'note-meta';
-            
+
             const dateDiv = document.createElement('div');
             dateDiv.className = 'note-date';
             // Leave empty for PDFs
-            
+
             const subjectPill = document.createElement('div');
             subjectPill.className = 'note-subject-pill';
-            subjectPill.textContent = subject.name;
-            
+            subjectPill.textContent = subjectName;
+
             metaDiv.appendChild(dateDiv);
             metaDiv.appendChild(subjectPill);
-            
+
             info.appendChild(title);
             info.appendChild(metaDiv);
-            
+
             card.appendChild(preview);
             card.appendChild(info);
-            
+
             // Render PDF preview
             const canvas = preview.querySelector('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             // Create cache key
-            const cacheKey = `${subject.name}/${pdf.name}`;
-            
+            const cacheKey = `${subjectName}/${pdf.name}`;
+
             try {
                 const file = await pdf.handle.getFile();
+                if (isPdfLoadStale(requestId, subjectName)) return;
+
                 const lastModified = file.lastModified;
                 const fileSize = file.size;
-                
+
                 // Check if we have a cached preview
-                if (pdfPreviewCache[cacheKey] && 
-                    pdfPreviewCache[cacheKey].lastModified === lastModified && 
+                if (pdfPreviewCache[cacheKey] &&
+                    pdfPreviewCache[cacheKey].lastModified === lastModified &&
                     pdfPreviewCache[cacheKey].fileSize === fileSize) {
                     // Use cached preview
                     const img = new Image();
                     img.onload = () => {
+                        if (isPdfLoadStale(requestId, subjectName)) return;
                         // Set canvas dimensions to match cached image
                         canvas.width = img.width;
                         canvas.height = img.height;
@@ -5469,7 +5490,8 @@
                         viewport: viewport
                     };
                     await page.render(renderContext).promise;
-                    
+                    if (isPdfLoadStale(requestId, subjectName)) return;
+
                     // Cache the rendered preview
                     const dataUrl = canvas.toDataURL();
                     pdfPreviewCache[cacheKey] = {
@@ -5479,6 +5501,7 @@
                     };
                 }
             } catch (err) {
+                if (isPdfLoadStale(requestId, subjectName)) return;
                 console.error('Error rendering PDF preview:', err);
                 // Fallback to icon
                 preview.innerHTML = `
@@ -5491,15 +5514,17 @@
                     </svg>
                 `;
             }
-            
+
+            if (isPdfLoadStale(requestId, subjectName)) return;
+
             card.onclick = async () => {
                 const file = await pdf.handle.getFile();
                 const buffer = await file.arrayBuffer();
-                
+
                 const baseName = pdf.name.slice(0, -4);
                 let jsonContent = null;
                 let jsonPath = null;
-                
+
                 if (subject.handle.path && typeof fs !== 'undefined') {
                     jsonPath = path.join(subject.handle.path, baseName + '.json');
                     if (fs.existsSync(jsonPath)) {
@@ -5507,10 +5532,10 @@
                     }
                 }
 
-                ipcRenderer.send('launch-slidenotes-app', { 
-                    pdfBuffer: buffer, 
-                    jsonContent: jsonContent, 
-                    jsonPath: jsonPath 
+                ipcRenderer.send('launch-slidenotes-app', {
+                    pdfBuffer: buffer,
+                    jsonContent: jsonContent,
+                    jsonPath: jsonPath
                 });
             };
             notesGrid.appendChild(card);
@@ -5987,7 +6012,7 @@
     }
 
     async function runStartupWarmup(notes) {
-        if (startupWarmupRunning) return;
+        if (startupWarmupRunning || isDetachedWindow) return;
         startupWarmupRunning = true;
 
         try {
@@ -10224,8 +10249,10 @@
         }
     }, true);
 
-    // Initialize home screen
-    initHomeScreen();
+    // Initialize home screen only for the main app window.
+    if (!isDetachedWindow) {
+        initHomeScreen();
+    }
     
     // Initially hide home button and save status (we start on home screen)
     document.getElementById('btn-save-status').classList.add('hidden');
@@ -10241,7 +10268,10 @@
         const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
         const isHomeVisible = !document.getElementById('home-screen').classList.contains('hidden');
 
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && isHomeVisible) {
+        const key = e.key.toLowerCase();
+        const isSearchShortcut = (e.ctrlKey || e.metaKey) && (key === 'k' || key === 'f');
+
+        if (isSearchShortcut && isHomeVisible) {
             e.preventDefault();
             await openGlobalSearchModal();
             return;
