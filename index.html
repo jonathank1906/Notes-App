@@ -419,7 +419,8 @@
             margin: 0 -12px; /* align input to match subjects width */
         }
 
-        #sidebar-search {
+        #sidebar-search,
+        #sidebar-search-trigger {
             width: 244px; /* fixed width matching subjects */
             padding: 10px 12px 10px 36px; /* icon on left: increase left padding */
             background: #2a2a2a;
@@ -428,12 +429,26 @@
             color: var(--accent);
             font-size: 14px;
             outline: none;
-            cursor: text;
             box-sizing: border-box;
         }
 
-        #sidebar-search:focus {
+        #sidebar-search {
+            cursor: text;
+        }
+
+        #sidebar-search-trigger {
+            cursor: pointer;
+            text-align: left;
+            background: #2a2a2a;
+        }
+
+        #sidebar-search:focus,
+        #sidebar-search-trigger:focus {
             border-color: #555;
+        }
+
+        #sidebar-search-trigger-text {
+            opacity: 0.85;
         }
 
         #sidebar-search-icon {
@@ -452,6 +467,142 @@
             width: 100%;
             height: 100%;
             fill: var(--text-color);
+        }
+
+        #global-search-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 64px 24px 24px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            z-index: 10020;
+        }
+
+        #global-search-modal.show {
+            display: flex;
+        }
+
+        #global-search-panel {
+            width: min(900px, calc(100vw - 32px));
+            max-height: min(80vh, 760px);
+            background: #181818;
+            border: 1px solid #303030;
+            border-radius: 14px;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #global-search-input-wrap {
+            position: relative;
+            padding: 14px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        #global-search-input {
+            width: 100%;
+            height: 46px;
+            border-radius: 10px;
+            border: 1px solid #383838;
+            background: #222;
+            color: #f2f2f2;
+            font-size: 16px;
+            padding: 0 14px 0 42px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        #global-search-input:focus {
+            border-color: #5a5a5a;
+        }
+
+        #global-search-input-icon {
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            width: 18px;
+            height: 18px;
+            transform: translateY(-50%);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        #global-search-input-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: #bcbcbc;
+        }
+
+        #global-search-meta {
+            padding: 10px 16px;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 13px;
+            color: #b0b0b0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #global-search-results {
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .global-search-result {
+            border: 1px solid #2f2f2f;
+            border-radius: 10px;
+            background: #202020;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .global-search-result:hover {
+            background: #262626;
+            border-color: #4a4a4a;
+        }
+
+        .global-search-result-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f2f2f2;
+            margin-bottom: 6px;
+        }
+
+        .global-search-result-meta {
+            font-size: 12px;
+            color: #9f9f9f;
+            margin-bottom: 6px;
+        }
+
+        .global-search-result-snippet {
+            font-size: 13px;
+            color: #c7c7c7;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .global-search-match {
+            color: #5aa3ff;
+            font-weight: 700;
+            background: transparent;
+        }
+
+        #global-search-empty {
+            padding: 30px 14px;
+            text-align: center;
+            color: #888;
+            font-size: 13px;
         }
 
         #subjects-list {
@@ -3100,6 +3251,10 @@
     let noteDataCache = new Map();
     let subjectPdfCache = new Map();
     let startupWarmupRunning = false;
+    let loadedNotesForSearch = [];
+    let globalSearchIndex = new Map();
+    let globalSearchRequestId = 0;
+    let isGlobalSearchOpen = false;
     // --- INIT ---
     function resize() {
         const w = window.innerWidth;
@@ -5372,6 +5527,8 @@
         currentVisibleCardSet = new Set();
         noteDataCache = new Map();
         subjectPdfCache = new Map();
+        globalSearchIndex = new Map();
+        loadedNotesForSearch = [];
         resetNotePreviewObserver();
         
         const allNotes = [];
@@ -5431,6 +5588,8 @@
             const card = createNoteCard(note);
             notesGrid.appendChild(card);
         }
+
+        loadedNotesForSearch = allNotes;
 
         // Warm up the cache and subject PDF lists with a visible startup progress bar.
         runStartupWarmup(allNotes).catch((err) => {
@@ -5494,6 +5653,309 @@
             typeLabel: getNoteTypeLabel(typeToken),
             todoCount: pendingTodos
         };
+    }
+
+    function getGlobalSearchScopedNotes() {
+        if (!activeSubject) return loadedNotesForSearch;
+        return loadedNotesForSearch.filter(note => note.subject === activeSubject.name);
+    }
+
+    function getGlobalSearchScopeLabel() {
+        return activeSubject ? `Within subject: ${activeSubject.name}` : 'Across all subjects';
+    }
+
+    function extractStringsFromValue(value, out, depth = 0) {
+        if (depth > 8 || value === null || value === undefined) return;
+
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) out.push(trimmed);
+            return;
+        }
+
+        if (typeof value === 'number' || typeof value === 'boolean') {
+            out.push(String(value));
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                extractStringsFromValue(item, out, depth + 1);
+            }
+            return;
+        }
+
+        if (typeof value === 'object') {
+            for (const entryVal of Object.values(value)) {
+                extractStringsFromValue(entryVal, out, depth + 1);
+            }
+        }
+    }
+
+    function normalizeSearchText(text) {
+        return (text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function buildSearchSnippet(displayText, query) {
+        if (!displayText) return 'No textual preview available.';
+        const normalized = normalizeSearchText(displayText);
+        if (!query) return normalized.slice(0, 180);
+
+        const lower = normalized.toLowerCase();
+        const idx = lower.indexOf(query.toLowerCase());
+        if (idx < 0) return normalized.slice(0, 180);
+
+        const start = Math.max(0, idx - 70);
+        const end = Math.min(normalized.length, idx + query.length + 110);
+        const prefix = start > 0 ? '... ' : '';
+        const suffix = end < normalized.length ? ' ...' : '';
+        return `${prefix}${normalized.slice(start, end)}${suffix}`;
+    }
+
+    function escapeRegExp(text) {
+        return (text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function highlightSearchMatches(text, query) {
+        const safeText = escapeHtml(text || '');
+        const trimmedQuery = (query || '').trim();
+        if (!trimmedQuery) return safeText;
+
+        const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, 'ig');
+        return safeText.replace(pattern, '<span class="global-search-match">$1</span>');
+    }
+
+    async function ensureGlobalSearchIndexForNote(note) {
+        const cached = globalSearchIndex.get(note.noteKey);
+        if (cached) return cached;
+
+        let displayText = `${note.name} ${note.subject}`;
+        let searchText = displayText.toLowerCase();
+
+        try {
+            if (note.typeToken === 'markdown') {
+                const file = await note.handle.getFile();
+                const text = await file.text();
+                displayText = `${note.name}\n${note.subject}\n${text}`;
+            } else {
+                let data = noteDataCache.get(note.noteKey);
+                if (!data) {
+                    const file = await note.handle.getFile();
+                    const text = await file.text();
+                    data = JSON.parse(text);
+                    noteDataCache.set(note.noteKey, data);
+
+                    const metadata = parseNoteMetadata(data);
+                    note.typeToken = metadata.typeToken;
+                    note.typeLabel = metadata.typeLabel;
+                    note.todoCount = metadata.todoCount;
+                }
+
+                const strings = [];
+                extractStringsFromValue(data, strings);
+                const bodyText = normalizeSearchText(strings.join(' ')).slice(0, 100000);
+                displayText = `${note.name}\n${note.subject}\n${note.typeLabel || getNoteTypeLabel(note.typeToken)}\n${bodyText}`;
+            }
+        } catch (err) {
+            displayText = `${note.name}\n${note.subject}`;
+        }
+
+        searchText = normalizeSearchText(displayText).toLowerCase();
+
+        const indexed = {
+            searchText,
+            displayText
+        };
+
+        globalSearchIndex.set(note.noteKey, indexed);
+        return indexed;
+    }
+
+    function renderGlobalSearchResults(results, query) {
+        const listEl = document.getElementById('global-search-results');
+        const countEl = document.getElementById('global-search-count');
+        if (!listEl || !countEl) return;
+
+        countEl.textContent = `Search results (${results.length})`;
+        listEl.innerHTML = '';
+
+        if (results.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.id = 'global-search-empty';
+            emptyEl.textContent = query ? 'No matches found in this scope.' : 'Type to search notes, flashcards, glossary, Q&A, and more.';
+            listEl.appendChild(emptyEl);
+            return;
+        }
+
+        for (const result of results) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'global-search-result';
+
+            const snippet = buildSearchSnippet(result.displayText, query);
+            const highlightedTitle = highlightSearchMatches(result.note.name, query);
+            const highlightedMeta = highlightSearchMatches(`${result.note.subject} • ${result.note.typeLabel || getNoteTypeLabel(result.note.typeToken)}`, query);
+            const highlightedSnippet = highlightSearchMatches(snippet, query);
+            item.innerHTML = `
+                <div class="global-search-result-title">${highlightedTitle}</div>
+                <div class="global-search-result-meta">${highlightedMeta}</div>
+                <div class="global-search-result-snippet">${highlightedSnippet}</div>
+            `;
+
+            item.addEventListener('click', async () => {
+                closeGlobalSearchModal();
+                if (result.note.typeToken === 'markdown') {
+                    if (typeof require !== 'undefined') {
+                        const { shell } = require('electron');
+                        const vaultName = 'Semester 4';
+                        const fullPath = (result.note.handle.path || '').replace(/\\/g, '/');
+                        let relativePath = fullPath;
+                        const marker = vaultName + '/';
+
+                        if (fullPath.includes(marker)) {
+                            relativePath = fullPath.split(marker)[1];
+                        } else {
+                            relativePath = result.note.handle.name || relativePath;
+                        }
+
+                        const obsidianUri = `obsidian://advanced-uri?vault=${encodeURIComponent(vaultName)}&filepath=${encodeURIComponent(relativePath)}&openmode=window`;
+                        try {
+                            shell.openExternal(obsidianUri);
+                        } catch (err) {
+                            try {
+                                const fallback = 'obsidian://open?path=' + encodeURIComponent(result.note.handle.path || result.note.handle.name);
+                                shell.openExternal(fallback);
+                            } catch (e) {}
+                        }
+                    }
+                    return;
+                }
+
+                const prefetched = noteDataCache.get(result.note.noteKey) || null;
+                await openNote(result.note.handle, result.note.noteKey, prefetched);
+            });
+
+            listEl.appendChild(item);
+        }
+    }
+
+    async function runGlobalSearch(query) {
+        const requestId = ++globalSearchRequestId;
+        const trimmed = (query || '').trim();
+        const scopeEl = document.getElementById('global-search-scope');
+        const listEl = document.getElementById('global-search-results');
+
+        if (scopeEl) {
+            scopeEl.textContent = getGlobalSearchScopeLabel();
+        }
+
+        if (!trimmed) {
+            renderGlobalSearchResults([], '');
+            return;
+        }
+
+        if (listEl) {
+            listEl.innerHTML = '<div id="global-search-empty">Searching...</div>';
+        }
+
+        const scopeNotes = getGlobalSearchScopedNotes();
+        const results = [];
+
+        for (let i = 0; i < scopeNotes.length; i++) {
+            if (requestId !== globalSearchRequestId) return;
+
+            const note = scopeNotes[i];
+            const indexed = await ensureGlobalSearchIndexForNote(note);
+            if (indexed.searchText.includes(trimmed.toLowerCase())) {
+                results.push({ note, displayText: indexed.displayText });
+            }
+
+            // Keep input responsive for large note sets.
+            if (i % 8 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        if (requestId !== globalSearchRequestId) return;
+        renderGlobalSearchResults(results, trimmed);
+    }
+
+    function closeGlobalSearchModal() {
+        const modal = document.getElementById('global-search-modal');
+        if (!modal) return;
+        modal.classList.remove('show');
+        isGlobalSearchOpen = false;
+    }
+
+    async function openGlobalSearchModal() {
+        const modal = document.getElementById('global-search-modal');
+        const input = document.getElementById('global-search-input');
+        if (!modal || !input) return;
+
+        if (!allNotesLoaded) {
+            await loadNotesIntoDom();
+            if (activeSubject) {
+                applyCardVisibility(noteCardsBySubject.get(activeSubject.name) || []);
+            } else {
+                applyCardVisibility(allNoteCards);
+            }
+        }
+
+        isGlobalSearchOpen = true;
+        modal.classList.add('show');
+        input.focus();
+        input.select();
+        await runGlobalSearch(input.value || '');
+    }
+
+    function ensureGlobalSearchUi() {
+        if (!document.getElementById('global-search-modal')) {
+            const modal = document.createElement('div');
+            modal.id = 'global-search-modal';
+            modal.innerHTML = `
+                <div id="global-search-panel" role="dialog" aria-modal="true" aria-label="Search notes">
+                    <div id="global-search-input-wrap">
+                        <div id="global-search-input-icon">
+                            <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
+                            </svg>
+                        </div>
+                        <input id="global-search-input" type="text" placeholder="Search notes, glossary, Q&A, flashcards...">
+                    </div>
+                    <div id="global-search-meta">
+                        <div id="global-search-count">Search results (0)</div>
+                        <div id="global-search-scope">Across all subjects</div>
+                    </div>
+                    <div id="global-search-results"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeGlobalSearchModal();
+            });
+
+            const panel = modal.querySelector('#global-search-panel');
+            panel.addEventListener('click', (e) => e.stopPropagation());
+
+            const searchInput = modal.querySelector('#global-search-input');
+            searchInput.addEventListener('input', (e) => {
+                runGlobalSearch(e.target.value || '');
+            });
+        }
+
+        const legacyInput = document.getElementById('sidebar-search');
+        if (legacyInput && !document.getElementById('sidebar-search-trigger')) {
+            const trigger = document.createElement('button');
+            trigger.id = 'sidebar-search-trigger';
+            trigger.type = 'button';
+            trigger.setAttribute('aria-label', 'Open search');
+            trigger.innerHTML = '<span id="sidebar-search-trigger-text">Search</span>';
+            trigger.addEventListener('click', () => {
+                openGlobalSearchModal();
+            });
+            legacyInput.replaceWith(trigger);
+        }
     }
 
     function setStartupProgress(loaded, total) {
@@ -9772,37 +10234,30 @@
     document.getElementById('toolbar').classList.add('hidden');
     document.getElementById('help-btn').classList.add('hidden');
     
-    // Add search functionality
-    const sidebarSearch = document.getElementById('sidebar-search');
-    if (sidebarSearch) {
-        sidebarSearch.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const noteCards = document.querySelectorAll('.note-card');
-            
-            noteCards.forEach(card => {
-                const title = card.querySelector('.note-title').textContent.toLowerCase();
-                const matchesSearch = title.includes(searchTerm);
-                
-                // If we're viewing all notes (activeSubject is null), show all matching notes
-                // If viewing a specific subject, only show matching notes in that subject
-                if (matchesSearch) {
-                    if (activeSubject === null) {
-                        // All Notes view - show if matches search
-                        card.style.display = '';
-                    } else {
-                        // Specific subject view - show only if belongs to active subject
-                        if (card.dataset.subject === activeSubject.name) {
-                            card.style.display = '';
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    }
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-    }
+    // Initialize Notion-style popup search and replace the sidebar text input with a trigger button.
+    ensureGlobalSearchUi();
+
+    window.addEventListener('keydown', async (e) => {
+        const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+        const isHomeVisible = !document.getElementById('home-screen').classList.contains('hidden');
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && isHomeVisible) {
+            e.preventDefault();
+            await openGlobalSearchModal();
+            return;
+        }
+
+        if (e.key === 'Escape' && isGlobalSearchOpen) {
+            e.preventDefault();
+            closeGlobalSearchModal();
+            return;
+        }
+
+        // If the popup is open, stop global shortcuts from running under it.
+        if (isGlobalSearchOpen && !isTyping) {
+            e.stopPropagation();
+        }
+    }, true);
     
     // Initialize custom tooltips
     initCustomTooltips();
