@@ -3039,6 +3039,7 @@ async function loadPdfsForSubject(subject) {
 async function loadNotesIntoDom() {
     const notesGrid = document.getElementById('notes-grid');
     const emptyState = document.getElementById('empty-notes-state');
+    restoreQuickAccessToTopHeader();
     notesGrid.innerHTML = '';
     noteCardMap = new Map();
     noteCardsBySubject = new Map();
