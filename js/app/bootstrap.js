@@ -2590,18 +2590,17 @@ function teardownOrganizedStickyHeader() {
 
 async function openQuickAccessNote(type) {
     if (!activeSubject) {
-        alert('Please select a subject first to use Quick Access notes.');
-        return;
+        return; // Do nothing if no subject is selected
     }
 
-    // 1. Fast memory check (works instantly 99% of the time)
+    // 1. Fast memory check
     const note = findQuickAccessNote(type);
     if (note) {
         await openNote(note.handle, note.noteKey, noteDataCache.get(note.noteKey) || null);
         return;
     }
 
-    // 2. Fallback disk scan (catches double-refresh memory races)
+    // 2. Fallback disk scan (catches the double-refresh race condition)
     const targetDirHandle = activeSubject.handle;
     for await (const entry of targetDirHandle.values()) {
         if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.json')) {
@@ -2614,20 +2613,19 @@ async function openQuickAccessNote(type) {
                     const noteName = entry.name.replace('.json', '');
                     const noteKey = `${activeSubject.name}::${noteName}`;
 
-                    // Rehydrate cache so subsequent clicks are instant.
                     noteDataCache.set(noteKey, data);
-
                     await openNote(entry, noteKey, data);
                     return;
                 }
             } catch (err) {
-                // Ignore invalid files and continue scanning.
+                // Silently skip any non-JSON or corrupted files
             }
         }
     }
 
-    // 3. If nothing exists on disk, safely create a new quick-access note.
-    await createNewNote(type);
+    // 3. If we get here, the file genuinely does not exist yet.
+    // We do absolutely nothing.
+    return;
 }
 
 function renderOrganizedSections() {
