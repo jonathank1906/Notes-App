@@ -236,7 +236,6 @@ function resize() {
 window.addEventListener('resize', resize);
 
 resize();
-
 // CRITICAL: Capture middle mouse button BEFORE other listeners (capture phase)
 document.addEventListener('mousedown', (e) => {
     if (e.button === 1) { // Middle mouse button
@@ -4048,13 +4047,6 @@ function createNoteCard(note) {
         await openNote(note.handle, note.noteKey, cachedData);
     };
     
-    // Add context menu support
-    card.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        showContextMenu(e.clientX, e.clientY, note);
-    });
-    
     return card;
 }
 
@@ -6945,233 +6937,6 @@ async function selectRootFolder() {
     await loadAllNotes();
 }
 
-// --- CONTEXT MENU ---
-let contextMenuNote = null;
-
-function showContextMenu(x, y, note) {
-    contextMenuNote = note;
-    const contextMenu = document.getElementById('context-menu');
-    
-    // Position the menu, adjusting if it would go off-screen
-    const menuWidth = 160;
-    const menuHeight = 100; // approximate
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    let left = x;
-    let top = y;
-    
-    // Adjust horizontal position if menu would overflow
-    if (left + menuWidth > viewportWidth) {
-        left = viewportWidth - menuWidth - 10;
-    }
-    
-    // Adjust vertical position if menu would overflow
-    if (top + menuHeight > viewportHeight) {
-        top = viewportHeight - menuHeight - 10;
-    }
-    
-    contextMenu.style.left = left + 'px';
-    contextMenu.style.top = top + 'px';
-    contextMenu.classList.add('show');
-    
-    // Close menu when clicking anywhere
-    setTimeout(() => {
-        document.addEventListener('click', hideContextMenu);
-    }, 0);
-}
-
-function hideContextMenu() {
-    const contextMenu = document.getElementById('context-menu');
-    contextMenu.classList.remove('show');
-    document.removeEventListener('click', hideContextMenu);
-    contextMenuNote = null;
-}
-
-// ---> ADD THIS HOLDING VARIABLE <---
-let renamingNote = null;
-
-function renameNote() {
-    if (!contextMenuNote) return;
-    
-    // Save the note to our holding variable so it isn't forgotten when the context menu closes!
-    renamingNote = contextMenuNote; 
-    
-    const modal = document.getElementById('rename-modal');
-    const input = document.getElementById('rename-input');
-    
-    input.value = renamingNote.name;
-    modal.style.display = 'flex';
-    
-    // Focus and select the text so you can instantly start typing
-    input.focus();
-    input.select();
-    
-    // Allow pressing Enter to save
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') executeRename();
-        if (e.key === 'Escape') closeRenameModal();
-    };
-}
-
-function closeRenameModal() {
-    document.getElementById('rename-modal').style.display = 'none';
-    renamingNote = null; // Clear memory when we close
-}
-
-async function executeRename() {
-    if (!renamingNote) return;
-
-    const input = document.getElementById('rename-input');
-    const newName = input.value;
-    const oldName = renamingNote.name;
-
-    if (!newName || newName.trim() === '' || newName === oldName) {
-        closeRenameModal();
-        return;
-    }
-
-    const sanitizedName = newName.trim();
-    const isMd = renamingNote.typeToken === 'markdown';
-    const ext = isMd ? '.md' : '.json';
-    const newFileName = sanitizedName + ext;
-    const oldFileName = oldName + ext;
-
-    try {
-        const dirHandle = renamingNote.dirHandle;
-        let updatedHandle = renamingNote.handle;
-
-        // ---> ELECTRON NATIVE RENAME <---
-        if (typeof fs !== 'undefined' && renamingNote.handle.path) {
-            const oldPath = renamingNote.handle.path;
-            const newPath = path.join(path.dirname(oldPath), newFileName);
-
-            if (fs.existsSync(newPath)) {
-                alert('A file with this name already exists.');
-                return;
-            }
-
-            fs.renameSync(oldPath, newPath);
-            updatedHandle.name = newFileName;
-            updatedHandle.path = newPath;
-        } else {
-            // ---> WEB FALLBACK <---
-            try {
-                await dirHandle.getFileHandle(newFileName, { create: false });
-                alert('A file with this name already exists.');
-                return;
-            } catch (err) {}
-
-            const file = await renamingNote.handle.getFile();
-            const content = await file.text();
-
-            updatedHandle = await dirHandle.getFileHandle(newFileName, { create: true });
-            const writable = await updatedHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
-
-            await dirHandle.removeEntry(oldFileName);
-        }
-
-        // ---> UPDATE LOCAL MAPS <---
-        if (noteMap.has(oldFileName)) {
-            const openNoteData = noteMap.get(oldFileName);
-            noteMap.delete(oldFileName);
-            openNoteData.handle = updatedHandle;
-            noteMap.set(newFileName, openNoteData);
-        }
-
-        if (typeof currentFileName !== 'undefined' && currentFileName === oldFileName) {
-            currentFileName = newFileName;
-            currentFileHandle = updatedHandle;
-        }
-
-        if (currentNoteFileName === oldFileName) {
-            currentNoteFileName = newFileName;
-        }
-
-        // ---> BROADCAST THE RENAME TO ALL OTHER OPEN WINDOWS <---
-
-        localStorage.setItem('app-file-renamed', JSON.stringify({
-            oldName: oldFileName,
-            newName: newFileName,
-            timestamp: Date.now()
-        }));
-        // ---> Instantly clean up the walkie-talkie channel! <---
-        localStorage.removeItem('app-file-renamed');
-
-        closeRenameModal();
-
-        // Refresh UI
-        const activeSubjectName = activeSubject ? activeSubject.name : null;
-        await loadSubjects();
-
-        if (activeSubjectName) {
-            activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
-        } else {
-            activeSubject = null;
-        }
-
-        displaySubjects();
-        allNotesLoaded = false;
-
-        if (activeSubject) {
-            await loadNotesForSubject(activeSubject);
-        } else {
-            await loadAllNotes();
-        }
-
-    } catch (err) {
-        console.error('Error renaming note:', err);
-        alert('Failed to rename note: ' + err.message);
-    }
-}
-
-async function deleteNote() {
-    if (!contextMenuNote) return;
-    
-    const noteName = contextMenuNote.name;
-    const isMd = contextMenuNote.typeToken === 'markdown';
-    const fileName = noteName + (isMd ? '.md' : '.json');
-    const confirmed = confirm(`Are you sure you want to delete "${noteName}"?\n\nThis action cannot be undone.`);
-    
-    if (!confirmed) return;
-    
-    try {
-        const dirHandle = contextMenuNote.dirHandle;
-        await dirHandle.removeEntry(fileName);
-        
-        // Remember the active subject name before reloading
-        const activeSubjectName = activeSubject ? activeSubject.name : null;
-        
-        // Reload subjects to update counts
-        await loadSubjects();
-        
-        // Restore activeSubject reference to the new object with the same name
-        if (activeSubjectName) {
-            activeSubject = allSubjects.find(s => s.name === activeSubjectName) || null;
-        }
-        
-        displaySubjects();
-        
-        // Reload notes into DOM (fresh load from disk after delete)
-        allNotesLoaded = false;
-        
-        // Refresh the display
-        if (activeSubject) {
-            await loadNotesForSubject(activeSubject);
-        } else {
-            await loadAllNotes();
-        }
-        
-    } catch (err) {
-        console.error('Error deleting note:', err);
-        alert('Failed to delete note: ' + err.message);
-    }
-}
-
-
-
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -7763,8 +7528,6 @@ window.addEventListener('keydown', async (e) => {
 
     // Escape
     if (e.key === 'Escape') {
-        const contextMenu = document.getElementById('context-menu');
-        if (contextMenu && contextMenu.classList.contains('show')) { hideContextMenu(); return; }
         fabricCanvas.discardActiveObject();
         fabricCanvas.requestRenderAll();
     }
@@ -8280,19 +8043,6 @@ window.addEventListener('keydown', async (e) => {
 
 // Initialize custom tooltips
 initCustomTooltips();
-
-// Initialize context menu handlers
-document.getElementById('context-rename').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await renameNote();
-    hideContextMenu();
-});
-
-document.getElementById('context-delete').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await deleteNote();
-    hideContextMenu();
-});
 
 function initCustomTooltips() {
     const tooltipElements = document.querySelectorAll('[data-tooltip]');
