@@ -206,6 +206,22 @@ let globalSearchIndex = new Map();
 let globalSearchRequestId = 0;
 let isGlobalSearchOpen = false;
 let lastIllustratorSvgExportPath = null;
+let hoveredAiPreviewNote = null;
+let aiAdvancedPreviewCache = new Map();
+let aiAdvancedModalEl = null;
+let aiAdvancedModalImageEl = null;
+let aiAdvancedModalTitleEl = null;
+let aiAdvancedModalStatusEl = null;
+const aiAdvancedViewState = {
+    scale: 1,
+    minScale: 0.35,
+    maxScale: 9,
+    tx: 0,
+    ty: 0,
+    panning: false,
+    lastX: 0,
+    lastY: 0
+};
 // --- INIT ---
 function resize() {
     const w = window.innerWidth;
@@ -3735,6 +3751,178 @@ async function loadNotePreviewWhenNeeded(previewEl) {
     delete previewEl.__previewNoteKey;
 }
 
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function updateAiAdvancedTransform() {
+    if (!aiAdvancedModalImageEl) return;
+    aiAdvancedModalImageEl.style.transform = `translate(${aiAdvancedViewState.tx}px, ${aiAdvancedViewState.ty}px) scale(${aiAdvancedViewState.scale})`;
+}
+
+function resetAiAdvancedTransform() {
+    aiAdvancedViewState.scale = 1;
+    aiAdvancedViewState.tx = 0;
+    aiAdvancedViewState.ty = 0;
+    aiAdvancedViewState.panning = false;
+    updateAiAdvancedTransform();
+}
+
+async function renderAiPreviewDataUrl(fileHandle, targetWidth = 1800, targetHeight = 1300) {
+    if (!fileHandle || typeof pdfjsLib === 'undefined' || !pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
+        return null;
+    }
+
+    let pdfDoc = null;
+    try {
+        const file = await fileHandle.getFile();
+        const buffer = await file.arrayBuffer();
+
+        pdfDoc = await pdfjsLib.getDocument({
+            data: buffer,
+            stopAtErrors: false,
+            useSystemFonts: true,
+            maxImageSize: -1
+        }).promise;
+
+        const firstPage = await pdfDoc.getPage(1);
+        const baseViewport = firstPage.getViewport({ scale: 1 });
+        const fitScale = Math.max(0.1, Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height));
+        const detailScale = Math.max(1.4, Math.min(3.2, fitScale));
+        const viewport = firstPage.getViewport({ scale: detailScale });
+
+        const canvasEl = document.createElement('canvas');
+        canvasEl.width = Math.max(1, Math.floor(viewport.width));
+        canvasEl.height = Math.max(1, Math.floor(viewport.height));
+
+        const previewCtx = canvasEl.getContext('2d');
+        previewCtx.fillStyle = '#000';
+        previewCtx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+        await firstPage.render({ canvasContext: previewCtx, viewport }).promise;
+
+        return canvasEl.toDataURL('image/png');
+    } catch (err) {
+        return null;
+    } finally {
+        if (pdfDoc && typeof pdfDoc.destroy === 'function') {
+            try { await pdfDoc.destroy(); } catch (destroyErr) {}
+        }
+    }
+}
+
+function ensureAiAdvancedPreviewModal() {
+    if (aiAdvancedModalEl) return aiAdvancedModalEl;
+
+    const modal = document.createElement('div');
+    modal.id = 'ai-advanced-preview-modal';
+    modal.innerHTML = `
+        <div class="ai-advanced-preview-panel">
+            <div class="ai-advanced-preview-header">
+                <div class="ai-advanced-preview-title">Illustrator Preview</div>
+                <div class="ai-advanced-preview-status">Scroll to zoom, drag to pan, Esc to close</div>
+            </div>
+            <div class="ai-advanced-preview-viewport">
+                <img class="ai-advanced-preview-image" alt="Illustrator preview" draggable="false" />
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    aiAdvancedModalEl = modal;
+    aiAdvancedModalImageEl = modal.querySelector('.ai-advanced-preview-image');
+    aiAdvancedModalTitleEl = modal.querySelector('.ai-advanced-preview-title');
+    aiAdvancedModalStatusEl = modal.querySelector('.ai-advanced-preview-status');
+    const viewport = modal.querySelector('.ai-advanced-preview-viewport');
+
+    viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (!aiAdvancedModalEl || !aiAdvancedModalEl.classList.contains('show')) return;
+
+        // Center-anchored smooth zoom: keep current viewport position stable,
+        // then let user pan explicitly after zooming.
+        const factor = clamp(Math.exp(-e.deltaY * 0.0012), 0.88, 1.12);
+        const prevScale = aiAdvancedViewState.scale;
+        const nextScale = clamp(prevScale * factor, aiAdvancedViewState.minScale, aiAdvancedViewState.maxScale);
+        if (nextScale === prevScale) return;
+
+        // Preserve the world point currently under viewport center during zoom.
+        const ratio = nextScale / prevScale;
+        aiAdvancedViewState.tx *= ratio;
+        aiAdvancedViewState.ty *= ratio;
+        aiAdvancedViewState.scale = nextScale;
+        updateAiAdvancedTransform();
+    }, { passive: false });
+
+    viewport.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || !aiAdvancedModalEl.classList.contains('show')) return;
+        aiAdvancedViewState.panning = true;
+        aiAdvancedViewState.lastX = e.clientX;
+        aiAdvancedViewState.lastY = e.clientY;
+        viewport.classList.add('is-panning');
+        viewport.setPointerCapture(e.pointerId);
+    });
+
+    viewport.addEventListener('pointermove', (e) => {
+        if (!aiAdvancedViewState.panning) return;
+        const dx = e.clientX - aiAdvancedViewState.lastX;
+        const dy = e.clientY - aiAdvancedViewState.lastY;
+        aiAdvancedViewState.lastX = e.clientX;
+        aiAdvancedViewState.lastY = e.clientY;
+        aiAdvancedViewState.tx += dx;
+        aiAdvancedViewState.ty += dy;
+        updateAiAdvancedTransform();
+    });
+
+    const stopPanning = (e) => {
+        if (!aiAdvancedViewState.panning) return;
+        aiAdvancedViewState.panning = false;
+        viewport.classList.remove('is-panning');
+        try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+    };
+
+    viewport.addEventListener('pointerup', stopPanning);
+    viewport.addEventListener('pointercancel', stopPanning);
+
+    return aiAdvancedModalEl;
+}
+
+function closeAiAdvancedPreviewModal() {
+    if (!aiAdvancedModalEl) return;
+    aiAdvancedModalEl.classList.remove('show');
+    resetAiAdvancedTransform();
+}
+
+async function openAiAdvancedPreviewModal(note) {
+    if (!note || !note.handle) return;
+
+    const modal = ensureAiAdvancedPreviewModal();
+    if (!modal || !aiAdvancedModalImageEl) return;
+
+    if (aiAdvancedModalTitleEl) aiAdvancedModalTitleEl.textContent = `${note.name}.ai`;
+    if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Rendering high-detail preview...';
+
+    modal.classList.add('show');
+    resetAiAdvancedTransform();
+
+    const cacheKey = note.noteKey || `${note.subject}:${note.name}`;
+    let dataUrl = aiAdvancedPreviewCache.get(cacheKey) || null;
+
+    if (!dataUrl) {
+        dataUrl = await renderAiPreviewDataUrl(note.handle, 2200, 1600);
+        if (dataUrl) aiAdvancedPreviewCache.set(cacheKey, dataUrl);
+    }
+
+    if (!modal.classList.contains('show')) return;
+
+    if (dataUrl) {
+        aiAdvancedModalImageEl.src = dataUrl;
+        if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Scroll to zoom, drag to pan, Esc to close';
+    } else {
+        aiAdvancedModalImageEl.removeAttribute('src');
+        if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Preview unavailable for this file';
+    }
+}
+
 function createNoteCard(note) {
     const card = document.createElement('div');
     card.className = 'note-card';
@@ -3797,6 +3985,17 @@ function createNoteCard(note) {
     
     // Queue preview rendering so names appear first and previews load on demand.
     queueNotePreview(note, preview);
+
+    if (note.isExternalFile && note.externalType === 'illustrator') {
+        card.addEventListener('mouseenter', () => {
+            hoveredAiPreviewNote = note;
+        });
+        card.addEventListener('mouseleave', () => {
+            if (hoveredAiPreviewNote && hoveredAiPreviewNote.noteKey === note.noteKey) {
+                hoveredAiPreviewNote = null;
+            }
+        });
+    }
 
     card.onclick = async (e) => {
         // Don't open if context menu was just shown
@@ -7448,6 +7647,14 @@ document.addEventListener('keydown', (e) => {
 // --- KEYBOARD ---
 window.addEventListener('keydown', async (e) => {
     if (e.repeat) return;
+
+    if (e.key === 'Escape' && aiAdvancedModalEl && aiAdvancedModalEl.classList.contains('show')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeAiAdvancedPreviewModal();
+        return;
+    }
+
     // If this window is a detached/note window opened by the main app,
     // suppress global Escape handling to avoid returning to the home screen.
     if (isDetachedWindow && e.key === 'Escape') {
@@ -7510,6 +7717,12 @@ window.addEventListener('keydown', async (e) => {
                 fabricCanvas.requestRenderAll();
             }
         }
+        return;
+    }
+
+    if ((e.key === 'p' || e.key === 'P') && hoveredAiPreviewNote) {
+        e.preventDefault();
+        await openAiAdvancedPreviewModal(hoveredAiPreviewNote);
         return;
     }
 
@@ -8195,6 +8408,76 @@ style.textContent = `
         font-size: 18px;
         font-weight: 600;
         box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    #ai-advanced-preview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 12000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.88);
+    }
+    #ai-advanced-preview-modal.show {
+        display: flex;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-panel {
+        width: min(94vw, 1400px);
+        height: min(90vh, 900px);
+        display: flex;
+        flex-direction: column;
+        border: 1px solid rgba(255,255,255,0.22);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0b0b0b;
+        box-shadow: 0 20px 55px rgba(0, 0, 0, 0.7);
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        background: #121212;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-title {
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-status {
+        color: #bbbbbb;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-viewport {
+        position: relative;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #000;
+        cursor: grab;
+        touch-action: none;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-viewport.is-panning {
+        cursor: grabbing;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-image {
+        position: relative;
+        left: auto;
+        top: auto;
+        max-width: 100%;
+        max-height: 100%;
+        transform: translate(0px, 0px) scale(1);
+        transform-origin: center center;
+        user-select: none;
+        pointer-events: none;
     }
 `;
 document.head.appendChild(style);
