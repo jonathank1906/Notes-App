@@ -74,6 +74,34 @@ function openSlidesApp() {
         alert('Not running in Electron environment.');
     }
 }
+
+function resolveFilePathFromHandle(fileHandle, dirHandle = null) {
+    if (fileHandle && fileHandle.path) return fileHandle.path;
+    if (dirHandle && dirHandle.path && fileHandle && fileHandle.name && path) {
+        return path.join(dirHandle.path, fileHandle.name);
+    }
+    return null;
+}
+
+function openFileInExternalApp(fileHandle, dirHandle = null) {
+    const filePath = resolveFilePathFromHandle(fileHandle, dirHandle);
+    if (!filePath) {
+        console.error('Could not resolve file path for external open:', fileHandle?.name);
+        return;
+    }
+
+    try {
+        if (shell && typeof shell.openPath === 'function') {
+            shell.openPath(filePath).then((errorText) => {
+                if (errorText) {
+                    console.error('Failed to open external file:', errorText, filePath);
+                }
+            });
+        }
+    } catch (err) {
+        console.error('Failed to launch external app for file:', filePath, err);
+    }
+}
 const os = require('os');
 const { shell } = require('electron'); // <-- ADD THIS LINE
 
@@ -2940,6 +2968,7 @@ async function loadNotesIntoDom() {
     for (const subject of allSubjects) {
         try {
             const jsonEntries = [];
+            const aiEntries = [];
             const pdfBaseNames = new Set();
             
             for await (const entry of subject.handle.values()) {
@@ -2949,6 +2978,8 @@ async function loadNotesIntoDom() {
                         pdfBaseNames.add(nameLower.slice(0, -4));
                     } else if (nameLower.endsWith('.json') || nameLower.endsWith('.md')) {
                         jsonEntries.push(entry);
+                    } else if (nameLower.endsWith('.ai')) {
+                        aiEntries.push(entry);
                     }
                 }
             }
@@ -2974,6 +3005,25 @@ async function loadNotesIntoDom() {
                         todoCount: 0
                     });
                 }
+            }
+
+            for (const entry of aiEntries) {
+                const noteName = entry.name.replace(/\.ai$/i, '');
+                const noteKey = `${subject.name}::${noteName}::ai`;
+                allNotes.push({
+                    handle: entry,
+                    dirHandle: subject.handle,
+                    name: noteName,
+                    noteKey: noteKey,
+                    subject: subject.name,
+                    color: subject.color,
+                    date: 0,
+                    typeToken: 'note',
+                    typeLabel: 'Adobe Illustrator',
+                    todoCount: 0,
+                    isExternalFile: true,
+                    externalType: 'illustrator'
+                });
             }
         } catch (err) {
             console.error('Error loading notes from', subject.name, err);
@@ -3136,7 +3186,9 @@ async function ensureGlobalSearchIndexForNote(note) {
     let searchText = displayText.toLowerCase();
 
     try {
-        if (note.typeToken === 'markdown') {
+        if (note.isExternalFile && note.externalType === 'illustrator') {
+            displayText = `${note.name}\n${note.subject}\nAdobe Illustrator`;
+        } else if (note.typeToken === 'markdown') {
             const file = await note.handle.getFile();
             const text = await file.text();
             displayText = `${note.name}\n${note.subject}\n${text}`;
@@ -3454,7 +3506,7 @@ async function runStartupWarmup(notes) {
 
 async function hydrateNoteMetadataAndBadges(notes, onProgress = null) {
     for (const note of notes) {
-        if (note.typeToken === 'markdown') {
+        if (note.typeToken === 'markdown' || note.isExternalFile) {
             continue;
         }
 
@@ -3619,6 +3671,11 @@ function createNoteCard(note) {
         // Don't open if context menu was just shown
         if (e.button !== 0) return;
 
+        if (note.isExternalFile && note.externalType === 'illustrator') {
+            openFileInExternalApp(note.handle, note.dirHandle || null);
+            return;
+        }
+
         // Launch external Markdown files in a NEW Obsidian window (Advanced URI plugin required)
         if (note.typeToken === 'markdown') {
             if (typeof require !== 'undefined') {
@@ -3675,6 +3732,47 @@ async function generateNotePreview(fileHandle, previewEl, prefetchedData = null)
     // ---> NEW: Markdown Icon <---
     if (fileHandle.name.toLowerCase().endsWith('.md')) {
         previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="90" height="90" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41zM11.5 9H9.5L7.5 13 5.5 9H3.5v6h2v-3.5l2 3.5 2-3.5V15h2V9zm7 3.5h-2V9h-2v3.5h-2l3 3.5 3-3.5z"/></svg></div>`;
+        return;
+    }
+    if (fileHandle.name.toLowerCase().endsWith('.ai')) {
+        try {
+            if (typeof pdfjsLib !== 'undefined' && pdfjsLib && typeof pdfjsLib.getDocument === 'function') {
+                const file = await fileHandle.getFile();
+                const buffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({ data: buffer });
+                const pdfDoc = await loadingTask.promise;
+                const firstPage = await pdfDoc.getPage(1);
+                const baseViewport = firstPage.getViewport({ scale: 1 });
+                const targetWidth = 500;
+                const targetHeight = 400;
+                const fitScale = Math.max(0.1, Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height));
+                const viewport = firstPage.getViewport({ scale: fitScale });
+
+                const previewCanvas = document.createElement('canvas');
+                previewCanvas.width = Math.max(1, Math.floor(viewport.width));
+                previewCanvas.height = Math.max(1, Math.floor(viewport.height));
+
+                const previewCtx = previewCanvas.getContext('2d');
+                await firstPage.render({ canvasContext: previewCtx, viewport }).promise;
+
+                previewCanvas.style.width = '100%';
+                previewCanvas.style.height = '100%';
+                previewCanvas.style.objectFit = 'contain';
+                previewCanvas.style.display = 'block';
+
+                previewEl.innerHTML = '';
+                previewEl.appendChild(previewCanvas);
+
+                if (pdfDoc && typeof pdfDoc.destroy === 'function') {
+                    try { await pdfDoc.destroy(); } catch (destroyErr) {}
+                }
+                return;
+            }
+        } catch (aiPreviewErr) {
+            console.warn('AI preview render failed, using icon fallback:', aiPreviewErr);
+        }
+
+        previewEl.innerHTML = `<div class="note-preview-empty" style="display:flex;align-items:center;justify-content:center;height:100%;"><svg width="92" height="92" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="2" fill="#3b2d15" stroke="#ff9a00" stroke-width="1.4"/><path fill="#ff9a00" d="M8.2 16.9l2.4-8.2h2.8l2.4 8.2h-2l-.5-1.9h-2.6l-.5 1.9h-2zm3.9-3.4h1.8L13 10h-.1l-.8 3.5zM16.7 16.9V10h1.9v6.9h-1.9z"/></svg></div>`;
         return;
     }
     // ---> END NEW <---
