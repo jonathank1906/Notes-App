@@ -2464,24 +2464,14 @@ function updateQuickAccessButtons() {
     const wrap = document.getElementById('notes-quick-access');
     if (!wrap) return;
 
-    // Show only in organized view for a specific subject (never on All Notes).
-    const shouldShowWrap = currentView === 'organized' && !!activeSubject;
-    wrap.style.display = shouldShowWrap ? 'flex' : 'none';
-    if (!shouldShowWrap) return;
+    // Always display the main wrapper
+    wrap.style.display = 'flex';
 
-    let visibleCount = 0;
-
+    // Force every button to be visible and enabled 100% of the time
     wrap.querySelectorAll('.quick-access-btn').forEach(btn => {
-        const type = btn.dataset.noteType;
-        const note = findQuickAccessNote(type);
-        const isAvailable = !!note;
-        btn.style.display = isAvailable ? 'inline-flex' : 'none';
-        btn.disabled = !isAvailable;
-        if (isAvailable) visibleCount += 1;
+        btn.style.display = 'inline-flex';
+        btn.disabled = false;
     });
-
-    // Hide the cluster entirely if subject has none of the singleton note types.
-    wrap.style.display = visibleCount > 0 ? 'flex' : 'none';
 }
 
 let organizedStickyScrollRoot = null;
@@ -2599,9 +2589,45 @@ function teardownOrganizedStickyHeader() {
 }
 
 async function openQuickAccessNote(type) {
+    if (!activeSubject) {
+        alert('Please select a subject first to use Quick Access notes.');
+        return;
+    }
+
+    // 1. Fast memory check (works instantly 99% of the time)
     const note = findQuickAccessNote(type);
-    if (!note) return;
-    await openNote(note.handle, note.noteKey, noteDataCache.get(note.noteKey) || null);
+    if (note) {
+        await openNote(note.handle, note.noteKey, noteDataCache.get(note.noteKey) || null);
+        return;
+    }
+
+    // 2. Fallback disk scan (catches double-refresh memory races)
+    const targetDirHandle = activeSubject.handle;
+    for await (const entry of targetDirHandle.values()) {
+        if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.json')) {
+            try {
+                const file = await entry.getFile();
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                if (data && data.type === type) {
+                    const noteName = entry.name.replace('.json', '');
+                    const noteKey = `${activeSubject.name}::${noteName}`;
+
+                    // Rehydrate cache so subsequent clicks are instant.
+                    noteDataCache.set(noteKey, data);
+
+                    await openNote(entry, noteKey, data);
+                    return;
+                }
+            } catch (err) {
+                // Ignore invalid files and continue scanning.
+            }
+        }
+    }
+
+    // 3. If nothing exists on disk, safely create a new quick-access note.
+    await createNewNote(type);
 }
 
 function renderOrganizedSections() {
@@ -3076,6 +3102,17 @@ async function loadNotesIntoDom() {
                 const isMd = entry.name.toLowerCase().endsWith('.md');
                 const extLength = isMd ? 3 : 5;
                 const baseName = entry.name.slice(0, -extLength).toLowerCase();
+
+                // Instantly identify quick access notes by filename.
+                let guessedType = isMd ? 'markdown' : 'note';
+                if (!isMd) {
+                    if (baseName.includes('flashcard deck')) guessedType = 'flashcard';
+                    else if (baseName.includes('glossary')) guessedType = 'glossary';
+                    else if (baseName.includes('q&a') || baseName.includes('q/a')) guessedType = 'qa';
+                    else if (baseName.includes('to do list')) guessedType = 'todo';
+                    else if (baseName.includes('pinboard')) guessedType = 'links';
+                }
+
                 // Only display if it DOES NOT have a matching PDF
                 if (!pdfBaseNames.has(baseName)) {
                     const noteName = isMd ? entry.name.slice(0, -3) : entry.name.replace('.json', '');
@@ -3088,8 +3125,8 @@ async function loadNotesIntoDom() {
                         subject: subject.name,
                         color: subject.color,
                         date: 0,
-                        typeToken: isMd ? 'markdown' : 'note',
-                        typeLabel: isMd ? 'Markdown' : 'Loading...',
+                        typeToken: guessedType,
+                        typeLabel: isMd ? 'Markdown' : getNoteTypeLabel(guessedType),
                         todoCount: 0
                     });
                 }
@@ -3148,15 +3185,23 @@ function applyCardVisibility(targetCards) {
     const targetSet = new Set(targetCards);
     const allCardsInGrid = notesGrid ? Array.from(notesGrid.querySelectorAll('.note-card')) : [];
 
+    let visibleCount = 0;
+
     // Always compute visibility from current DOM state so refreshes (e.g. rename)
     // cannot leave stale cards visible when currentVisibleCardSet was reset.
     for (const card of allCardsInGrid) {
-        card.style.display = targetSet.has(card) ? '' : 'none';
+        const isQuickAccess = QUICK_ACCESS_NOTE_TYPES.includes(card.dataset.noteType);
+        if (targetSet.has(card) && !isQuickAccess) {
+            card.style.display = '';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
     }
 
     currentVisibleCardSet = targetSet;
     if (currentView === 'organized') renderOrganizedSections();
-    return targetSet.size;
+    return visibleCount;
 }
 
 function getNoteTypeLabel(typeToken) {
