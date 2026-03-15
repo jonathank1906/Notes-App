@@ -103,7 +103,7 @@ function openFileInExternalApp(fileHandle, dirHandle = null) {
     }
 }
 const os = require('os');
-const { shell } = require('electron'); // <-- ADD THIS LINE
+const { shell, clipboard: electronClipboard, nativeImage } = require('electron');
 
 // --- CONFIGURATION ---
 const CONFIG = {
@@ -205,6 +205,7 @@ let loadedNotesForSearch = [];
 let globalSearchIndex = new Map();
 let globalSearchRequestId = 0;
 let isGlobalSearchOpen = false;
+let lastIllustratorSvgExportPath = null;
 // --- INIT ---
 function resize() {
     const w = window.innerWidth;
@@ -1361,6 +1362,92 @@ function pasteFromClipboard() {
             addToUndoStack();
         }, ['isTable', 'tableRows', 'tableCols']);
     }
+}
+
+async function copyCanvasAsIllustratorSvg() {
+    if (!fabricCanvas || typeof fabricCanvas.getObjects !== 'function') return { ok: false, svgPath: null };
+
+    const objects = fabricCanvas.getObjects();
+    if (!objects || objects.length === 0) {
+        console.warn('Illustrator SVG copy skipped: canvas is empty.');
+        return { ok: false, svgPath: null };
+    }
+
+    try {
+        const svg = fabricCanvas.toSVG();
+        if (!svg || typeof svg !== 'string') return { ok: false, svgPath: null };
+
+        const svgTrimmed = svg.trim();
+        const htmlDoc = `<!DOCTYPE html><html><body>${svgTrimmed}</body></html>`;
+
+        let svgPath = null;
+        if (fs && path) {
+            const exportDir = path.join(os.tmpdir(), 'slide-notes-illustrator-export');
+            try {
+                if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
+                const safeName = (currentFileName || 'canvas').replace(/[^a-zA-Z0-9._-]/g, '_');
+                svgPath = path.join(exportDir, `${safeName}_${Date.now()}.svg`);
+                fs.writeFileSync(svgPath, svgTrimmed, 'utf8');
+                lastIllustratorSvgExportPath = svgPath;
+            } catch (fileErr) {
+                console.warn('Could not write Illustrator SVG temp export:', fileErr);
+                svgPath = null;
+            }
+        }
+
+        if (electronClipboard && typeof electronClipboard.write === 'function') {
+            electronClipboard.clear();
+            let svgImage = null;
+            try {
+                if (nativeImage && typeof nativeImage.createFromBuffer === 'function') {
+                    svgImage = nativeImage.createFromBuffer(Buffer.from(svgTrimmed, 'utf8'), { width: 1600, height: 1200 });
+                    if (svgImage && typeof svgImage.isEmpty === 'function' && svgImage.isEmpty()) {
+                        svgImage = null;
+                    }
+                }
+            } catch (imgErr) {
+                svgImage = null;
+            }
+
+            electronClipboard.write({
+                text: svgTrimmed,
+                html: htmlDoc,
+                image: svgImage || undefined
+            });
+
+            if (typeof Buffer !== 'undefined' && typeof electronClipboard.writeBuffer === 'function') {
+                try { electronClipboard.writeBuffer('image/svg+xml', Buffer.from(svgTrimmed, 'utf8')); } catch (e) {}
+                try { electronClipboard.writeBuffer('text/html', Buffer.from(htmlDoc, 'utf8')); } catch (e) {}
+                if (svgPath) {
+                    try { electronClipboard.writeBuffer('text/uri-list', Buffer.from(`file:///${svgPath.replace(/\\/g, '/')}`, 'utf8')); } catch (e) {}
+                }
+            }
+
+            console.log('Copied full canvas as SVG for Illustrator paste.');
+            return { ok: true, svgPath };
+        }
+
+        if (navigator.clipboard && typeof navigator.clipboard.write === 'function' && typeof ClipboardItem !== 'undefined') {
+            const item = new ClipboardItem({
+                'text/plain': new Blob([svgTrimmed], { type: 'text/plain' }),
+                'text/html': new Blob([htmlDoc], { type: 'text/html' }),
+                'image/svg+xml': new Blob([svgTrimmed], { type: 'image/svg+xml' })
+            });
+            await navigator.clipboard.write([item]);
+            console.log('Copied full canvas SVG as rich clipboard data.');
+            return { ok: true, svgPath };
+        }
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(svgTrimmed);
+            console.log('Copied full canvas SVG text to clipboard.');
+            return { ok: true, svgPath };
+        }
+    } catch (err) {
+        console.error('Failed to copy canvas as Illustrator SVG:', err);
+    }
+
+    return { ok: false, svgPath: null };
 }
 
 function getCanvasCenterWorldPosition() {
@@ -7427,7 +7514,32 @@ window.addEventListener('keydown', async (e) => {
 
     // Ctrl/Cmd shortcuts
     if (e.ctrlKey || e.metaKey) {
-        if (e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
+        if (e.shiftKey && e.key.toLowerCase() === 'c') {
+            e.preventDefault();
+            const result = await copyCanvasAsIllustratorSvg();
+            if (result.ok) {
+                let opened = false;
+                if (result.svgPath && shell && typeof shell.openPath === 'function') {
+                    try {
+                        const openErr = await shell.openPath(result.svgPath);
+                        opened = !openErr;
+                    } catch (err) {
+                        opened = false;
+                    }
+                }
+
+                if (opened) {
+                    alert('SVG copied and exported. Illustrator was opened with the exported file for reliable import.');
+                } else if (result.svgPath) {
+                    alert(`SVG copied and exported to: ${result.svgPath}\nIf paste fails, open this SVG in Illustrator.`);
+                } else {
+                    alert('Copied canvas as SVG. In Illustrator press Ctrl+V.');
+                }
+            } else {
+                alert('SVG copy failed. Please try again and ensure the canvas has content.');
+            }
+        }
+        else if (e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
         else if (e.key.toLowerCase() === 'v') {
             // Only intercept paste when there's an internal Fabric.js clipboard.
             // Otherwise allow the browser to fire the native 'paste' event (for images/text).
