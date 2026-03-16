@@ -104,6 +104,127 @@ function openFileInExternalApp(fileHandle, dirHandle = null) {
 }
 const os = require('os');
 const { shell, clipboard: electronClipboard, nativeImage } = require('electron');
+const MARKDOWN_OPEN_APP_STORAGE_KEY = 'markdownOpenApp';
+const MARKDOWN_APP_OBSIDIAN = 'obsidian';
+const MARKDOWN_APP_TYPORA = 'typora';
+const OBSIDIAN_VAULT_NAME = 'Semester 4';
+
+function getMarkdownOpenAppPreference() {
+    const value = (localStorage.getItem(MARKDOWN_OPEN_APP_STORAGE_KEY) || MARKDOWN_APP_OBSIDIAN).toLowerCase();
+    return value === MARKDOWN_APP_TYPORA ? MARKDOWN_APP_TYPORA : MARKDOWN_APP_OBSIDIAN;
+}
+
+function openMarkdownInObsidian(filePath, fileName = '') {
+    if (!shell || typeof shell.openExternal !== 'function') return false;
+
+    const fullPath = (filePath || '').replace(/\\/g, '/');
+    let relativePath = fullPath;
+    const marker = OBSIDIAN_VAULT_NAME + '/';
+
+    if (fullPath && fullPath.includes(marker)) {
+        relativePath = fullPath.split(marker)[1];
+    } else {
+        relativePath = fileName || fullPath;
+    }
+
+    if (!relativePath) return false;
+
+    const obsidianUri = 'obsidian://advanced-uri?vault=' + encodeURIComponent(OBSIDIAN_VAULT_NAME) + '&filepath=' + encodeURIComponent(relativePath) + '&openmode=window';
+    try {
+        shell.openExternal(obsidianUri);
+        return true;
+    } catch (err) {
+        console.error('Failed to open Advanced URI, trying fallback:', err);
+        try {
+            const fallbackTarget = filePath || fileName;
+            if (!fallbackTarget) return false;
+            const fallback = 'obsidian://open?path=' + encodeURIComponent(fallbackTarget);
+            shell.openExternal(fallback);
+            return true;
+        } catch (e) {
+            console.error('Failed to open Obsidian fallback URI:', e);
+        }
+    }
+    return false;
+}
+
+function openMarkdownInTypora(filePath, fileName = '') {
+    if (!filePath || !path || !fs || !os) {
+        console.error('Cannot open Typora because file path resolution failed:', fileName || filePath);
+        return false;
+    }
+
+    if (!fs.existsSync(filePath)) {
+        alert('Markdown file not found for Typora launch:\n' + filePath);
+        return false;
+    }
+
+    const launcherCandidates = [
+        'D:\\Downloads\\Typora-Multi.bat',
+        path.join(os.homedir(), 'Downloads', 'Typora-Multi.bat'),
+        path.join(os.homedir(), 'Downloads', 'Typora-Mutli.bat')
+    ];
+    const launcherPath = launcherCandidates.find(candidate => fs.existsSync(candidate));
+    if (!launcherPath) {
+        alert('Typora launcher not found. Checked:\n' + launcherCandidates.join('\n'));
+        return false;
+    }
+
+    try {
+        const { spawn } = require('child_process');
+        // Pass launcher and markdown path as separate argv tokens to preserve %1 in the .bat.
+        const child = spawn('cmd.exe', ['/d', '/c', launcherPath, filePath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        child.unref();
+        return true;
+    } catch (err) {
+        console.warn('Launcher .bat call failed, trying Typora.exe fallback:', err);
+    }
+
+    try {
+        const { spawn } = require('child_process');
+        const exeCandidates = [
+            'C:\\Program Files\\Typora\\Typora.exe',
+            path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Typora', 'Typora.exe')
+        ];
+        const typoraExe = exeCandidates.find(candidate => fs.existsSync(candidate));
+        if (!typoraExe) {
+            alert('Could not launch Typora. Checked launcher and Typora.exe paths.');
+            return false;
+        }
+
+        const child = spawn(typoraExe, [filePath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        child.unref();
+        return true;
+    } catch (err) {
+        console.error('Failed to launch Typora after all fallbacks:', err);
+        alert('Typora launch failed. Check if Typora and Typora-Multi.bat can open this file manually.');
+        return false;
+    }
+}
+
+function openMarkdownInPreferredApp(fileHandle, dirHandle = null) {
+    const filePath = resolveFilePathFromHandle(fileHandle, dirHandle);
+    const fileName = (fileHandle && fileHandle.name) ? fileHandle.name : '';
+    const preferredApp = getMarkdownOpenAppPreference();
+
+    if (preferredApp === MARKDOWN_APP_TYPORA) {
+        const opened = openMarkdownInTypora(filePath, fileName);
+        if (opened) return;
+        // Fallback to Obsidian if Typora launch fails.
+        openMarkdownInObsidian(filePath, fileName);
+        return;
+    }
+
+    openMarkdownInObsidian(filePath, fileName);
+}
 
 // --- CONFIGURATION ---
 const CONFIG = {
@@ -2009,7 +2130,11 @@ class NodeDirectoryHandle {
 function openSettings() {
     const modal = document.getElementById('settings-modal');
     const input = document.getElementById('default-folder-input');
+    const markdownAppSelect = document.getElementById('markdown-open-app');
     input.value = localStorage.getItem('defaultMindMapFolder') || '';
+    if (markdownAppSelect) {
+        markdownAppSelect.value = getMarkdownOpenAppPreference();
+    }
     modal.style.display = 'flex';
 }
 
@@ -2019,6 +2144,7 @@ function closeSettings() {
 
 async function saveSettings() {
     const input = document.getElementById('default-folder-input').value.trim();
+    const markdownAppSelect = document.getElementById('markdown-open-app');
     if (input) {
         if (!fs.existsSync(input)) {
             alert('That folder path does not exist on your computer. Please check it and try again.');
@@ -2028,6 +2154,15 @@ async function saveSettings() {
     } else {
         localStorage.removeItem('defaultMindMapFolder');
     }
+
+    if (markdownAppSelect) {
+        const app = (markdownAppSelect.value || MARKDOWN_APP_OBSIDIAN).toLowerCase();
+        localStorage.setItem(
+            MARKDOWN_OPEN_APP_STORAGE_KEY,
+            app === MARKDOWN_APP_TYPORA ? MARKDOWN_APP_TYPORA : MARKDOWN_APP_OBSIDIAN
+        );
+    }
+
     closeSettings();
     
     // Reload immediately to apply
@@ -3406,29 +3541,7 @@ function renderGlobalSearchResults(results, query) {
         item.addEventListener('click', async () => {
             closeGlobalSearchModal();
             if (result.note.typeToken === 'markdown') {
-                if (typeof require !== 'undefined') {
-                    const { shell } = require('electron');
-                    const vaultName = 'Semester 4';
-                    const fullPath = (result.note.handle.path || '').replace(/\\/g, '/');
-                    let relativePath = fullPath;
-                    const marker = vaultName + '/';
-
-                    if (fullPath.includes(marker)) {
-                        relativePath = fullPath.split(marker)[1];
-                    } else {
-                        relativePath = result.note.handle.name || relativePath;
-                    }
-
-                    const obsidianUri = `obsidian://advanced-uri?vault=${encodeURIComponent(vaultName)}&filepath=${encodeURIComponent(relativePath)}&openmode=window`;
-                    try {
-                        shell.openExternal(obsidianUri);
-                    } catch (err) {
-                        try {
-                            const fallback = 'obsidian://open?path=' + encodeURIComponent(result.note.handle.path || result.note.handle.name);
-                            shell.openExternal(fallback);
-                        } catch (e) {}
-                    }
-                }
+                openMarkdownInPreferredApp(result.note.handle, result.note.dirHandle || null);
                 return;
             }
 
@@ -4007,39 +4120,7 @@ function createNoteCard(note) {
 
         // Launch external Markdown files in a NEW Obsidian window (Advanced URI plugin required)
         if (note.typeToken === 'markdown') {
-            if (typeof require !== 'undefined') {
-                const { shell } = require('electron');
-
-                // 1. Hardcode your exact Obsidian Vault name to fix "Vault not found"
-                const vaultName = "Semester 4";
-
-                // 2. Get the file path and convert Windows backslashes (\) to forward slashes (/)
-                const fullPath = (note.handle.path || '').replace(/\\/g, '/');
-
-                // 3. Extract the relative path AFTER the vault folder name
-                let relativePath = fullPath;
-                const marker = vaultName + '/';
-                if (fullPath.includes(marker)) {
-                    relativePath = fullPath.split(marker)[1];
-                } else {
-                    // Fallback to filename if we couldn't compute a relative path
-                    relativePath = note.handle.name || relativePath;
-                }
-
-                // 4. Build the Advanced URI (openmode=window requests a new window)
-                const obsidianUri = 'obsidian://advanced-uri?vault=' + encodeURIComponent(vaultName) + '&filepath=' + encodeURIComponent(relativePath) + '&openmode=window';
-
-                // Launch via shell; Obsidian's Advanced URI plugin will handle new-window behavior
-                try {
-                    shell.openExternal(obsidianUri);
-                } catch (err) {
-                    console.error('Failed to open Advanced URI, falling back to standard path URI', err);
-                    try {
-                        const fallback = 'obsidian://open?path=' + encodeURIComponent(note.handle.path || note.handle.name);
-                        shell.openExternal(fallback);
-                    } catch (e) {}
-                }
-            }
+            openMarkdownInPreferredApp(note.handle, note.dirHandle || null);
             return;
         }
 
@@ -4625,29 +4706,7 @@ async function createNewNote(type = 'note') {
 
         // Open the appropriate editor
         if (type === 'markdown') {
-            if (typeof require !== 'undefined') {
-                const { shell } = require('electron');
-                
-                // Same robust Obsidian launch logic as clicking a card (Advanced URI)
-                const vaultName = "Semester 4";
-                const fullPath = (fileHandle.path || '').replace(/\\/g, '/');
-                let relativePath = fullPath;
-                const marker = vaultName + '/';
-                if (fullPath.includes(marker)) {
-                    relativePath = fullPath.split(marker)[1];
-                } else {
-                    relativePath = fileHandle.name || relativePath; 
-                }
-                const obsidianUri = `obsidian://advanced-uri?vault=${encodeURIComponent(vaultName)}&filepath=${encodeURIComponent(relativePath)}&openmode=window`;
-                try {
-                    shell.openExternal(obsidianUri);
-                } catch (err) {
-                    try {
-                        const fallback = 'obsidian://open?path=' + encodeURIComponent(fileHandle.path || fileHandle.name);
-                        shell.openExternal(fallback);
-                    } catch (e) {}
-                }
-            }
+            openMarkdownInPreferredApp(fileHandle, targetDirHandle);
         } else if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'links' || type === 'note' || type === 'test') {
             if (ipcRenderer) {
                 ipcRenderer.send('open-note-window', { type: type, data: blankData, fileName: defaultName, filePath: fileHandle.path });

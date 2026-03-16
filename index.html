@@ -114,6 +114,14 @@
                 <input type="text" id="default-folder-input" class="qa-input" style="width:100%; box-sizing: border-box;" placeholder="e.g. C:\Users\YourName\Documents\Notes">
                 <p style="font-size: 13px; color: #888; margin-top: 8px;">Paste the full path to your notes folder here. The app will automatically open this folder silently on startup.</p>
             </div>
+            <div class="fc-edit-field" style="margin-top: 14px;">
+                <label>Open Markdown Notes With</label>
+                <select id="markdown-open-app" class="qa-input" style="width:100%; box-sizing: border-box;">
+                    <option value="obsidian">Obsidian</option>
+                    <option value="typora">Typora (Typora-Multi.bat)</option>
+                </select>
+                <p style="font-size: 13px; color: #888; margin-top: 8px;">Typora tries D:\Downloads\Typora-Multi.bat first, then common Downloads fallbacks, and passes the markdown file path as an argument.</p>
+            </div>
             <div class="fc-modal-actions" style="margin-top: 24px;">
                 <button class="fc-btn" onclick="closeSettings()">Cancel</button>
                 <button class="fc-btn" onclick="saveSettings()" style="border-color:#8af; color:#8af;">Save & Reload</button>
