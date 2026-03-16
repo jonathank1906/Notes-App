@@ -95,8 +95,12 @@ function createWindow () {
 }
 
 // 1. Function to open the MAIN Slide Notes App
-function launchSlideNotesApp(pdfBuffer = null, jsonContent = null, jsonPath = null) {
+function launchSlideNotesApp(payload = null) {
     console.log('Launching main Slide Notes app...');
+    const normalizedPayload = (payload && typeof payload === 'object' && !Buffer.isBuffer(payload))
+        ? payload
+        : { pdfBuffer: payload || null };
+
     const slideAppWin = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -107,10 +111,9 @@ function launchSlideNotesApp(pdfBuffer = null, jsonContent = null, jsonPath = nu
     });
     slideAppWin.loadFile(path.join(__dirname, 'Slide Notes.html'));
   
-    if (pdfBuffer) {
+    if (normalizedPayload) {
         slideAppWin.webContents.once('did-finish-load', () => {
-            // Send the combined payload
-            slideAppWin.webContents.send('load-pdf-buffer', { pdfBuffer, jsonContent, jsonPath });
+            slideAppWin.webContents.send('load-pdf-buffer', normalizedPayload);
         });
     }
     
@@ -268,12 +271,7 @@ ipcMain.handle('select-folder', async () => {
 });
 
 ipcMain.on('launch-slidenotes-app', (event, payload) => {
-    // Handle both the new object payload and legacy null/buffer payloads
-    if (payload && payload.pdfBuffer) {
-        launchSlideNotesApp(payload.pdfBuffer, payload.jsonContent, payload.jsonPath);
-    } else {
-        launchSlideNotesApp(payload); 
-    }
+    launchSlideNotesApp(payload);
 });
 
 // NEW: Open note in new window

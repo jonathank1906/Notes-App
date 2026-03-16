@@ -2998,9 +2998,21 @@ async function loadNotesForSubject(subject) {
 }
 
 function sortPdfEntriesByName(entries) {
-    return [...entries].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const getOrder = (name) => {
+        const base = String(name || '').replace(/\.pdf$/i, '');
+        const leading = base.match(/^\s*(\d{1,2})(?:\D|$)/);
+        if (!leading) return Number.POSITIVE_INFINITY;
+        const value = Number.parseInt(leading[1], 10);
+        if (!Number.isFinite(value) || value < 0 || value > 99) return Number.POSITIVE_INFINITY;
+        return value;
+    };
+
+    return [...entries].sort((a, b) => {
+        const aOrder = getOrder(a.name);
+        const bOrder = getOrder(b.name);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
 }
 
 function isPdfLoadStale(requestId, subjectName) {
@@ -3069,6 +3081,47 @@ async function ensurePdfPreviewCached(subjectName, pdf) {
 
     pdfPreviewCache[cacheKey] = previewData;
     return previewData;
+}
+
+async function getLinkedJsonForPdf(subject, pdfName) {
+    const baseName = String(pdfName || '').replace(/\.pdf$/i, '');
+    if (!subject || !subject.handle || !subject.handle.path || typeof fs === 'undefined' || !path) {
+        return { jsonContent: null, jsonPath: null };
+    }
+
+    const jsonPath = path.join(subject.handle.path, baseName + '.json');
+    if (!fs.existsSync(jsonPath)) {
+        return { jsonContent: null, jsonPath: null };
+    }
+
+    return {
+        jsonContent: fs.readFileSync(jsonPath, 'utf8'),
+        jsonPath
+    };
+}
+
+async function launchCombinedPdfReadOnlyDeck(subject, pdfs) {
+    if (!ipcRenderer || !Array.isArray(pdfs) || pdfs.length === 0) return;
+
+    const sorted = sortPdfEntriesByName(pdfs);
+    const combinedPdfBuffers = [];
+
+    for (const pdf of sorted) {
+        const file = await pdf.handle.getFile();
+        const { jsonContent, jsonPath } = await getLinkedJsonForPdf(subject, pdf.name);
+        combinedPdfBuffers.push({
+            name: pdf.name,
+            pdfBuffer: await file.arrayBuffer(),
+            jsonContent,
+            jsonPath
+        });
+    }
+
+    ipcRenderer.send('launch-slidenotes-app', {
+        combinedPdfBuffers,
+        readOnly: true,
+        deckTitle: `${subject.name} - Combined Slides`
+    });
 }
 
 async function loadPdfsForSubject(subject) {
@@ -3188,17 +3241,7 @@ async function loadPdfsForSubject(subject) {
         card.onclick = async () => {
             const file = await pdf.handle.getFile();
             const buffer = await file.arrayBuffer();
-
-            const baseName = pdf.name.slice(0, -4);
-            let jsonContent = null;
-            let jsonPath = null;
-
-            if (subject.handle.path && typeof fs !== 'undefined') {
-                jsonPath = path.join(subject.handle.path, baseName + '.json');
-                if (fs.existsSync(jsonPath)) {
-                    jsonContent = fs.readFileSync(jsonPath, 'utf8');
-                }
-            }
+            const { jsonContent, jsonPath } = await getLinkedJsonForPdf(subject, pdf.name);
 
             ipcRenderer.send('launch-slidenotes-app', {
                 pdfBuffer: buffer,
@@ -3207,6 +3250,60 @@ async function loadPdfsForSubject(subject) {
             });
         };
         notesGrid.appendChild(card);
+    }
+
+    if (!isPdfLoadStale(requestId, subjectName) && pdfs.length > 0) {
+        const placeholderCard = document.createElement('div');
+        placeholderCard.className = 'note-card pdf-card pdf-combined-card';
+        placeholderCard.dataset.subject = subjectName;
+        placeholderCard.dataset.noteType = 'pdf';
+
+        const preview = document.createElement('div');
+        preview.className = 'note-preview';
+        preview.innerHTML = `
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#ddd;">
+                <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                    <line x1="8" y1="17" x2="16" y2="17"></line>
+                </svg>
+                <div style="font-size:11px;opacity:0.8;">READ ONLY</div>
+            </div>
+        `;
+
+        const info = document.createElement('div');
+        info.className = 'note-info';
+
+        const title = document.createElement('div');
+        title.className = 'note-title';
+        title.textContent = 'All Slides (Combined)';
+        title.title = 'All Slides (Combined)';
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'note-meta';
+
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'note-date';
+        dateDiv.textContent = 'Order: 00-99';
+
+        const subjectPill = document.createElement('div');
+        subjectPill.className = 'note-subject-pill';
+        subjectPill.textContent = subjectName;
+
+        metaDiv.appendChild(dateDiv);
+        metaDiv.appendChild(subjectPill);
+        info.appendChild(title);
+        info.appendChild(metaDiv);
+
+        placeholderCard.appendChild(preview);
+        placeholderCard.appendChild(info);
+
+        placeholderCard.onclick = async () => {
+            await launchCombinedPdfReadOnlyDeck(subject, pdfs);
+        };
+
+        notesGrid.appendChild(placeholderCard);
     }
 }
 
