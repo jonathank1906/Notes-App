@@ -690,6 +690,11 @@ kbd {
     fill: currentColor;
 }
 
+.quick-access-btn[data-note-type="compare"] svg {
+    fill: none;
+    stroke: currentColor;
+}
+
 .quick-access-btn:hover:not(:disabled) {
     border-color: #5a5a5a;
     color: #ffffff;
