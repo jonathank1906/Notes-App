@@ -40,6 +40,7 @@ flashcardPage.innerHTML = `
 	<div id="fc-full-edit-container">
 		<div class="fc-full-edit-actions">
 			<button class="fc-btn add-btn" onclick="addNewCardInFullEdit()">+ Add New Card</button>
+			<button class="fc-btn del-btn" onclick="cleanupFlashcardImages()">Clean Unused Images</button>
 		</div>
 		<div id="fc-full-edit-list"></div>
 	</div>
@@ -798,6 +799,68 @@ async function deleteCardInFullEdit(index) {
 	currentFlashcardData.flashcards.splice(index, 1);
 	await saveFlashcardData();
 	renderFullEditList();
+}
+
+async function cleanupFlashcardImages() {
+	if (!currentFlashcardData || !currentFlashcardData.flashcards) return;
+	if (!fs || !path) {
+		alert('Assets cleanup is only available in the desktop app.');
+		return;
+	}
+	const assetsPath = ensureAssetsFolder();
+	if (!assetsPath) return;
+
+	const referenced = new Set();
+	currentFlashcardData.flashcards.forEach(card => {
+		[card.frontImage, card.backImage].forEach(value => {
+			if (!value) return;
+			let fileName = value;
+			if (path.isAbsolute(value)) {
+				fileName = path.basename(value);
+			} else if (/^Assets[\\/]/i.test(value)) {
+				fileName = value.replace(/^Assets[\\/]/i, '');
+			} else if (/^file:\/\//i.test(value)) {
+				try {
+					const decoded = decodeURIComponent(value.replace(/^file:\/\//i, ''));
+					fileName = path.basename(decoded);
+				} catch (err) {
+					fileName = path.basename(value);
+				}
+			}
+			referenced.add(fileName);
+		});
+	});
+
+	let entries = [];
+	try {
+		entries = fs.readdirSync(assetsPath).filter(name => /^fc_.*\.(png|jpe?g|gif|webp)$/i.test(name));
+	} catch (err) {
+		console.error('Failed to read Assets folder', err);
+		alert('Failed to read Assets folder.');
+		return;
+	}
+
+	const unused = entries.filter(name => !referenced.has(name));
+	if (unused.length === 0) {
+		showNotification && showNotification('No unused flashcard images found.');
+		return;
+	}
+
+	if (!confirm(`Delete ${unused.length} unused flashcard image(s) from Assets? This cannot be undone.`)) return;
+	let deleted = 0;
+	unused.forEach(name => {
+		try {
+			fs.unlinkSync(path.join(assetsPath, name));
+			deleted++;
+		} catch (err) {
+			console.warn('Failed to delete asset', name, err);
+		}
+	});
+	if (showNotification) {
+		showNotification(`Deleted ${deleted} unused flashcard image(s).`);
+	} else {
+		alert(`Deleted ${deleted} unused flashcard image(s).`);
+	}
 }
 
 function debounce(func, wait) {
