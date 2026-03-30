@@ -2652,6 +2652,38 @@ function updateQuickAccessButtons() {
         btn.style.display = 'inline-flex';
         btn.disabled = false;
     });
+
+    updateQuickAccessTodoBadge();
+}
+
+function updateQuickAccessTodoBadge() {
+    const wrap = document.getElementById('notes-quick-access');
+    if (!wrap) return;
+
+    const todoBtn = wrap.querySelector('.quick-access-btn[data-note-type="todo"]');
+    if (!todoBtn) return;
+
+    const note = findQuickAccessNote('todo');
+    let todoCount = 0;
+    if (note) {
+        if (typeof note.todoCount === 'number') {
+            todoCount = note.todoCount;
+        } else if (noteDataCache && noteDataCache.has(note.noteKey)) {
+            todoCount = parseNoteMetadata(noteDataCache.get(note.noteKey)).todoCount;
+        }
+    }
+
+    let badge = todoBtn.querySelector('.quick-access-badge');
+    if (todoCount > 0) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'quick-access-badge';
+            todoBtn.appendChild(badge);
+        }
+        badge.textContent = todoCount > 99 ? '99+' : todoCount;
+    } else if (badge) {
+        badge.remove();
+    }
 }
 
 let organizedStickyScrollRoot = null;

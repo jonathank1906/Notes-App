@@ -51,6 +51,7 @@ function openTodo(fileHandle, data, fileName = null) {
 	}
     
 	renderTodoList();
+	updateTodoQuickAccessCache();
     
 	// Add Enter key handler for the input
 	const input = document.getElementById('todo-item-input');
@@ -83,6 +84,7 @@ async function addTodoItem() {
 	currentTodoData.todos.push({ text, completed: false });
 	await saveTodoData();
 	renderTodoList();
+	updateTodoQuickAccessCache();
     
 	input.value = '';
 	input.focus();
@@ -95,6 +97,7 @@ async function toggleTodoItem(index) {
 	currentTodoData.todos[index].completed = !currentTodoData.todos[index].completed;
 	await saveTodoData();
 	renderTodoList();
+	updateTodoQuickAccessCache();
 }
 
 async function deleteTodoItem(index) {
@@ -102,6 +105,30 @@ async function deleteTodoItem(index) {
 	currentTodoData.todos.splice(index, 1);
 	await saveTodoData();
 	renderTodoList();
+	updateTodoQuickAccessCache();
+}
+
+function updateTodoQuickAccessCache() {
+	if (!currentTodoData || typeof updateQuickAccessButtons !== 'function') return;
+
+	const noteName = currentTodoHandle
+		? currentTodoHandle.name.replace('.json', '')
+		: (currentNoteFileName ? currentNoteFileName.replace('.json', '') : null);
+
+	if (noteName && activeSubject && typeof parseNoteMetadata === 'function') {
+		const noteKey = `${activeSubject.name}::${noteName}`;
+		if (noteDataCache) {
+			noteDataCache.set(noteKey, currentTodoData);
+		}
+		if (Array.isArray(loadedNotesForSearch)) {
+			const target = loadedNotesForSearch.find(note => note.noteKey === noteKey);
+			if (target) {
+				target.todoCount = parseNoteMetadata(currentTodoData).todoCount;
+			}
+		}
+	}
+
+	updateQuickAccessButtons();
 }
 
 function renderTodoList() {
