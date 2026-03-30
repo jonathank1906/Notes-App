@@ -4,6 +4,12 @@ const flashcardPage = document.createElement('div');
 flashcardPage.id = 'flashcard-page';
 flashcardPage.innerHTML = `
 	<button class="fc-mode-toggle" onclick="toggleFlashcardEditMode()">Edit All Cards</button>
+	<div class="fc-study-modes" id="fc-study-modes">
+		<button class="fc-study-btn" data-mode="flashcards" onclick="setFlashcardStudyMode('flashcards')">Study Flashcards</button>
+		<button class="fc-study-btn" data-mode="definitions" onclick="setFlashcardStudyMode('definitions')">Study Definitions</button>
+		<button class="fc-study-btn" data-mode="all" onclick="setFlashcardStudyMode('all')">Study All</button>
+	</div>
+	<div class="fc-study-hint" id="fc-study-hint"></div>
     
 	<div class="scene">
 		<div class="card">
@@ -11,6 +17,10 @@ flashcardPage.innerHTML = `
 			<div class="card__face card__face--back"></div>
 		</div>
 	</div>
+	<div class="fc-question" id="fc-question"></div>
+
+	<div class="fc-answer" id="fc-answer"></div>
+	<button class="fc-reveal-btn" id="fc-reveal-btn" onclick="toggleFlashcardAnswer()">Reveal Answer</button>
 
 	<div class="fc-nav" aria-label="Flashcard navigation">
 		<button class="fc-nav-btn fc-nav-btn--prev" onclick="navFlashcard(-1)" aria-label="Previous card">
@@ -45,6 +55,14 @@ flashcardPage.innerHTML = `
 				<textarea class="fc-edit-textarea" id="fc-modal-front" placeholder="Type question here (Markdown supported)..."></textarea>
 			</div>
 			<div class="fc-edit-field">
+				<label>Card Type</label>
+				<select class="fc-edit-select" id="fc-modal-type">
+					<option value="basic">Basic (flip)</option>
+					<option value="fill-blank">Fill in the blank</option>
+				</select>
+				<div class="fc-type-hint">For fill-in-the-blank, use ___ in the front to create blanks.</div>
+			</div>
+			<div class="fc-edit-field">
 				<label>Back (Answer)</label>
 				<textarea class="fc-edit-textarea" id="fc-modal-back" placeholder="Type answer here (Markdown supported)..."></textarea>
 			</div>
@@ -61,12 +79,19 @@ let currentFlashcardData = null;
 let currentFlashcardHandle = null;
 let currentFlashcardIndex = 0;
 let isFlashcardFullEditMode = false;
+let isFlashcardAnswerVisible = false;
+let flashcardStudyMode = 'flashcards';
+let cachedGlossaryEntries = [];
+let glossaryLoadedForStudy = false;
 
 function openFlashcard(fileHandle, data, fileName = null) {
 	currentFlashcardHandle = fileHandle;
 	currentFlashcardData = data;
 	currentFlashcardIndex = 0;
 	isFlashcardFullEditMode = false;
+	flashcardStudyMode = 'flashcards';
+	glossaryLoadedForStudy = false;
+	cachedGlossaryEntries = [];
     
 	// Hide other screens
 	document.getElementById('home-screen').classList.add('hidden');
@@ -135,19 +160,135 @@ function renderFlashcardUI() {
 		if (flashcardPage) flashcardPage.classList.remove('edit-mode');
         
 		if (card) card.classList.remove('is-flipped');
+		updateStudyModeControls();
+		updateFlashcardDisplay();
+	}
+}
 
-		if (!currentFlashcardData.flashcards || currentFlashcardData.flashcards.length === 0) {
-			updateFlashcardDisplay();
-			if (scene) scene.style.display = 'none';
+function updateStudyModeControls() {
+	const buttons = document.querySelectorAll('.fc-study-btn');
+	buttons.forEach(btn => {
+		btn.classList.toggle('active', btn.dataset.mode === flashcardStudyMode);
+	});
+
+	const hint = document.getElementById('fc-study-hint');
+	if (hint) {
+		if (flashcardStudyMode === 'definitions') {
+			hint.textContent = 'Glossary entries are read-only in this mode.';
+		} else if (flashcardStudyMode === 'all') {
+			hint.textContent = 'Glossary entries are read-only; flashcards are editable.';
 		} else {
-			updateFlashcardDisplay();
+			hint.textContent = '';
 		}
 	}
 }
 
+async function setFlashcardStudyMode(mode) {
+	flashcardStudyMode = mode;
+	currentFlashcardIndex = 0;
+	updateStudyModeControls();
+	if (mode !== 'flashcards') {
+		await ensureGlossaryLoadedForStudy();
+	}
+	updateFlashcardDisplay();
+}
+
+async function ensureGlossaryLoadedForStudy() {
+	if (glossaryLoadedForStudy) return;
+	let glossaryData = null;
+
+	if (currentGlossaryData && Array.isArray(currentGlossaryData.glossary)) {
+		glossaryData = currentGlossaryData;
+	}
+
+	if (!glossaryData && typeof findQuickAccessNote === 'function') {
+		const note = findQuickAccessNote('glossary');
+		if (note) {
+			if (noteDataCache && noteDataCache.has(note.noteKey)) {
+				glossaryData = noteDataCache.get(note.noteKey);
+			} else if (note.handle && typeof note.handle.getFile === 'function') {
+				try {
+					const file = await note.handle.getFile();
+					const text = await file.text();
+					glossaryData = JSON.parse(text);
+					if (noteDataCache) {
+						noteDataCache.set(note.noteKey, glossaryData);
+					}
+				} catch (err) {
+					console.warn('Failed to read glossary for study mode', err);
+				}
+			}
+		}
+	}
+
+	if (!glossaryData && activeSubject && activeSubject.handle) {
+		try {
+			for await (const entry of activeSubject.handle.values()) {
+				if (entry.kind !== 'file' || !entry.name.toLowerCase().endsWith('.json')) continue;
+				try {
+					const file = await entry.getFile();
+					const text = await file.text();
+					const data = JSON.parse(text);
+					if (data && data.type === 'glossary') {
+						glossaryData = data;
+						break;
+					}
+				} catch (err) {
+					// Skip unreadable files
+				}
+			}
+		} catch (err) {
+			console.warn('Glossary scan failed', err);
+		}
+	}
+
+	// Detached window fallback: scan directory using fs
+	if (!glossaryData && currentFilePath && typeof fs !== 'undefined' && typeof path !== 'undefined') {
+		try {
+			const dirPath = path.dirname(currentFilePath);
+			const entries = fs.readdirSync(dirPath);
+			for (const name of entries) {
+				if (!name.toLowerCase().endsWith('.json')) continue;
+				try {
+					const fullPath = path.join(dirPath, name);
+					const text = fs.readFileSync(fullPath, 'utf8');
+					const data = JSON.parse(text);
+					if (data && data.type === 'glossary') {
+						glossaryData = data;
+						break;
+					}
+				} catch (err) {
+					// Skip unreadable files
+				}
+			}
+		} catch (err) {
+			console.warn('Glossary fs scan failed', err);
+		}
+	}
+
+	cachedGlossaryEntries = (glossaryData && Array.isArray(glossaryData.glossary)) ? glossaryData.glossary : [];
+	glossaryLoadedForStudy = true;
+}
+
+function getActiveStudyCards() {
+	const flashcards = currentFlashcardData.flashcards || [];
+	const glossaryCards = cachedGlossaryEntries.map(entry => ({
+		front: entry.term || '',
+		back: entry.definition || '',
+		type: 'basic'
+	}));
+
+	if (flashcardStudyMode === 'definitions') {
+		return glossaryCards;
+	}
+	if (flashcardStudyMode === 'all') {
+		return [...flashcards, ...glossaryCards];
+	}
+	return flashcards;
+}
+
 function updateFlashcardDisplay() {
-	const cards = currentFlashcardData.flashcards || [];
-	if (cards.length === 0) return;
+	const cards = getActiveStudyCards();
     
 	if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
     
@@ -155,22 +296,108 @@ function updateFlashcardDisplay() {
 	const fcFront = document.querySelector('.card__face--front');
 	const fcBack = document.querySelector('.card__face--back');
 	const fcCard = document.querySelector('.card');
+	const answerContainer = document.getElementById('fc-answer');
+	const revealBtn = document.getElementById('fc-reveal-btn');
+	const questionContainer = document.getElementById('fc-question');
+	const scene = document.querySelector('.scene');
+	const isFillBlank = cardData && cardData.type === 'fill-blank';
+
+	isFlashcardAnswerVisible = false;
+
+	if (!cardData) {
+		if (fcFront) fcFront.textContent = 'No cards for this mode yet.';
+		if (fcBack) fcBack.textContent = '';
+		if (answerContainer) answerContainer.classList.remove('show');
+		if (revealBtn) revealBtn.style.display = 'none';
+		if (questionContainer) questionContainer.style.display = 'none';
+		if (fcCard) {
+			fcCard.classList.remove('is-flipped');
+			fcCard.classList.remove('is-fill-blank');
+		}
+		return;
+	}
+
+	if (flashcardStudyMode !== 'flashcards') {
+		if (scene) scene.style.display = 'none';
+		if (questionContainer) questionContainer.style.display = 'block';
+		if (revealBtn) revealBtn.style.display = 'inline-flex';
+		if (answerContainer) answerContainer.classList.remove('show');
+		try {
+			if (questionContainer) questionContainer.innerHTML = marked.parse(cardData.front || '');
+		} catch (e) {
+			if (questionContainer) questionContainer.textContent = cardData.front || '';
+		}
+		try {
+			if (answerContainer) answerContainer.innerHTML = marked.parse(cardData.back || '');
+		} catch (e) {
+			if (answerContainer) answerContainer.textContent = cardData.back || '';
+		}
+		if (fcCard) {
+			fcCard.classList.remove('is-flipped');
+			fcCard.classList.remove('is-fill-blank');
+		}
+		return;
+	}
+
+	if (scene) scene.style.display = 'block';
+	if (questionContainer) questionContainer.style.display = 'none';
     
-	// Render markdown
-	try {
-		fcFront.innerHTML = marked.parse(cardData.front || "...");
-		fcBack.innerHTML = marked.parse(cardData.back || "...");
-	} catch (e) {
-		// Fallback if marked not loaded
-		fcFront.textContent = cardData.front || "...";
-		fcBack.textContent = cardData.back || "...";
+	if (isFillBlank) {
+		fcCard.classList.add('is-fill-blank');
+		if (revealBtn) revealBtn.style.display = 'inline-flex';
+		if (answerContainer) answerContainer.classList.remove('show');
+
+		const frontText = cardData.front || '';
+		const parts = frontText.split(/_{3,}/g);
+		const hasBlanks = parts.length > 1;
+		const fragment = document.createDocumentFragment();
+		parts.forEach((part, index) => {
+			const span = document.createElement('span');
+			span.textContent = part;
+			fragment.appendChild(span);
+			if (index < parts.length - 1) {
+				const input = document.createElement('input');
+				input.type = 'text';
+				input.className = 'fc-blank-input';
+				input.setAttribute('aria-label', 'Blank');
+				fragment.appendChild(input);
+			}
+		});
+		fcFront.innerHTML = '';
+		fcFront.appendChild(fragment);
+		if (!hasBlanks) {
+			const hint = document.createElement('div');
+			hint.className = 'fc-blank-hint';
+			hint.textContent = 'Tip: use ___ in the front to add blanks.';
+			fcFront.appendChild(hint);
+		}
+
+		try {
+			if (answerContainer) answerContainer.innerHTML = marked.parse(cardData.back || '');
+		} catch (e) {
+			if (answerContainer) answerContainer.textContent = cardData.back || '';
+		}
+	} else {
+		fcCard.classList.remove('is-fill-blank');
+		if (revealBtn) revealBtn.style.display = 'none';
+		if (answerContainer) answerContainer.classList.remove('show');
+
+		// Render markdown
+		try {
+			fcFront.innerHTML = marked.parse(cardData.front || "...");
+			fcBack.innerHTML = marked.parse(cardData.back || "...");
+		} catch (e) {
+			// Fallback if marked not loaded
+			fcFront.textContent = cardData.front || "...";
+			fcBack.textContent = cardData.back || "...";
+		}
 	}
     
 	fcCard.classList.remove('is-flipped');
 }
 
 function navFlashcard(dir) {
-	const cards = currentFlashcardData.flashcards || [];
+	const cards = getActiveStudyCards();
 	if (cards.length === 0) return;
     
 	const card = document.querySelector('.card');
@@ -212,24 +439,37 @@ function navFlashcard(dir) {
 function flipCard() {
 	const card = document.querySelector('.card');
 	if (!card) return;
+	if (flashcardStudyMode !== 'flashcards') return;
+	if (card.classList.contains('is-fill-blank')) return;
 	card.classList.toggle('is-flipped');
+}
+
+function toggleFlashcardAnswer() {
+	const answerContainer = document.getElementById('fc-answer');
+	if (!answerContainer) return;
+	isFlashcardAnswerVisible = !isFlashcardAnswerVisible;
+	answerContainer.classList.toggle('show', isFlashcardAnswerVisible);
 }
 
 // Open edit modal for current card (triggered by 'e' key)
 function openEditModal() {
+	if (flashcardStudyMode !== 'flashcards') return;
 	if (isFlashcardFullEditMode) return; // Only in practice mode
     
 	const modal = document.getElementById('fc-edit-modal');
 	const frontTextarea = document.getElementById('fc-modal-front');
 	const backTextarea = document.getElementById('fc-modal-back');
+	const typeSelect = document.getElementById('fc-modal-type');
     
 	if (currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0) {
 		const card = currentFlashcardData.flashcards[currentFlashcardIndex];
 		frontTextarea.value = card.front || '';
 		backTextarea.value = card.back || '';
+		if (typeSelect) typeSelect.value = card.type || 'basic';
 	} else {
 		frontTextarea.value = '';
 		backTextarea.value = '';
+		if (typeSelect) typeSelect.value = 'basic';
 	}
     
 	modal.classList.add('show');
@@ -244,10 +484,12 @@ function openEditModalForCard(index) {
 	const modal = document.getElementById('fc-edit-modal');
 	const frontTextarea = document.getElementById('fc-modal-front');
 	const backTextarea = document.getElementById('fc-modal-back');
+	const typeSelect = document.getElementById('fc-modal-type');
     
 	const card = currentFlashcardData.flashcards[index];
 	frontTextarea.value = card.front || '';
 	backTextarea.value = card.back || '';
+	if (typeSelect) typeSelect.value = card.type || 'basic';
     
 	// Store the index for saving later
 	modal.dataset.editIndex = index;
@@ -266,6 +508,7 @@ async function saveEditModal() {
 	const modal = document.getElementById('fc-edit-modal');
 	const frontTextarea = document.getElementById('fc-modal-front');
 	const backTextarea = document.getElementById('fc-modal-back');
+	const typeSelect = document.getElementById('fc-modal-type');
     
 	if (!currentFlashcardData.flashcards) {
 		currentFlashcardData.flashcards = [];
@@ -273,6 +516,7 @@ async function saveEditModal() {
     
 	const frontVal = frontTextarea.value.trim();
 	const backVal = backTextarea.value.trim();
+	const typeVal = typeSelect ? typeSelect.value : 'basic';
     
 	if (!frontVal && !backVal) {
 		closeEditModal();
@@ -286,6 +530,7 @@ async function saveEditModal() {
 		if (index >= 0 && index < currentFlashcardData.flashcards.length) {
 			currentFlashcardData.flashcards[index].front = frontVal;
 			currentFlashcardData.flashcards[index].back = backVal;
+			currentFlashcardData.flashcards[index].type = typeVal;
 		}
 		await saveFlashcardData();
 		renderFullEditList(); // Refresh the full edit list
@@ -296,9 +541,10 @@ async function saveEditModal() {
 			// Update existing card
 			currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
 			currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
+			currentFlashcardData.flashcards[currentFlashcardIndex].type = typeVal;
 		} else {
 			// Add new card
-			currentFlashcardData.flashcards.push({ front: frontVal, back: backVal });
+			currentFlashcardData.flashcards.push({ front: frontVal, back: backVal, type: typeVal });
 		}
 		await saveFlashcardData();
 		updateFlashcardDisplay();
@@ -358,6 +604,9 @@ function renderFullEditList() {
 		frontLabel.textContent = 'Front (Question)';
 		frontLabel.style.color = '#8af';
 		frontLabel.style.fontWeight = '600';
+		const typeLabel = document.createElement('div');
+		typeLabel.className = 'fc-card-type';
+		typeLabel.textContent = (card.type === 'fill-blank') ? 'Fill in the blank' : 'Basic';
 		const frontContent = document.createElement('div');
 		frontContent.className = 'fc-face';
 		frontContent.style.color = '#e0e0e0';
@@ -369,6 +618,7 @@ function renderFullEditList() {
 			frontContent.textContent = card.front || '';
 		}
 		frontField.appendChild(frontLabel);
+		frontField.appendChild(typeLabel);
 		frontField.appendChild(frontContent);
         
 		const backField = document.createElement('div');
@@ -431,7 +681,7 @@ async function addNewCardInFullEdit() {
 	if (!currentFlashcardData.flashcards) {
 		currentFlashcardData.flashcards = [];
 	}
-	currentFlashcardData.flashcards.push({ front: '', back: '' });
+	currentFlashcardData.flashcards.push({ front: '', back: '', type: 'basic' });
 	await saveFlashcardData();
 	renderFullEditList();
     

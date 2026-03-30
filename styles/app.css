@@ -1388,6 +1388,47 @@ kbd {
     display: none;
 }
 
+.fc-study-modes {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.fc-study-btn {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid #2a2f4a;
+    background: #14192c;
+    color: #cfd6ff;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.fc-study-btn:hover {
+    background: #242a45;
+    color: #ffffff;
+}
+
+.fc-study-btn.active {
+    background: #2a365a;
+    color: #ffffff;
+    border-color: #5569aa;
+}
+
+.fc-study-hint {
+    margin-top: 8px;
+    color: #8a8a8a;
+    font-size: 0.85rem;
+}
+
+#flashcard-page.edit-mode .fc-study-modes,
+#flashcard-page.edit-mode .fc-study-hint {
+    display: none;
+}
+
 /* 3. THE CARD OBJECT */
 .card {
     width: 100%;
@@ -1516,6 +1557,106 @@ kbd {
     overflow: auto;
     transform: translateZ(0);
     -webkit-font-smoothing: antialiased;
+}
+
+.card.is-fill-blank .card__face--back {
+    display: none;
+}
+
+.fc-blank-input {
+    min-width: 140px;
+    max-width: 260px;
+    padding: 6px 10px;
+    margin: 0 6px;
+    border-radius: 6px;
+    border: 1px solid #3a3a3a;
+    background: #1b1b1b;
+    color: #e6e6e6;
+    font-size: 1rem;
+    outline: none;
+}
+
+.fc-blank-input:focus {
+    border-color: #5a7dff;
+    box-shadow: 0 0 0 2px rgba(90, 125, 255, 0.2);
+}
+
+.fc-blank-hint {
+    margin-top: 14px;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.fc-reveal-btn {
+    display: none;
+    margin-top: 12px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid #2a2f4a;
+    background: #1a1e34;
+    color: #cfd6ff;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.fc-reveal-btn:hover {
+    background: #242a45;
+    color: #ffffff;
+}
+
+.fc-answer {
+    display: none;
+    width: 600px;
+    max-width: 90vw;
+    margin-top: 12px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    border: 1px solid #2a2a2a;
+    text-align: left;
+}
+
+.fc-answer.show {
+    display: block;
+}
+
+.fc-question {
+    display: none;
+    width: 600px;
+    max-width: 90vw;
+    margin-top: 12px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #161616;
+    color: #f0f0f0;
+    border: 1px solid #2a2a2a;
+    text-align: left;
+}
+
+.fc-edit-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #141414;
+    color: #ddd;
+    font-size: 14px;
+    margin-top: 6px;
+}
+
+.fc-type-hint {
+    margin-top: 8px;
+    color: #888;
+    font-size: 12px;
+}
+
+.fc-card-type {
+    margin-top: 4px;
+    color: #8a8a8a;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .card__face--front {
