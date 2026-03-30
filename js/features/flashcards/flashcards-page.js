@@ -174,16 +174,17 @@ function navFlashcard(dir) {
 	if (cards.length === 0) return;
     
 	const card = document.querySelector('.card');
-	if (!card) return;
+	const scene = document.querySelector('.scene');
+	if (!card || !scene) return;
     
 	// Remove any existing animation classes
-	card.classList.remove('slide-out-left', 'slide-out-right', 'slide-in-left', 'slide-in-right');
+	scene.classList.remove('slide-out-left', 'slide-out-right', 'slide-in-left', 'slide-in-right');
     
 	// Apply slide out animation based on direction
 	const slideOutClass = dir > 0 ? 'slide-out-left' : 'slide-out-right';
 	const slideInClass = dir > 0 ? 'slide-in-right' : 'slide-in-left';
     
-	card.classList.add(slideOutClass);
+	scene.classList.add(slideOutClass);
     
 	// Wait for slide out animation to complete, then update content and slide in
 	setTimeout(() => {
@@ -192,16 +193,18 @@ function navFlashcard(dir) {
 		if (currentFlashcardIndex < 0) currentFlashcardIndex = cards.length - 1;
 		if (currentFlashcardIndex >= cards.length) currentFlashcardIndex = 0;
         
-		// Update content
+		// Update content without showing a flip animation
+		card.classList.add('no-flip-transition');
 		updateFlashcardDisplay();
         
 		// Apply slide in animation
-		card.classList.remove(slideOutClass);
-		card.classList.add(slideInClass);
+		scene.classList.remove(slideOutClass);
+		scene.classList.add(slideInClass);
         
 		// Clean up animation class after it completes
 		setTimeout(() => {
-			card.classList.remove(slideInClass);
+			scene.classList.remove(slideInClass);
+			card.classList.remove('no-flip-transition');
 		}, 200);
 	}, 200);
 }

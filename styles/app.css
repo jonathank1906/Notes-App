@@ -1399,6 +1399,10 @@ kbd {
     will-change: transform;
 }
 
+.card.no-flip-transition {
+    transition: none !important;
+}
+
 #startup-preload-progress {
     position: fixed;
     top: 0;
@@ -1427,19 +1431,19 @@ kbd {
     transform: rotateX(180deg) !important;
 }
 
-.card.slide-out-left {
+.scene.slide-out-left {
     animation: slideOutLeft 0.2s ease-in forwards;
 }
 
-.card.slide-out-right {
+.scene.slide-out-right {
     animation: slideOutRight 0.2s ease-in forwards;
 }
 
-.card.slide-in-left {
+.scene.slide-in-left {
     animation: slideInLeft 0.2s ease-out forwards;
 }
 
-.card.slide-in-right {
+.scene.slide-in-right {
     animation: slideInRight 0.2s ease-out forwards;
 }
 
