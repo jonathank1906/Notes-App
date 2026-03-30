@@ -1728,6 +1728,8 @@ kbd {
     padding: 30px;
     width: 90%;
     max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .fc-modal-header {
@@ -1925,6 +1927,103 @@ kbd {
     border-color: #8af;
     outline: none;
     box-shadow: 0 0 0 2px rgba(136, 170, 255, 0.2);
+}
+
+.fc-image-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.fc-image-preview {
+    display: none;
+    width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #111;
+    padding: 6px;
+}
+
+.fc-card-image {
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    margin-top: 10px;
+    background: #111;
+}
+
+.fc-face-text {
+    width: 100%;
+}
+
+#fc-image-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+}
+
+#fc-image-modal.show { display: flex; }
+
+.fc-image-modal-content {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 24px;
+    width: 95%;
+    max-width: 980px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.fc-image-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #ccc;
+    font-size: 14px;
+}
+
+.fc-image-toolbar select,
+.fc-image-toolbar input[type="color"] {
+    background: #141414;
+    border: 1px solid #333;
+    color: #ddd;
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.fc-image-canvas-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 70vh;
+    overflow: auto;
+}
+
+#fc-image-canvas {
+    background: #000;
+    border-radius: 6px;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
 }
 
 /* Markdown Styles in Flashcard */

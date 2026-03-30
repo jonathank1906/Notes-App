@@ -55,6 +55,15 @@ flashcardPage.innerHTML = `
 				<textarea class="fc-edit-textarea" id="fc-modal-front" placeholder="Type question here (Markdown supported)..."></textarea>
 			</div>
 			<div class="fc-edit-field">
+				<label>Front Image</label>
+				<div class="fc-image-controls">
+					<button class="fc-btn" onclick="pickFlashcardImage('front')">Add/Replace Image</button>
+					<button class="fc-btn" onclick="annotateFlashcardImage('front')">Annotate</button>
+					<button class="fc-btn del-btn" onclick="removeFlashcardImage('front')">Remove</button>
+				</div>
+				<img class="fc-image-preview" id="fc-modal-front-image-preview" alt="Front image preview" />
+			</div>
+			<div class="fc-edit-field">
 				<label>Card Type</label>
 				<select class="fc-edit-select" id="fc-modal-type">
 					<option value="basic">Basic (flip)</option>
@@ -66,11 +75,46 @@ flashcardPage.innerHTML = `
 				<label>Back (Answer)</label>
 				<textarea class="fc-edit-textarea" id="fc-modal-back" placeholder="Type answer here (Markdown supported)..."></textarea>
 			</div>
+			<div class="fc-edit-field">
+				<label>Back Image</label>
+				<div class="fc-image-controls">
+					<button class="fc-btn" onclick="pickFlashcardImage('back')">Add/Replace Image</button>
+					<button class="fc-btn" onclick="annotateFlashcardImage('back')">Annotate</button>
+					<button class="fc-btn del-btn" onclick="removeFlashcardImage('back')">Remove</button>
+				</div>
+				<img class="fc-image-preview" id="fc-modal-back-image-preview" alt="Back image preview" />
+			</div>
 			<div class="fc-modal-actions">
 				<button class="fc-btn" onclick="closeEditModal()">Cancel</button>
 				<button class="fc-btn" onclick="saveEditModal()" style="border-color:#8af; color:#8af;">Save (Ctrl+Enter)</button>
 			</div>
 		</div>
+		</div>
+
+		<div id="fc-image-modal">
+			<div class="fc-image-modal-content">
+				<div class="fc-modal-header">
+					<div class="fc-modal-title">Annotate Image</div>
+					<button class="fc-modal-close" onclick="closeImageAnnotator()">&times;</button>
+				</div>
+				<div class="fc-image-toolbar">
+					<label for="fc-image-color">Pen</label>
+					<input type="color" id="fc-image-color" value="#ffffff" />
+					<select id="fc-image-size">
+						<option value="2">2px</option>
+						<option value="4" selected>4px</option>
+						<option value="6">6px</option>
+						<option value="10">10px</option>
+					</select>
+				</div>
+				<div class="fc-image-canvas-wrap">
+					<canvas id="fc-image-canvas"></canvas>
+				</div>
+				<div class="fc-modal-actions">
+					<button class="fc-btn" onclick="closeImageAnnotator()">Cancel</button>
+					<button class="fc-btn" onclick="saveImageAnnotator()" style="border-color:#8af; color:#8af;">Save</button>
+				</div>
+			</div>
 	</div>
 `;
 document.body.appendChild(flashcardPage);
@@ -83,6 +127,17 @@ let isFlashcardAnswerVisible = false;
 let flashcardStudyMode = 'flashcards';
 let cachedGlossaryEntries = [];
 let glossaryLoadedForStudy = false;
+let modalFrontImage = '';
+let modalBackImage = '';
+let imageAnnotatorTarget = null;
+let imageAnnotatorIsDrawing = false;
+let imageAnnotatorLastPoint = null;
+let imageAnnotatorIsPanning = false;
+let imageAnnotatorPanStart = null;
+let imageAnnotatorView = { offsetX: 0, offsetY: 0, scale: 1 };
+let imageAnnotatorBaseCanvas = null;
+let imageAnnotatorBaseCtx = null;
+let imageAnnotatorImageRect = null;
 
 function openFlashcard(fileHandle, data, fileName = null) {
 	currentFlashcardHandle = fileHandle;
@@ -162,6 +217,27 @@ function renderFlashcardUI() {
 		if (card) card.classList.remove('is-flipped');
 		updateStudyModeControls();
 		updateFlashcardDisplay();
+	}
+}
+
+function renderCardContent(container, text, imageDataUrl) {
+	if (!container) return;
+	container.innerHTML = '';
+	const textWrap = document.createElement('div');
+	textWrap.className = 'fc-face-text';
+	try {
+		textWrap.innerHTML = marked.parse(text || '');
+	} catch (e) {
+		textWrap.textContent = text || '';
+	}
+	container.appendChild(textWrap);
+	const imageSrc = resolveFlashcardImageSrc(imageDataUrl);
+	if (imageSrc) {
+		const img = document.createElement('img');
+		img.className = 'fc-card-image';
+		img.src = imageSrc;
+		img.alt = 'Flashcard image';
+		container.appendChild(img);
 	}
 }
 
@@ -322,16 +398,8 @@ function updateFlashcardDisplay() {
 		if (questionContainer) questionContainer.style.display = 'block';
 		if (revealBtn) revealBtn.style.display = 'inline-flex';
 		if (answerContainer) answerContainer.classList.remove('show');
-		try {
-			if (questionContainer) questionContainer.innerHTML = marked.parse(cardData.front || '');
-		} catch (e) {
-			if (questionContainer) questionContainer.textContent = cardData.front || '';
-		}
-		try {
-			if (answerContainer) answerContainer.innerHTML = marked.parse(cardData.back || '');
-		} catch (e) {
-			if (answerContainer) answerContainer.textContent = cardData.back || '';
-		}
+		renderCardContent(questionContainer, cardData.front || '', cardData.frontImage || '');
+		renderCardContent(answerContainer, cardData.back || '', cardData.backImage || '');
 		if (fcCard) {
 			fcCard.classList.remove('is-flipped');
 			fcCard.classList.remove('is-fill-blank');
@@ -371,26 +439,23 @@ function updateFlashcardDisplay() {
 			hint.textContent = 'Tip: use ___ in the front to add blanks.';
 			fcFront.appendChild(hint);
 		}
-
-		try {
-			if (answerContainer) answerContainer.innerHTML = marked.parse(cardData.back || '');
-		} catch (e) {
-			if (answerContainer) answerContainer.textContent = cardData.back || '';
+		const frontImageSrc = resolveFlashcardImageSrc(cardData.frontImage);
+		if (frontImageSrc) {
+			const img = document.createElement('img');
+			img.className = 'fc-card-image';
+			img.src = frontImageSrc;
+			img.alt = 'Flashcard image';
+			fcFront.appendChild(img);
 		}
+
+		renderCardContent(answerContainer, cardData.back || '', cardData.backImage || '');
 	} else {
 		fcCard.classList.remove('is-fill-blank');
 		if (revealBtn) revealBtn.style.display = 'none';
 		if (answerContainer) answerContainer.classList.remove('show');
 
-		// Render markdown
-		try {
-			fcFront.innerHTML = marked.parse(cardData.front || "...");
-			fcBack.innerHTML = marked.parse(cardData.back || "...");
-		} catch (e) {
-			// Fallback if marked not loaded
-			fcFront.textContent = cardData.front || "...";
-			fcBack.textContent = cardData.back || "...";
-		}
+		renderCardContent(fcFront, cardData.front || '...', cardData.frontImage || '');
+		renderCardContent(fcBack, cardData.back || '...', cardData.backImage || '');
 	}
     
 	fcCard.classList.remove('is-flipped');
@@ -460,17 +525,24 @@ function openEditModal() {
 	const frontTextarea = document.getElementById('fc-modal-front');
 	const backTextarea = document.getElementById('fc-modal-back');
 	const typeSelect = document.getElementById('fc-modal-type');
+	delete modal.dataset.editIndex;
     
 	if (currentFlashcardData.flashcards && currentFlashcardData.flashcards.length > 0) {
 		const card = currentFlashcardData.flashcards[currentFlashcardIndex];
 		frontTextarea.value = card.front || '';
 		backTextarea.value = card.back || '';
 		if (typeSelect) typeSelect.value = card.type || 'basic';
+		modalFrontImage = card.frontImage || '';
+		modalBackImage = card.backImage || '';
 	} else {
 		frontTextarea.value = '';
 		backTextarea.value = '';
 		if (typeSelect) typeSelect.value = 'basic';
+		modalFrontImage = '';
+		modalBackImage = '';
 	}
+	updateImagePreview('front');
+	updateImagePreview('back');
     
 	modal.classList.add('show');
 	frontTextarea.focus();
@@ -490,9 +562,13 @@ function openEditModalForCard(index) {
 	frontTextarea.value = card.front || '';
 	backTextarea.value = card.back || '';
 	if (typeSelect) typeSelect.value = card.type || 'basic';
+	modalFrontImage = card.frontImage || '';
+	modalBackImage = card.backImage || '';
     
 	// Store the index for saving later
 	modal.dataset.editIndex = index;
+	updateImagePreview('front');
+	updateImagePreview('back');
     
 	modal.classList.add('show');
 	frontTextarea.focus();
@@ -518,7 +594,7 @@ async function saveEditModal() {
 	const backVal = backTextarea.value.trim();
 	const typeVal = typeSelect ? typeSelect.value : 'basic';
     
-	if (!frontVal && !backVal) {
+	if (!frontVal && !backVal && !modalFrontImage && !modalBackImage) {
 		closeEditModal();
 		return;
 	}
@@ -531,6 +607,8 @@ async function saveEditModal() {
 			currentFlashcardData.flashcards[index].front = frontVal;
 			currentFlashcardData.flashcards[index].back = backVal;
 			currentFlashcardData.flashcards[index].type = typeVal;
+			currentFlashcardData.flashcards[index].frontImage = modalFrontImage || '';
+			currentFlashcardData.flashcards[index].backImage = modalBackImage || '';
 		}
 		await saveFlashcardData();
 		renderFullEditList(); // Refresh the full edit list
@@ -542,9 +620,17 @@ async function saveEditModal() {
 			currentFlashcardData.flashcards[currentFlashcardIndex].front = frontVal;
 			currentFlashcardData.flashcards[currentFlashcardIndex].back = backVal;
 			currentFlashcardData.flashcards[currentFlashcardIndex].type = typeVal;
+			currentFlashcardData.flashcards[currentFlashcardIndex].frontImage = modalFrontImage || '';
+			currentFlashcardData.flashcards[currentFlashcardIndex].backImage = modalBackImage || '';
 		} else {
 			// Add new card
-			currentFlashcardData.flashcards.push({ front: frontVal, back: backVal, type: typeVal });
+			currentFlashcardData.flashcards.push({
+				front: frontVal,
+				back: backVal,
+				type: typeVal,
+				frontImage: modalFrontImage || '',
+				backImage: modalBackImage || ''
+			});
 		}
 		await saveFlashcardData();
 		updateFlashcardDisplay();
@@ -620,6 +706,14 @@ function renderFullEditList() {
 		frontField.appendChild(frontLabel);
 		frontField.appendChild(typeLabel);
 		frontField.appendChild(frontContent);
+		const frontImageSrc = resolveFlashcardImageSrc(card.frontImage);
+		if (frontImageSrc) {
+			const frontImg = document.createElement('img');
+			frontImg.className = 'fc-card-image';
+			frontImg.src = frontImageSrc;
+			frontImg.alt = 'Front image';
+			frontField.appendChild(frontImg);
+		}
         
 		const backField = document.createElement('div');
 		backField.className = 'fc-edit-field';
@@ -639,6 +733,14 @@ function renderFullEditList() {
 		}
 		backField.appendChild(backLabel);
 		backField.appendChild(backContent);
+		const backImageSrc = resolveFlashcardImageSrc(card.backImage);
+		if (backImageSrc) {
+			const backImg = document.createElement('img');
+			backImg.className = 'fc-card-image';
+			backImg.src = backImageSrc;
+			backImg.alt = 'Back image';
+			backField.appendChild(backImg);
+		}
         
 		cardFields.appendChild(frontField);
 		cardFields.appendChild(backField);
@@ -706,6 +808,281 @@ function debounce(func, wait) {
 	};
 }
 
+function resolveFlashcardImageSrc(value) {
+	if (!value) return '';
+	if (/^https?:\/\//i.test(value)) return value;
+	if (/^file:\/\//i.test(value)) return value;
+	if (path && typeof path.isAbsolute === 'function' && path.isAbsolute(value)) {
+		return 'file:///' + value.replace(/\\/g, '/');
+	}
+	const assetsPath = (typeof getAssetsFolderPath === 'function') ? getAssetsFolderPath() : null;
+	if (!assetsPath || !path) return value;
+	let rel = value;
+	if (/^Assets[\\/]/i.test(rel)) {
+		rel = rel.replace(/^Assets[\\/]/i, '');
+	}
+	const fullPath = path.join(assetsPath, rel);
+	return 'file:///' + fullPath.replace(/\\/g, '/');
+}
+
+function ensureAssetsFolder() {
+	const assetsPath = (typeof getAssetsFolderPath === 'function') ? getAssetsFolderPath() : null;
+	if (!assetsPath || !fs || !path) {
+		alert('Cannot save images until the note root is available. Open the note from the main folder view first.');
+		return null;
+	}
+	if (!fs.existsSync(assetsPath)) {
+		fs.mkdirSync(assetsPath, { recursive: true });
+	}
+	return assetsPath;
+}
+
+function sanitizeImageBaseName(name) {
+	return String(name || 'image')
+		.replace(/\.[^.]+$/, '')
+		.replace(/[^a-zA-Z0-9._-]/g, '_') || 'image';
+}
+
+function inferFlashcardImageExtension(fileOrBuffer, originalName, mimeOverride) {
+	if (typeof inferImageExtension === 'function') {
+		return inferImageExtension(fileOrBuffer, originalName);
+	}
+	const mimeType = (mimeOverride || (fileOrBuffer && fileOrBuffer.type) || '').toLowerCase();
+	if (mimeType === 'image/jpeg') return '.jpg';
+	if (mimeType === 'image/gif') return '.gif';
+	if (mimeType === 'image/webp') return '.webp';
+	return '.png';
+}
+
+async function saveFlashcardImageFileToAssets(file, originalName) {
+	const assetsPath = ensureAssetsFolder();
+	if (!assetsPath || typeof Buffer === 'undefined') return null;
+	const ext = inferFlashcardImageExtension(file, originalName);
+	const baseName = sanitizeImageBaseName(originalName || 'flashcard');
+	const fileName = `fc_${Date.now()}_${baseName}${ext}`;
+	const destPath = path.join(assetsPath, fileName);
+	const arrayBuffer = await file.arrayBuffer();
+	fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+	return `Assets/${fileName}`;
+}
+
+function updateImagePreview(side) {
+	const preview = document.getElementById(side === 'front' ? 'fc-modal-front-image-preview' : 'fc-modal-back-image-preview');
+	const dataUrl = side === 'front' ? modalFrontImage : modalBackImage;
+	if (!preview) return;
+	const resolved = resolveFlashcardImageSrc(dataUrl);
+	if (resolved) {
+		preview.src = resolved;
+		preview.style.display = 'block';
+	} else {
+		preview.removeAttribute('src');
+		preview.style.display = 'none';
+	}
+}
+
+function setModalImage(side, dataUrl) {
+	if (side === 'front') {
+		modalFrontImage = dataUrl || '';
+	} else {
+		modalBackImage = dataUrl || '';
+	}
+	updateImagePreview(side);
+}
+
+function pickFlashcardImage(side, openAnnotator = false) {
+	const input = document.createElement('input');
+	input.type = 'file';
+	input.accept = 'image/*';
+	input.onchange = async () => {
+		if (!input.files || !input.files[0]) return;
+		const savedPath = await saveFlashcardImageFileToAssets(input.files[0], input.files[0].name || 'flashcard.png');
+		if (!savedPath) return;
+		setModalImage(side, savedPath);
+		if (openAnnotator) {
+			openImageAnnotator(side);
+		}
+	};
+	input.click();
+}
+
+function removeFlashcardImage(side) {
+	setModalImage(side, '');
+}
+
+function annotateFlashcardImage(side) {
+	const dataUrl = side === 'front' ? modalFrontImage : modalBackImage;
+	if (!dataUrl) {
+		pickFlashcardImage(side, true);
+		return;
+	}
+	openImageAnnotator(side);
+}
+
+function openImageAnnotator(side) {
+	const modal = document.getElementById('fc-image-modal');
+	const canvas = document.getElementById('fc-image-canvas');
+	if (!modal || !canvas) return;
+	const dataUrl = side === 'front' ? modalFrontImage : modalBackImage;
+	if (!dataUrl) return;
+	imageAnnotatorTarget = side;
+	imageAnnotatorIsDrawing = false;
+	imageAnnotatorLastPoint = null;
+	const resolved = resolveFlashcardImageSrc(dataUrl);
+	if (!resolved) return;
+	modal.classList.add('show');
+	loadImageIntoAnnotator(canvas, resolved);
+}
+
+function closeImageAnnotator() {
+	const modal = document.getElementById('fc-image-modal');
+	if (modal) modal.classList.remove('show');
+	imageAnnotatorTarget = null;
+	imageAnnotatorIsDrawing = false;
+	imageAnnotatorLastPoint = null;
+	imageAnnotatorIsPanning = false;
+	imageAnnotatorPanStart = null;
+	imageAnnotatorBaseCanvas = null;
+	imageAnnotatorBaseCtx = null;
+	imageAnnotatorImageRect = null;
+}
+
+async function saveImageAnnotator() {
+	const canvas = document.getElementById('fc-image-canvas');
+	if (!canvas || !imageAnnotatorTarget) {
+		closeImageAnnotator();
+		return;
+	}
+	const assetsPath = ensureAssetsFolder();
+	if (!assetsPath || typeof Buffer === 'undefined') {
+		closeImageAnnotator();
+		return;
+	}
+	const fileName = `fc_${Date.now()}_annotated_${imageAnnotatorTarget}.png`;
+	const destPath = path.join(assetsPath, fileName);
+	const sourceCanvas = imageAnnotatorBaseCanvas || canvas;
+	const dataUrl = sourceCanvas.toDataURL('image/png');
+	const base64 = dataUrl.split(',')[1] || '';
+	if (base64) {
+		fs.writeFileSync(destPath, Buffer.from(base64, 'base64'));
+		setModalImage(imageAnnotatorTarget, `Assets/${fileName}`);
+	}
+	closeImageAnnotator();
+}
+
+function loadImageIntoAnnotator(canvas, dataUrl) {
+	const ctx = canvas.getContext('2d');
+	const img = new Image();
+	img.onload = () => {
+		const maxW = 1600;
+		const maxH = 1200;
+		const scale = Math.min(1, maxW / img.width, maxH / img.height);
+		const scaledW = Math.max(1, Math.round(img.width * scale));
+		const scaledH = Math.max(1, Math.round(img.height * scale));
+		const pad = Math.round(Math.max(400, Math.max(scaledW, scaledH) * 0.4));
+		imageAnnotatorBaseCanvas = document.createElement('canvas');
+		imageAnnotatorBaseCanvas.width = scaledW + pad * 2;
+		imageAnnotatorBaseCanvas.height = scaledH + pad * 2;
+		imageAnnotatorBaseCtx = imageAnnotatorBaseCanvas.getContext('2d');
+		imageAnnotatorBaseCtx.fillStyle = '#000';
+		imageAnnotatorBaseCtx.fillRect(0, 0, imageAnnotatorBaseCanvas.width, imageAnnotatorBaseCanvas.height);
+		imageAnnotatorBaseCtx.drawImage(img, pad, pad, scaledW, scaledH);
+		imageAnnotatorImageRect = {
+			x: pad,
+			y: pad,
+			width: scaledW,
+			height: scaledH
+		};
+
+		resizeAnnotatorViewport(canvas);
+		imageAnnotatorView.scale = 1;
+		imageAnnotatorView.offsetX = Math.max(0, (imageAnnotatorBaseCanvas.width - canvas.width) / 2);
+		imageAnnotatorView.offsetY = Math.max(0, (imageAnnotatorBaseCanvas.height - canvas.height) / 2);
+		renderAnnotatorView(canvas, ctx);
+	};
+	img.src = dataUrl;
+}
+
+function resizeAnnotatorViewport(canvas) {
+	const wrap = canvas.parentElement;
+	if (!wrap) return;
+	const rect = wrap.getBoundingClientRect();
+	const width = Math.max(320, Math.floor((rect.width || 900) - 24));
+	const height = Math.max(240, Math.floor((rect.height || 600) - 24));
+	if (canvas.width !== width || canvas.height !== height) {
+		canvas.width = width;
+		canvas.height = height;
+	}
+}
+
+function renderAnnotatorView(canvas, ctx) {
+	if (!imageAnnotatorBaseCanvas) return;
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.fillStyle = '#000';
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.setTransform(
+		imageAnnotatorView.scale,
+		0,
+		0,
+		imageAnnotatorView.scale,
+		-imageAnnotatorView.offsetX * imageAnnotatorView.scale,
+		-imageAnnotatorView.offsetY * imageAnnotatorView.scale
+	);
+	ctx.drawImage(imageAnnotatorBaseCanvas, 0, 0);
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function screenToWorld(point) {
+	return {
+		x: point.x / imageAnnotatorView.scale + imageAnnotatorView.offsetX,
+		y: point.y / imageAnnotatorView.scale + imageAnnotatorView.offsetY
+	};
+}
+
+function ensureAnnotatorWorldBounds(point) {
+	if (!imageAnnotatorBaseCanvas || !imageAnnotatorBaseCtx) return { dx: 0, dy: 0 };
+	const margin = 200;
+	const grow = 1200;
+	let addLeft = 0;
+	let addTop = 0;
+	let addRight = 0;
+	let addBottom = 0;
+
+	if (point.x < margin) addLeft = grow;
+	if (point.y < margin) addTop = grow;
+	if (point.x > imageAnnotatorBaseCanvas.width - margin) addRight = grow;
+	if (point.y > imageAnnotatorBaseCanvas.height - margin) addBottom = grow;
+
+	if (!addLeft && !addTop && !addRight && !addBottom) return { dx: 0, dy: 0 };
+
+	const newCanvas = document.createElement('canvas');
+	newCanvas.width = imageAnnotatorBaseCanvas.width + addLeft + addRight;
+	newCanvas.height = imageAnnotatorBaseCanvas.height + addTop + addBottom;
+	const newCtx = newCanvas.getContext('2d');
+	newCtx.fillStyle = '#000';
+	newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+	newCtx.drawImage(imageAnnotatorBaseCanvas, addLeft, addTop);
+
+	if (imageAnnotatorImageRect) {
+		imageAnnotatorImageRect.x += addLeft;
+		imageAnnotatorImageRect.y += addTop;
+	}
+
+	imageAnnotatorBaseCanvas = newCanvas;
+	imageAnnotatorBaseCtx = newCtx;
+	imageAnnotatorView.offsetX += addLeft;
+	imageAnnotatorView.offsetY += addTop;
+	return { dx: addLeft, dy: addTop };
+}
+
+function getAnnotatorPoint(canvas, e) {
+	const rect = canvas.getBoundingClientRect();
+	return {
+		x: e.clientX - rect.left,
+		y: e.clientY - rect.top
+	};
+}
+
 // Add click handler for flip card
 document.addEventListener('DOMContentLoaded', () => {
 	const scene = document.querySelector('.scene');
@@ -715,9 +1092,116 @@ document.addEventListener('DOMContentLoaded', () => {
     
 	// Modal close handlers
 	const modal = document.getElementById('fc-edit-modal');
-	if (modal) {
-		modal.addEventListener('click', (e) => {
-			if (e.target === modal) closeEditModal();
+
+	const imageModal = document.getElementById('fc-image-modal');
+	if (imageModal) {
+		imageModal.addEventListener('click', (e) => {
+			if (e.target === imageModal) closeImageAnnotator();
+		});
+	}
+
+	document.addEventListener('keydown', (e) => {
+		if (e.key !== 'Escape') return;
+		const editModal = document.getElementById('fc-edit-modal');
+		if (editModal && editModal.classList.contains('show')) {
+			closeEditModal();
+		}
+		const imgModal = document.getElementById('fc-image-modal');
+		if (imgModal && imgModal.classList.contains('show')) {
+			closeImageAnnotator();
+		}
+	});
+
+	const canvas = document.getElementById('fc-image-canvas');
+	if (canvas) {
+		const ctx = canvas.getContext('2d');
+		const colorInput = document.getElementById('fc-image-color');
+		const sizeSelect = document.getElementById('fc-image-size');
+		const redraw = () => renderAnnotatorView(canvas, ctx);
+
+		const panStart = (e) => {
+			imageAnnotatorIsPanning = true;
+			imageAnnotatorPanStart = {
+				x: e.clientX,
+				y: e.clientY,
+				offsetX: imageAnnotatorView.offsetX,
+				offsetY: imageAnnotatorView.offsetY
+			};
+			canvas.setPointerCapture(e.pointerId);
+		};
+
+		canvas.addEventListener('pointerdown', (e) => {
+			if (e.button === 1 || e.button === 2 || e.shiftKey) {
+				panStart(e);
+				return;
+			}
+			imageAnnotatorIsDrawing = true;
+			imageAnnotatorLastPoint = getAnnotatorPoint(canvas, e);
+			canvas.setPointerCapture(e.pointerId);
+		});
+		canvas.addEventListener('pointermove', (e) => {
+			if (imageAnnotatorIsPanning && imageAnnotatorPanStart) {
+				const dx = (e.clientX - imageAnnotatorPanStart.x) / imageAnnotatorView.scale;
+				const dy = (e.clientY - imageAnnotatorPanStart.y) / imageAnnotatorView.scale;
+				imageAnnotatorView.offsetX = imageAnnotatorPanStart.offsetX - dx;
+				imageAnnotatorView.offsetY = imageAnnotatorPanStart.offsetY - dy;
+				redraw();
+				return;
+			}
+			if (!imageAnnotatorIsDrawing || !imageAnnotatorLastPoint || !imageAnnotatorBaseCtx) return;
+			const point = getAnnotatorPoint(canvas, e);
+			let worldPrev = screenToWorld(imageAnnotatorLastPoint);
+			let worldNext = screenToWorld(point);
+			const shift = ensureAnnotatorWorldBounds(worldNext);
+			if (shift.dx || shift.dy) {
+				worldPrev = { x: worldPrev.x + shift.dx, y: worldPrev.y + shift.dy };
+				worldNext = { x: worldNext.x + shift.dx, y: worldNext.y + shift.dy };
+			}
+			imageAnnotatorBaseCtx.strokeStyle = colorInput ? colorInput.value : '#ffffff';
+			const baseLineWidth = sizeSelect ? parseInt(sizeSelect.value, 10) || 4 : 4;
+			imageAnnotatorBaseCtx.lineWidth = baseLineWidth / imageAnnotatorView.scale;
+			imageAnnotatorBaseCtx.lineCap = 'round';
+			imageAnnotatorBaseCtx.lineJoin = 'round';
+			imageAnnotatorBaseCtx.beginPath();
+			imageAnnotatorBaseCtx.moveTo(worldPrev.x, worldPrev.y);
+			imageAnnotatorBaseCtx.lineTo(worldNext.x, worldNext.y);
+			imageAnnotatorBaseCtx.stroke();
+			imageAnnotatorLastPoint = point;
+			redraw();
+		});
+		const stopDraw = (e) => {
+			if (canvas.hasPointerCapture(e.pointerId)) {
+				canvas.releasePointerCapture(e.pointerId);
+			}
+			imageAnnotatorIsDrawing = false;
+			imageAnnotatorIsPanning = false;
+			imageAnnotatorLastPoint = null;
+			imageAnnotatorPanStart = null;
+		};
+		canvas.addEventListener('pointerup', stopDraw);
+		canvas.addEventListener('pointerleave', stopDraw);
+		canvas.addEventListener('pointercancel', stopDraw);
+
+		canvas.addEventListener('wheel', (e) => {
+			if (!imageAnnotatorBaseCanvas) return;
+			e.preventDefault();
+			const point = getAnnotatorPoint(canvas, e);
+			const world = screenToWorld(point);
+			const zoom = Math.exp(-e.deltaY * 0.0015);
+			const nextScale = Math.max(0.2, Math.min(6, imageAnnotatorView.scale * zoom));
+			imageAnnotatorView.scale = nextScale;
+			imageAnnotatorView.offsetX = world.x - point.x / imageAnnotatorView.scale;
+			imageAnnotatorView.offsetY = world.y - point.y / imageAnnotatorView.scale;
+			redraw();
+		}, { passive: false });
+
+		canvas.addEventListener('contextmenu', (e) => {
+			e.preventDefault();
+		});
+
+		window.addEventListener('resize', () => {
+			resizeAnnotatorViewport(canvas);
+			redraw();
 		});
 	}
 });
