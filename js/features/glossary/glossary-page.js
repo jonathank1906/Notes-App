@@ -6,18 +6,25 @@ glossaryPage.innerHTML = `
 	<div class="glossary-container">
 		<div class="glossary-header">
 			<h1 id="glossary-title">Glossary</h1>
+			<button class="glossary-add-trigger" id="glossary-open-add" type="button" aria-label="Add entry">
+				<span class="glossary-add-plus">+</span>
+				<span class="glossary-add-text">Add</span>
+			</button>
 		</div>
-        
-		<div class="glossary-add-section">
-			<div class="glossary-input-group">
-				<input type="text" class="glossary-input" id="glossary-term-input" placeholder="Term">
+
+		<div class="glossary-search-center">
+			<div class="glossary-search-wrap">
+				<div class="glossary-search-icon" aria-hidden="true">
+					<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+						<path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
+					</svg>
+				</div>
+				<input id="glossary-search-input" type="text" placeholder="Search glossary..." oninput="filterGlossary()">
 			</div>
-			<textarea class="glossary-textarea" id="glossary-def-input" placeholder="Definition (Markdown supported)"></textarea>
-			<button class="glossary-add-btn" onclick="addGlossaryEntry()">Add Entry</button>
-		</div>
-        
-		<div class="glossary-search">
-			<input type="text" id="glossary-search-input" placeholder="Search glossary..." oninput="filterGlossary()">
+			<div class="glossary-search-meta">
+				<span>Search matches term or definition.</span>
+				<span id="glossary-search-count"></span>
+			</div>
 		</div>
 
 		<div id="glossary-alpha-rail" aria-label="Glossary alphabet shortcuts"></div>
@@ -46,6 +53,34 @@ glossaryPage.innerHTML = `
 			</div>
 		</div>
 	</div>
+
+	<div id="glossary-add-modal" class="glossary-modal" aria-hidden="true">
+		<div class="glossary-modal-card" role="dialog" aria-modal="true" aria-labelledby="glossary-add-title">
+			<div class="glossary-modal-header">
+				<div class="glossary-modal-title" id="glossary-add-title">Add glossary entry</div>
+				<button class="glossary-modal-close" id="glossary-add-close" type="button" aria-label="Close add entry">&times;</button>
+			</div>
+			<div class="glossary-modal-body">
+				<div class="glossary-input-row">
+					<label class="glossary-label" for="glossary-term-input">Term</label>
+					<input type="text" class="glossary-input" id="glossary-term-input" placeholder="e.g. Newton's Third Law">
+				</div>
+				<div class="glossary-input-row">
+					<label class="glossary-label" for="glossary-def-input">Definition</label>
+					<textarea class="glossary-textarea" id="glossary-def-input" placeholder="Definition (Markdown supported)"></textarea>
+					<div class="glossary-meta">
+						<span class="glossary-hint">Markdown supported. Press Ctrl+Enter to add.</span>
+					</div>
+				</div>
+			</div>
+			<div class="glossary-modal-footer">
+				<div class="glossary-modal-actions">
+					<span class="glossary-status" id="glossary-add-status"></span>
+					<button class="glossary-add-btn" id="glossary-add-btn" onclick="addGlossaryEntry()">Add Entry</button>
+				</div>
+			</div>
+		</div>
+	</div>
 `;
 document.body.appendChild(glossaryPage);
 
@@ -53,6 +88,8 @@ let currentGlossaryData = null;
 let currentGlossaryHandle = null;
 const GLOSSARY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 let glossaryRailHideTimer = null;
+let glossaryTopInitialized = false;
+let glossaryStatusTimer = null;
 
 function initGlossaryAlphabetRail() {
 	const rail = document.getElementById('glossary-alpha-rail');
@@ -75,6 +112,86 @@ function initGlossaryAlphabetRail() {
 			showGlossaryAlphabetRailTemporarily();
 			updateGlossaryActiveLetter();
 		}, { passive: true });
+	}
+}
+
+function initGlossaryTopControls() {
+	if (glossaryTopInitialized) return;
+	glossaryTopInitialized = true;
+
+	const openBtn = document.getElementById('glossary-open-add');
+	const closeBtn = document.getElementById('glossary-add-close');
+	const modal = document.getElementById('glossary-add-modal');
+	const termInput = document.getElementById('glossary-term-input');
+	const defInput = document.getElementById('glossary-def-input');
+	const addBtn = document.getElementById('glossary-add-btn');
+	const searchInput = document.getElementById('glossary-search-input');
+
+	if (!openBtn || !closeBtn || !modal || !termInput || !defInput || !addBtn || !searchInput) return;
+
+	const openModal = () => {
+		modal.classList.add('show');
+		modal.setAttribute('aria-hidden', 'false');
+		setTimeout(() => termInput.focus(), 0);
+	};
+
+	const closeModal = () => {
+		modal.classList.remove('show');
+		modal.setAttribute('aria-hidden', 'true');
+	};
+
+	openBtn.addEventListener('click', openModal);
+	closeBtn.addEventListener('click', closeModal);
+
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && modal.classList.contains('show')) {
+			closeModal();
+		}
+	});
+
+	const updateAddState = () => {
+		const termVal = termInput.value.trim();
+		const defVal = defInput.value.trim();
+		addBtn.disabled = !(termVal && defVal);
+		addBtn.classList.toggle('disabled', addBtn.disabled);
+	};
+
+	termInput.addEventListener('input', updateAddState);
+	defInput.addEventListener('input', updateAddState);
+
+	termInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+			e.preventDefault();
+			defInput.focus();
+		}
+	});
+
+	defInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && e.ctrlKey) {
+			e.preventDefault();
+			addGlossaryEntry();
+		}
+	});
+
+	updateAddState();
+}
+
+function showGlossaryAddStatus(message, tone) {
+	const statusEl = document.getElementById('glossary-add-status');
+	if (!statusEl) return;
+
+	statusEl.textContent = message || '';
+	statusEl.classList.toggle('error', tone === 'error');
+	statusEl.classList.toggle('muted', tone === 'muted');
+
+	if (glossaryStatusTimer) {
+		clearTimeout(glossaryStatusTimer);
+	}
+	if (message) {
+		glossaryStatusTimer = setTimeout(() => {
+			statusEl.textContent = '';
+			statusEl.classList.remove('error', 'muted');
+		}, 2500);
 	}
 }
 
@@ -171,6 +288,7 @@ function openGlossary(fileHandle, data, fileName = null) {
 	const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Glossary');
 	document.getElementById('glossary-title').textContent = fileNameStr;
 
+	initGlossaryTopControls();
 	initGlossaryAlphabetRail();
     
 	renderGlossaryList();
@@ -192,10 +310,13 @@ function closeGlossary() {
 function renderGlossaryList() {
 	const listDiv = document.getElementById('glossary-list');
 	const searchTerm = document.getElementById('glossary-search-input').value.toLowerCase();
+	const searchCountEl = document.getElementById('glossary-search-count');
 	initGlossaryAlphabetRail();
+	const totalCount = currentGlossaryData && currentGlossaryData.glossary ? currentGlossaryData.glossary.length : 0;
     
 	if (!currentGlossaryData || !currentGlossaryData.glossary || currentGlossaryData.glossary.length === 0) {
 		listDiv.innerHTML = '<p style="color:#666;text-align:center;">No glossary entries yet. Add one above.</p>';
+		if (searchCountEl) searchCountEl.textContent = `0 / ${totalCount}`;
 		updateGlossaryAlphabetRailState();
 		return;
 	}
@@ -211,9 +332,12 @@ function renderGlossaryList() {
     
 	if (filteredGlossary.length === 0) {
 		listDiv.innerHTML = '<p style="color:#666;text-align:center;">No matching entries found.</p>';
+		if (searchCountEl) searchCountEl.textContent = `0 / ${totalCount}`;
 		updateGlossaryAlphabetRailState();
 		return;
 	}
+
+	if (searchCountEl) searchCountEl.textContent = `${filteredGlossary.length} / ${totalCount}`;
     
 	// Sort alphabetically by term
 	filteredGlossary = [...filteredGlossary].sort((a, b) => 
@@ -366,18 +490,38 @@ async function addGlossaryEntry() {
     
 	if (!term || !definition) {
 		alert('Please fill in both term and definition');
+		showGlossaryAddStatus('Missing term or definition', 'error');
 		return;
 	}
     
 	if (!currentGlossaryData.glossary) {
 		currentGlossaryData.glossary = [];
 	}
-    
-	currentGlossaryData.glossary.push({ term, definition });
+
+	const termKey = term.toLowerCase();
+	const existingIndex = currentGlossaryData.glossary.findIndex(entry =>
+		(entry.term || '').trim().toLowerCase() === termKey
+	);
+
+	if (existingIndex >= 0) {
+		const replace = confirm('That term already exists. Replace its definition?');
+		if (!replace) {
+			showGlossaryAddStatus('Duplicate term kept', 'muted');
+			return;
+		}
+		currentGlossaryData.glossary[existingIndex] = { term, definition };
+	} else {
+		currentGlossaryData.glossary.push({ term, definition });
+	}
 	await saveGlossaryData();
     
 	document.getElementById('glossary-term-input').value = '';
 	document.getElementById('glossary-def-input').value = '';
+	const termInput = document.getElementById('glossary-term-input');
+	const defInput = document.getElementById('glossary-def-input');
+	if (termInput) termInput.dispatchEvent(new Event('input'));
+	if (defInput) defInput.dispatchEvent(new Event('input'));
+	showGlossaryAddStatus(existingIndex >= 0 ? 'Entry updated' : 'Entry added');
     
 	renderGlossaryList();
 }

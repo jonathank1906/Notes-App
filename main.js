@@ -104,6 +104,7 @@ function launchSlideNotesApp(payload = null) {
     const slideAppWin = new BrowserWindow({
         width: 1200,
         height: 800,
+        icon: path.join(__dirname, 'Logo.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
@@ -135,6 +136,7 @@ function launchNoteApp(noteData) {
         height: 800,
         x: 100,
         y: 100,
+        icon: path.join(__dirname, 'Logo.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
@@ -162,6 +164,7 @@ function openExternalNotesWindow() {
     const extWin = new BrowserWindow({
         width: 800,
         height: 1000,
+        icon: path.join(__dirname, 'Logo.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false

@@ -4660,6 +4660,23 @@ function openNoteFromData(noteData) {
     currentNoteFileName = fileName;
     currentFilePath = filePath || null;
     currentNoteType = type;
+
+    const fileNameStr = fileName ? fileName.replace('.json', '') : '';
+    let baseTitle = 'Notes';
+    if (type === 'flashcard') {
+        baseTitle = 'Flashcards';
+    } else if (type === 'glossary') {
+        baseTitle = 'Glossary';
+    } else if (type === 'qa') {
+        baseTitle = 'Q&A';
+    } else if (type === 'todo') {
+        baseTitle = 'To Do List';
+    } else if (type === 'links') {
+        baseTitle = 'Pinboard';
+    } else if (type === 'test') {
+        baseTitle = 'Test';
+    }
+    document.title = fileNameStr || baseTitle;
     if (type === 'flashcard') {
         openFlashcard(null, data, fileName);
     } else if (type === 'glossary') {
