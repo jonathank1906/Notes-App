@@ -192,11 +192,17 @@ function renderFlashcardUI() {
 	const card = document.querySelector('.card');
 	const modeToggle = document.querySelector('.fc-mode-toggle');
 	const flashcardPage = document.getElementById('flashcard-page');
+	const revealBtn = document.getElementById('fc-reveal-btn');
+	const questionContainer = document.getElementById('fc-question');
+	const answerContainer = document.getElementById('fc-answer');
     
 	if (isFlashcardFullEditMode) {
 		// Full Edit Mode: Show list of all cards
 		if (scene) scene.style.display = 'none';
 		fullEditContainer.classList.add('show');
+		if (revealBtn) revealBtn.style.display = 'none';
+		if (questionContainer) questionContainer.style.display = 'none';
+		if (answerContainer) answerContainer.classList.remove('show');
 		if (modeToggle) {
 			modeToggle.textContent = 'Practice Mode';
 			modeToggle.style.display = 'block';
@@ -1293,7 +1299,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (e.code !== 'Space') return;
 		const flashcardPage = document.getElementById('flashcard-page');
 		if (!flashcardPage || !flashcardPage.classList.contains('active')) return;
-		if (flashcardStudyMode === 'flashcards') return;
+		if (flashcardStudyMode === 'flashcards') {
+			const cards = getActiveStudyCards();
+			const card = cards[currentFlashcardIndex];
+			if (!card || card.type !== 'fill-blank') return;
+			e.preventDefault();
+			toggleFlashcardAnswer();
+			return;
+		}
 		if (isFlashcardFullEditMode) return;
 		if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
 			return;

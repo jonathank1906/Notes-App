@@ -1429,6 +1429,13 @@ kbd {
     display: none;
 }
 
+#flashcard-page.edit-mode .scene,
+#flashcard-page.edit-mode .fc-reveal-btn,
+#flashcard-page.edit-mode .fc-question,
+#flashcard-page.edit-mode .fc-answer {
+    display: none;
+}
+
 /* 3. THE CARD OBJECT */
 .card {
     width: 100%;
