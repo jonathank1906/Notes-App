@@ -139,6 +139,7 @@ let imageAnnotatorView = { offsetX: 0, offsetY: 0, scale: 1 };
 let imageAnnotatorBaseCanvas = null;
 let imageAnnotatorBaseCtx = null;
 let imageAnnotatorImageRect = null;
+let suppressNextCardFlip = false;
 
 function openFlashcard(fileHandle, data, fileName = null) {
 	currentFlashcardHandle = fileHandle;
@@ -507,6 +508,10 @@ function flipCard() {
 	if (!card) return;
 	if (flashcardStudyMode !== 'flashcards') return;
 	if (card.classList.contains('is-fill-blank')) return;
+	if (suppressNextCardFlip) {
+		suppressNextCardFlip = false;
+		return;
+	}
 	card.classList.toggle('is-flipped');
 }
 
@@ -1023,13 +1028,55 @@ async function saveImageAnnotator() {
 	const fileName = `fc_${Date.now()}_annotated_${imageAnnotatorTarget}.png`;
 	const destPath = path.join(assetsPath, fileName);
 	const sourceCanvas = imageAnnotatorBaseCanvas || canvas;
-	const dataUrl = sourceCanvas.toDataURL('image/png');
+	const croppedCanvas = cropCanvasToContent(sourceCanvas, 40);
+	const dataUrl = croppedCanvas.toDataURL('image/png');
 	const base64 = dataUrl.split(',')[1] || '';
 	if (base64) {
 		fs.writeFileSync(destPath, Buffer.from(base64, 'base64'));
 		setModalImage(imageAnnotatorTarget, `Assets/${fileName}`);
 	}
 	closeImageAnnotator();
+}
+
+function cropCanvasToContent(canvas, padding) {
+	const ctx = canvas.getContext('2d');
+	const w = canvas.width;
+	const h = canvas.height;
+	if (!w || !h) return canvas;
+	const imgData = ctx.getImageData(0, 0, w, h);
+	const data = imgData.data;
+	let minX = w;
+	let minY = h;
+	let maxX = -1;
+	let maxY = -1;
+
+	for (let y = 0; y < h; y++) {
+		for (let x = 0; x < w; x++) {
+			const idx = (y * w + x) * 4;
+			if (data[idx + 3] > 0) {
+				if (x < minX) minX = x;
+				if (y < minY) minY = y;
+				if (x > maxX) maxX = x;
+				if (y > maxY) maxY = y;
+			}
+		}
+	}
+
+	if (maxX < minX || maxY < minY) return canvas;
+	const pad = Math.max(0, parseInt(padding, 10) || 0);
+	minX = Math.max(0, minX - pad);
+	minY = Math.max(0, minY - pad);
+	maxX = Math.min(w - 1, maxX + pad);
+	maxY = Math.min(h - 1, maxY + pad);
+
+	const outW = Math.max(1, maxX - minX + 1);
+	const outH = Math.max(1, maxY - minY + 1);
+	const outCanvas = document.createElement('canvas');
+	outCanvas.width = outW;
+	outCanvas.height = outH;
+	const outCtx = outCanvas.getContext('2d');
+	outCtx.drawImage(canvas, minX, minY, outW, outH, 0, 0, outW, outH);
+	return outCanvas;
 }
 
 function loadImageIntoAnnotator(canvas, dataUrl) {
@@ -1046,8 +1093,6 @@ function loadImageIntoAnnotator(canvas, dataUrl) {
 		imageAnnotatorBaseCanvas.width = scaledW + pad * 2;
 		imageAnnotatorBaseCanvas.height = scaledH + pad * 2;
 		imageAnnotatorBaseCtx = imageAnnotatorBaseCanvas.getContext('2d');
-		imageAnnotatorBaseCtx.fillStyle = '#000';
-		imageAnnotatorBaseCtx.fillRect(0, 0, imageAnnotatorBaseCanvas.width, imageAnnotatorBaseCanvas.height);
 		imageAnnotatorBaseCtx.drawImage(img, pad, pad, scaledW, scaledH);
 		imageAnnotatorImageRect = {
 			x: pad,
@@ -1122,8 +1167,6 @@ function ensureAnnotatorWorldBounds(point) {
 	newCanvas.width = imageAnnotatorBaseCanvas.width + addLeft + addRight;
 	newCanvas.height = imageAnnotatorBaseCanvas.height + addTop + addBottom;
 	const newCtx = newCanvas.getContext('2d');
-	newCtx.fillStyle = '#000';
-	newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
 	newCtx.drawImage(imageAnnotatorBaseCanvas, addLeft, addTop);
 
 	if (imageAnnotatorImageRect) {
@@ -1146,6 +1189,29 @@ function getAnnotatorPoint(canvas, e) {
 	};
 }
 
+function applyFlashcardImageZoom(imgEl, delta) {
+	if (!imgEl) return;
+	const current = parseFloat(imgEl.dataset.zoom || '1');
+	const next = Math.max(1, Math.min(6, current + delta));
+	imgEl.dataset.zoom = String(next);
+	const panX = parseFloat(imgEl.dataset.panX || '0');
+	const panY = parseFloat(imgEl.dataset.panY || '0');
+	imgEl.style.transformOrigin = 'center center';
+	imgEl.style.transform = `translate(${panX}px, ${panY}px) scale(${next})`;
+}
+
+function applyFlashcardImagePan(imgEl, dx, dy) {
+	if (!imgEl) return;
+	const zoom = parseFloat(imgEl.dataset.zoom || '1');
+	if (zoom <= 1) return;
+	const panX = parseFloat(imgEl.dataset.panX || '0') + dx;
+	const panY = parseFloat(imgEl.dataset.panY || '0') + dy;
+	imgEl.dataset.panX = String(panX);
+	imgEl.dataset.panY = String(panY);
+	imgEl.style.transformOrigin = 'center center';
+	imgEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+}
+
 // Add click handler for flip card
 document.addEventListener('DOMContentLoaded', () => {
 	const scene = document.querySelector('.scene');
@@ -1163,16 +1229,77 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
+	const flashcardPageEl = document.getElementById('flashcard-page');
+	if (flashcardPageEl) {
+		flashcardPageEl.addEventListener('wheel', (e) => {
+			if (!e.ctrlKey) return;
+			const img = e.target && e.target.closest ? e.target.closest('img.fc-card-image') : null;
+			if (!img) return;
+			e.preventDefault();
+			const delta = e.deltaY < 0 ? 0.1 : -0.1;
+			applyFlashcardImageZoom(img, delta);
+		}, { passive: false });
+
+		let panTarget = null;
+		let panStart = null;
+
+		flashcardPageEl.addEventListener('pointerdown', (e) => {
+			const img = e.target && e.target.closest ? e.target.closest('img.fc-card-image') : null;
+			if (!img) return;
+			const zoom = parseFloat(img.dataset.zoom || '1');
+			if (zoom <= 1) return;
+			suppressNextCardFlip = true;
+			panTarget = img;
+			panStart = { x: e.clientX, y: e.clientY };
+			img.setPointerCapture && img.setPointerCapture(e.pointerId);
+			e.stopPropagation();
+			e.preventDefault();
+		});
+
+		flashcardPageEl.addEventListener('pointermove', (e) => {
+			if (!panTarget || !panStart) return;
+			const dx = e.clientX - panStart.x;
+			const dy = e.clientY - panStart.y;
+			panStart = { x: e.clientX, y: e.clientY };
+			applyFlashcardImagePan(panTarget, dx, dy);
+			e.stopPropagation();
+		});
+
+		const stopPan = (e) => {
+			if (panTarget && panTarget.releasePointerCapture && e.pointerId) {
+				try { panTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+			}
+			panTarget = null;
+			panStart = null;
+		};
+		flashcardPageEl.addEventListener('pointerup', stopPan);
+		flashcardPageEl.addEventListener('pointercancel', stopPan);
+		flashcardPageEl.addEventListener('pointerleave', stopPan);
+	}
+
 	document.addEventListener('keydown', (e) => {
-		if (e.key !== 'Escape') return;
-		const editModal = document.getElementById('fc-edit-modal');
-		if (editModal && editModal.classList.contains('show')) {
-			closeEditModal();
+		if (e.key === 'Escape') {
+			const editModal = document.getElementById('fc-edit-modal');
+			if (editModal && editModal.classList.contains('show')) {
+				closeEditModal();
+			}
+			const imgModal = document.getElementById('fc-image-modal');
+			if (imgModal && imgModal.classList.contains('show')) {
+				closeImageAnnotator();
+			}
+			return;
 		}
-		const imgModal = document.getElementById('fc-image-modal');
-		if (imgModal && imgModal.classList.contains('show')) {
-			closeImageAnnotator();
+
+		if (e.code !== 'Space') return;
+		const flashcardPage = document.getElementById('flashcard-page');
+		if (!flashcardPage || !flashcardPage.classList.contains('active')) return;
+		if (flashcardStudyMode === 'flashcards') return;
+		if (isFlashcardFullEditMode) return;
+		if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+			return;
 		}
+		e.preventDefault();
+		toggleFlashcardAnswer();
 	});
 
 	const canvas = document.getElementById('fc-image-canvas');
