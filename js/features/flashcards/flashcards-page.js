@@ -12,7 +12,20 @@ flashcardPage.innerHTML = `
 		</div>
 	</div>
 
-	<div class="instructions">Space or Click to flip &bull; Press E to edit</div>
+	<div class="fc-nav" aria-label="Flashcard navigation">
+		<button class="fc-nav-btn fc-nav-btn--prev" onclick="navFlashcard(-1)" aria-label="Previous card">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M3 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+				<path d="M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+			</svg>
+		</button>
+		<button class="fc-nav-btn" onclick="navFlashcard(1)" aria-label="Next card">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M3 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+				<path d="M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+			</svg>
+		</button>
+	</div>
 
 	<div id="fc-full-edit-container">
 		<div class="fc-full-edit-actions">

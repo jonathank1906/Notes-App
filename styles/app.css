@@ -9,25 +9,13 @@
     --btn-active: rgba(255,255,255,0.1);
 }
 
-/* Discrete external scrollbar styling */
+/* Hide external scrollbars for the main window */
 html, body {
-    scrollbar-width: thin;
-    scrollbar-color: #232323 var(--bg-color);
+    scrollbar-width: none; /* Firefox */
 }
 ::-webkit-scrollbar {
-    width: 8px;
-    background: var(--bg-color);
-}
-::-webkit-scrollbar-thumb {
-    background: #232323;
-    border-radius: 6px;
-    border: 2px solid var(--bg-color);
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #333;
-}
-::-webkit-scrollbar-corner {
-    background: var(--bg-color);
+    width: 0;
+    height: 0;
 }
 
 body, html {
@@ -1354,6 +1342,50 @@ kbd {
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+}
+
+.fc-nav {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+}
+
+.fc-nav-btn {
+    width: 72px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid #2a2f4a;
+    background: #1a1e34;
+    color: #cfd6ff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.12s ease;
+}
+
+.fc-nav-btn svg {
+    width: 28px;
+    height: 28px;
+    display: block;
+    transform: translateX(-1px);
+}
+
+.fc-nav-btn--prev svg {
+    transform: rotate(180deg) translateX(1px);
+}
+
+.fc-nav-btn:hover {
+    background: #242a45;
+    color: #ffffff;
+}
+
+.fc-nav-btn:active {
+    transform: translateY(1px);
+}
+
+#flashcard-page.edit-mode .fc-nav {
+    display: none;
 }
 
 /* 3. THE CARD OBJECT */
