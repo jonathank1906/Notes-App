@@ -1128,6 +1128,7 @@
                 if (continuousPdfView) {
                     continuousPdfView.innerHTML = '';
                 }
+                pdfTextIndex = [];
                 let globalStart = 1;
 
                 for (const entry of entries) {
@@ -1162,6 +1163,7 @@
                 isDirty = false;
                 updateSaveStatusIndicator();
                 updateDisplay();
+                extractAllTextCombined();
                 setTimeout(() => renderPage(), 0);
                 if (isReadOnlyMode) {
                     prewarmContinuousCache();
@@ -1920,6 +1922,27 @@
             for (let i = 1; i <= pdf.numPages; i++) { try { const page = await pdf.getPage(i); const tokenizedText = await page.getTextContent(); const pageString = tokenizedText.items.map(token => token.str).join(" "); pdfTextIndex[i - 1] = pageString.toLowerCase(); scanningStatus.innerText = `Scanning Slide ${i}/${pdf.numPages}...`; } catch(e) {} }
             scanningStatus.style.display = "none";
         }
+        async function extractAllTextCombined() {
+            if (combinedPdfDocs.length === 0) return;
+            const totalPages = combinedPdfDocs.reduce((total, entry) => total + (entry.numPages || 0), 0);
+            scanningStatus.style.display = "block";
+            pdfTextIndex = new Array(totalPages).fill("");
+
+            let globalIndex = 0;
+            for (const entry of combinedPdfDocs) {
+                for (let i = 1; i <= entry.numPages; i++) {
+                    try {
+                        const page = await entry.doc.getPage(i);
+                        const tokenizedText = await page.getTextContent();
+                        const pageString = tokenizedText.items.map(token => token.str).join(" ");
+                        pdfTextIndex[globalIndex] = pageString.toLowerCase();
+                        scanningStatus.innerText = `Scanning Slide ${globalIndex + 1}/${totalPages}...`;
+                    } catch (e) {}
+                    globalIndex += 1;
+                }
+            }
+            scanningStatus.style.display = "none";
+        }
         function renderPage() {
             if (pdfContainer.style.display === 'none') return;
             if (pdfContainer.clientHeight === 0) return; 
@@ -2029,7 +2052,7 @@
         window.addEventListener('keydown', function(e) {
             // Standard Shortcuts
             if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!isReadOnlyMode) saveNotes(); }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearchBar(); }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); toggleSearchBar(); }
             if (e.key === 'Escape') { if (searchBar.classList.contains('active')) { toggleSearchBar(); } else { activatePreview(); if(document.activeElement === searchInput) { clearSearch(); } document.activeElement.blur(); document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('active')); } }
         });
         document.getElementById('pdf-upload').addEventListener('change', function(e) {
