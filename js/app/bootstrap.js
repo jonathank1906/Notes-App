@@ -311,6 +311,7 @@ let allSubjects = [];
 let allDividers = []; // Track dividers and their collapsible state
 let activeSubject = null;
 let allNotesLoaded = false;
+let allNotesLoadingPromise = null;
 let currentView = 'organized';
 let pdfPreviewCache = {};
 let notePreviewObserver = null;
@@ -2200,7 +2201,7 @@ async function initHomeScreen() {
         allNotesLoaded = false;
         await loadSubjects();
         activeSubject = null;
-        await loadAllNotes();
+        scheduleLoadAllNotes();
         return; // Exit here to skip the web permission prompt!
     }
 
@@ -2286,24 +2287,22 @@ async function loadSubjects() {
                     // Load sub-folders as child subjects
                     for await (const subEntry of entry.values()) {
                         if (subEntry.kind === 'directory') {
-                            const count = await countNotesInSubject(subEntry);
                             subjects.push({
                                 name: subEntry.name,
                                 handle: subEntry,
                                 dividerName: entry.name,
-                                count: count,
+                                count: null,
                                 color: getSubjectColor(subjects.length)
                             });
                         }
                     }
                 } else {
                     // Standard root-level Subject
-                    const count = await countNotesInSubject(entry);
                     subjects.push({
                         name: entry.name,
                         handle: entry,
                         dividerName: null,
-                        count: count,
+                        count: null,
                         color: getSubjectColor(subjects.length)
                     });
                 }
@@ -2314,6 +2313,7 @@ async function loadSubjects() {
         allDividers = dividers.sort((a,b) => a.name.localeCompare(b.name));
         allNotesLoaded = false;
         displaySubjects();
+        scheduleSubjectCounts();
         
     } catch (err) {
         console.error('Error loading subjects:', err);
@@ -2351,10 +2351,11 @@ function displaySubjects() {
         const isActive = activeSubject === subject;
         const subjectItem = document.createElement('div');
         subjectItem.className = 'subject-item' + (isActive ? ' active' : '');
+        const countLabel = (typeof subject.count === 'number') ? subject.count : '...';
         subjectItem.innerHTML = `
             <div class="subject-color" style="background:${subject.color};"></div>
             <div class="subject-name">${escapeHtml(subject.name)}</div>
-            ${isActive ? `<div class="subject-count">${subject.count}</div>` : ''}
+            ${isActive ? `<div class="subject-count">${countLabel}</div>` : ''}
         `;
         subjectItem.onclick = async () => {
             activeSubject = subject;
@@ -2519,7 +2520,36 @@ async function confirmCreateFolderModal() {
 }
 
 function getAllNotesCount() {
-    return allSubjects.reduce((sum, s) => sum + s.count, 0);
+    return allSubjects.reduce((sum, s) => sum + (typeof s.count === 'number' ? s.count : 0), 0);
+}
+
+function scheduleSubjectCounts() {
+    if (!Array.isArray(allSubjects) || allSubjects.length === 0) return;
+    const subjectsToCount = allSubjects.filter(s => typeof s.count !== 'number');
+    if (subjectsToCount.length === 0) return;
+
+    const run = async () => {
+        for (const subject of subjectsToCount) {
+            try {
+                subject.count = await countNotesInSubject(subject.handle);
+            } catch (err) {
+                console.error('Error counting notes for', subject.name, err);
+                subject.count = 0;
+            }
+
+            // Yield between subjects to keep UI responsive.
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        // Refresh UI once counts are in.
+        displaySubjects();
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => run(), { timeout: 1500 });
+    } else {
+        setTimeout(() => run(), 400);
+    }
 }
 
 function updateNewNoteButtonVisibility() {
@@ -2913,15 +2943,20 @@ function flattenOrganizedSections() {
 }
 
 async function loadAllNotes() {
+    if (allNotesLoadingPromise) {
+        return allNotesLoadingPromise;
+    }
+
+    allNotesLoadingPromise = (async () => {
     const notesGrid = document.getElementById('notes-grid');
     const emptyState = document.getElementById('empty-notes-state');
     
     document.getElementById('content-title').textContent = 'All Notes';
     
     // Load notes into DOM if not already loaded
-    if (!allNotesLoaded) {
-        await loadNotesIntoDom();
-    }
+        if (!allNotesLoaded) {
+            await loadNotesIntoDom();
+        }
     
     // Remove PDF cards when viewing all notes
     const pdfCards = notesGrid.querySelectorAll('.pdf-card');
@@ -2931,13 +2966,35 @@ async function loadAllNotes() {
     updateQuickAccessButtons();
     
     // Handle empty state
-    if (visibleCount === 0) {
-        emptyState.style.display = 'block';
-        document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
-        const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
-        if (selectFolderBtn) selectFolderBtn.style.display = 'none';
+        if (visibleCount === 0) {
+            emptyState.style.display = 'block';
+            document.getElementById('empty-notes-state-desc').textContent = 'Click New to create a note';
+            const selectFolderBtn = emptyState.querySelector('.select-folder-btn');
+            if (selectFolderBtn) selectFolderBtn.style.display = 'none';
+        } else {
+            emptyState.style.display = 'none';
+        }
+    })();
+
+    try {
+        await allNotesLoadingPromise;
+    } finally {
+        allNotesLoadingPromise = null;
+    }
+}
+
+function scheduleLoadAllNotes() {
+    if (allNotesLoaded || allNotesLoadingPromise) return;
+    const run = () => {
+        loadAllNotes().catch(err => {
+            console.error('Deferred loadAllNotes failed:', err);
+        });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 1000 });
     } else {
-        emptyState.style.display = 'none';
+        setTimeout(run, 200);
     }
 }
 
@@ -3398,6 +3455,9 @@ async function loadNotesIntoDom() {
         } catch (err) {
             console.error('Error loading notes from', subject.name, err);
         }
+
+        // Yield between subjects to keep first render responsive.
+        await new Promise(resolve => setTimeout(resolve, 0));
     }
     
     allNotes.sort((a, b) => a.name.localeCompare(b.name));
@@ -3410,16 +3470,30 @@ async function loadNotesIntoDom() {
         notesGrid.classList.remove('list-view', 'organized-view');
     }
     
+    const fragment = document.createDocumentFragment();
+    let batchCount = 0;
     for (const note of allNotes) {
         const card = createNoteCard(note);
-        notesGrid.appendChild(card);
+        fragment.appendChild(card);
+        batchCount++;
+
+        if (batchCount >= 60) {
+            notesGrid.appendChild(fragment);
+            batchCount = 0;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+
+    if (fragment.childNodes.length > 0) {
+        notesGrid.appendChild(fragment);
     }
 
     loadedNotesForSearch = allNotes;
 
-    // Warm up the cache and subject PDF lists with a visible startup progress bar.
-    runStartupWarmup(allNotes).catch((err) => {
-        console.error('Startup warmup failed:', err);
+    // Defer heavy warmup so the first render feels instant.
+    scheduleStartupWarmup(allNotes, {
+        preloadNotePreviews: false,
+        preloadPdfPreviews: false
     });
     
     allNotesLoaded = true;
@@ -3797,20 +3871,46 @@ function hideStartupProgress() {
     }, 200);
 }
 
-async function runStartupWarmup(notes) {
+function scheduleStartupWarmup(notes, options = {}) {
+    const run = () => {
+        runStartupWarmup(notes, options).catch((err) => {
+            console.error('Startup warmup failed:', err);
+        });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+        setTimeout(run, 300);
+    }
+}
+
+async function runStartupWarmup(notes, options = {}) {
     if (startupWarmupRunning || isDetachedWindow) return;
     startupWarmupRunning = true;
 
+    const settings = {
+        preloadMetadata: options.preloadMetadata !== false,
+        preloadNotePreviews: options.preloadNotePreviews === true,
+        preloadPdfPreviews: options.preloadPdfPreviews === true
+    };
+
     try {
-        const metadataTotal = notes.filter(n => n.typeToken !== 'markdown').length;
-        const notePreviewTargets = allNoteCards
-            .map(card => card.querySelector('.note-preview'))
-            .filter(previewEl => previewEl && previewEl.dataset.previewState !== 'loaded');
+        const metadataTotal = settings.preloadMetadata
+            ? notes.filter(n => n.typeToken !== 'markdown').length
+            : 0;
+        const notePreviewTargets = settings.preloadNotePreviews
+            ? allNoteCards
+                .map(card => card.querySelector('.note-preview'))
+                .filter(previewEl => previewEl && previewEl.dataset.previewState !== 'loaded')
+            : [];
         const subjectPdfEntries = [];
 
-        for (const subject of allSubjects) {
-            const pdfs = await getPdfsForSubject(subject, false);
-            subjectPdfEntries.push({ subjectName: subject.name, pdfs });
+        if (settings.preloadPdfPreviews) {
+            for (const subject of allSubjects) {
+                const pdfs = await getPdfsForSubject(subject, false);
+                subjectPdfEntries.push({ subjectName: subject.name, pdfs });
+            }
         }
 
         const notePreviewTotal = notePreviewTargets.length;
@@ -3823,11 +3923,13 @@ async function runStartupWarmup(notes) {
         showStartupProgress();
         setStartupProgress(loaded, total);
 
-        await hydrateNoteMetadataAndBadges(notes, () => {
-            loaded++;
-            setStartupProgress(loaded, total);
-        });
-        if (currentView === 'organized') renderOrganizedSections();
+        if (settings.preloadMetadata) {
+            await hydrateNoteMetadataAndBadges(notes, () => {
+                loaded++;
+                setStartupProgress(loaded, total);
+            });
+            if (currentView === 'organized') renderOrganizedSections();
+        }
 
         for (const previewEl of notePreviewTargets) {
             try {
@@ -4871,7 +4973,7 @@ async function selectRootFolder() {
     
     await loadSubjects();
     activeSubject = null;
-    await loadAllNotes();
+    scheduleLoadAllNotes();
 }
 
 function escapeHtml(text) {
