@@ -2624,7 +2624,7 @@ function setView(view) {
     closeViewMenu();
 }
 
-const QUICK_ACCESS_NOTE_TYPES = ['flashcard', 'glossary', 'qa', 'todo', 'links'];
+const QUICK_ACCESS_NOTE_TYPES = ['flashcard', 'glossary', 'qa', 'todo', 'compare', 'links'];
 
 function getScopedNotesForQuickAccess() {
     if (!Array.isArray(loadedNotesForSearch)) return [];
@@ -3561,6 +3561,7 @@ function getNoteTypeLabel(typeToken) {
         'glossary': 'Glossary',
         'qa': 'Q&A',
         'todo': 'To Do',
+        'compare': 'Compare',
         'links': 'Pinboard',
         'test': 'Test',
         'practice': 'Practice Problems',
@@ -4676,6 +4677,8 @@ function openNoteLocally(fileHandle, data) {
         openQA(fileHandle, data);
     } else if (data.type === 'todo') {
         openTodo(fileHandle, data);
+    } else if (data.type === 'compare') {
+        openCompare(fileHandle, data);
     } else if (data.type === 'links') {
         openLinks(fileHandle, data);
     } else if (data.type === 'test') {
@@ -4703,6 +4706,8 @@ function openNoteFromData(noteData) {
         baseTitle = 'Q&A';
     } else if (type === 'todo') {
         baseTitle = 'To Do List';
+    } else if (type === 'compare') {
+        baseTitle = 'Compare';
     } else if (type === 'links') {
         baseTitle = 'Pinboard';
     } else if (type === 'test') {
@@ -4717,6 +4722,8 @@ function openNoteFromData(noteData) {
         openQA(null, data, fileName);
     } else if (type === 'todo') {
         openTodo(null, data, fileName);
+    } else if (type === 'compare') {
+        openCompare(null, data, fileName);
     } else if (type === 'links') {
         openLinks(null, data, fileName);
     } else if (type === 'test') {
@@ -4869,6 +4876,15 @@ async function createNewNote(type = 'note') {
                 timestamp: new Date().toISOString(),
                 todos: []
             };
+        } else if (type === 'compare') {
+            defaultName = `Compare ${formattedDate} ${formattedTime}.json`;
+            blankData = {
+                type: 'compare',
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                columns: ['Item', 'Advantages', 'Disadvantages'],
+                rows: [['', '', '']]
+            };
         } else if (type === 'links') {
             defaultName = `Pinboard ${formattedDate} ${formattedTime}.json`;
             blankData = {
@@ -4955,7 +4971,7 @@ async function createNewNote(type = 'note') {
         // Open the appropriate editor
         if (type === 'markdown') {
             openMarkdownInPreferredApp(fileHandle, targetDirHandle);
-        } else if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'links' || type === 'note' || type === 'test') {
+        } else if (type === 'flashcard' || type === 'glossary' || type === 'qa' || type === 'todo' || type === 'compare' || type === 'links' || type === 'note' || type === 'test') {
             if (ipcRenderer) {
                 ipcRenderer.send('open-note-window', { type: type, data: blankData, fileName: defaultName, filePath: fileHandle.path });
             } else {
@@ -4971,6 +4987,8 @@ async function createNewNote(type = 'note') {
                     openQA(fileHandle, blankData);
                 } else if (type === 'todo') {
                     openTodo(fileHandle, blankData);
+                } else if (type === 'compare') {
+                    openCompare(fileHandle, blankData);
                 } else if (type === 'links') {
                     openLinks(fileHandle, blankData);
                 } else if (type === 'test') {

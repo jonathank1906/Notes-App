@@ -15,11 +15,34 @@ todoPage.innerHTML = `
         
 		<div class="todo-list" id="todo-list"></div>
 	</div>
+
+	<button id="todo-scroll-top-btn" class="compare-scroll-top-btn" onclick="scrollTodoToTop()" aria-label="Back to top" title="Back to top">
+		<svg viewBox="0 0 24 24" aria-hidden="true">
+			<path d="M12 19V7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<path d="M7 12l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	</button>
 `;
 document.body.appendChild(todoPage);
 
 let currentTodoHandle = null;
 let currentTodoData = null;
+
+document.getElementById('todo-page')?.addEventListener('scroll', updateTodoScrollTopButtonVisibility, { passive: true });
+
+function updateTodoScrollTopButtonVisibility() {
+	const page = document.getElementById('todo-page');
+	const btn = document.getElementById('todo-scroll-top-btn');
+	if (!page || !btn) return;
+	const shouldShow = page.classList.contains('active') && page.scrollTop > 140;
+	btn.classList.toggle('show', shouldShow);
+}
+
+function scrollTodoToTop() {
+	const page = document.getElementById('todo-page');
+	if (!page) return;
+	page.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function openTodo(fileHandle, data, fileName = null) {
 	currentTodoHandle = fileHandle;
@@ -52,6 +75,7 @@ function openTodo(fileHandle, data, fileName = null) {
     
 	renderTodoList();
 	updateTodoQuickAccessCache();
+	updateTodoScrollTopButtonVisibility();
     
 	// Add Enter key handler for the input
 	const input = document.getElementById('todo-item-input');
@@ -70,6 +94,7 @@ async function closeTodo() {
 	currentTodoData = null;
 	currentTodoHandle = null;
 	showHomeScreen();
+	updateTodoScrollTopButtonVisibility();
 }
 
 async function addTodoItem() {

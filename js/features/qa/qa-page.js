@@ -44,11 +44,34 @@ qaPage.innerHTML = `
 			</div>
 		</div>
 	</div>
+
+	<button id="qa-scroll-top-btn" class="compare-scroll-top-btn" onclick="scrollQAToTop()" aria-label="Back to top" title="Back to top">
+		<svg viewBox="0 0 24 24" aria-hidden="true">
+			<path d="M12 19V7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<path d="M7 12l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	</button>
 `;
 document.body.appendChild(qaPage);
 
 let currentQAData = null;
 let currentQAHandle = null;
+
+document.getElementById('qa-page')?.addEventListener('scroll', updateQAScrollTopButtonVisibility, { passive: true });
+
+function updateQAScrollTopButtonVisibility() {
+	const page = document.getElementById('qa-page');
+	const btn = document.getElementById('qa-scroll-top-btn');
+	if (!page || !btn) return;
+	const shouldShow = page.classList.contains('active') && page.scrollTop > 140;
+	btn.classList.toggle('show', shouldShow);
+}
+
+function scrollQAToTop() {
+	const page = document.getElementById('qa-page');
+	if (!page) return;
+	page.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function openQA(fileHandle, data, fileName = null) {
 	currentQAHandle = fileHandle;
@@ -76,6 +99,7 @@ function openQA(fileHandle, data, fileName = null) {
 	}
     
 	renderQAList();
+	updateQAScrollTopButtonVisibility();
 }
 
 function closeQA() {
@@ -83,6 +107,7 @@ function closeQA() {
 	currentQAData = null;
 	currentQAHandle = null;
 	showHomeScreen();
+	updateQAScrollTopButtonVisibility();
 }
 
 function renderQAList() {

@@ -81,6 +81,13 @@ glossaryPage.innerHTML = `
 			</div>
 		</div>
 	</div>
+
+	<button id="glossary-scroll-top-btn" class="compare-scroll-top-btn" onclick="scrollGlossaryToTop()" aria-label="Back to top" title="Back to top">
+		<svg viewBox="0 0 24 24" aria-hidden="true">
+			<path d="M12 19V7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<path d="M7 12l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	</button>
 `;
 document.body.appendChild(glossaryPage);
 
@@ -90,6 +97,22 @@ const GLOSSARY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 let glossaryRailHideTimer = null;
 let glossaryTopInitialized = false;
 let glossaryStatusTimer = null;
+
+document.getElementById('glossary-page')?.addEventListener('scroll', updateGlossaryScrollTopButtonVisibility, { passive: true });
+
+function updateGlossaryScrollTopButtonVisibility() {
+	const page = document.getElementById('glossary-page');
+	const btn = document.getElementById('glossary-scroll-top-btn');
+	if (!page || !btn) return;
+	const shouldShow = page.classList.contains('active') && page.scrollTop > 140;
+	btn.classList.toggle('show', shouldShow);
+}
+
+function scrollGlossaryToTop() {
+	const page = document.getElementById('glossary-page');
+	if (!page) return;
+	page.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function initGlossaryAlphabetRail() {
 	const rail = document.getElementById('glossary-alpha-rail');
@@ -292,6 +315,7 @@ function openGlossary(fileHandle, data, fileName = null) {
 	initGlossaryAlphabetRail();
     
 	renderGlossaryList();
+	updateGlossaryScrollTopButtonVisibility();
 }
 
 function closeGlossary() {
@@ -305,6 +329,7 @@ function closeGlossary() {
 	currentGlossaryData = null;
 	currentGlossaryHandle = null;
 	showHomeScreen();
+	updateGlossaryScrollTopButtonVisibility();
 }
 
 function renderGlossaryList() {
