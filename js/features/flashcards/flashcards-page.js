@@ -7,6 +7,7 @@ flashcardPage.innerHTML = `
 	<div class="fc-study-modes" id="fc-study-modes">
 		<button class="fc-study-btn" data-mode="flashcards" onclick="setFlashcardStudyMode('flashcards')">Study Flashcards</button>
 		<button class="fc-study-btn" data-mode="definitions" onclick="setFlashcardStudyMode('definitions')">Study Definitions</button>
+		<button class="fc-study-btn" data-mode="tables" onclick="setFlashcardStudyMode('tables')">Study Tables</button>
 		<button class="fc-study-btn" data-mode="all" onclick="setFlashcardStudyMode('all')">Study All</button>
 	</div>
 	<div class="fc-study-hint" id="fc-study-hint"></div>
@@ -141,6 +142,8 @@ let isFlashcardAnswerVisible = false;
 let flashcardStudyMode = 'flashcards';
 let cachedGlossaryEntries = [];
 let glossaryLoadedForStudy = false;
+let cachedCompareTables = [];
+let compareLoadedForStudy = false;
 let modalFrontImage = '';
 let modalBackImage = '';
 let imageAnnotatorTarget = null;
@@ -166,6 +169,8 @@ function openFlashcard(fileHandle, data, fileName = null) {
 	flashcardStudyMode = 'flashcards';
 	glossaryLoadedForStudy = false;
 	cachedGlossaryEntries = [];
+	compareLoadedForStudy = false;
+	cachedCompareTables = [];
     
 	// Hide other screens
 	document.getElementById('home-screen').classList.add('hidden');
@@ -279,8 +284,10 @@ function updateStudyModeControls() {
 	if (hint) {
 		if (flashcardStudyMode === 'definitions') {
 			hint.textContent = 'Glossary entries are read-only in this mode.';
+		} else if (flashcardStudyMode === 'tables') {
+			hint.textContent = 'Compare tables: bold cells are clues, fill the other cells and reveal.';
 		} else if (flashcardStudyMode === 'all') {
-			hint.textContent = 'Glossary entries are read-only; flashcards are editable.';
+			hint.textContent = 'Study All includes flashcards, glossary, and compare tables.';
 		} else {
 			hint.textContent = '';
 		}
@@ -291,8 +298,11 @@ async function setFlashcardStudyMode(mode) {
 	flashcardStudyMode = mode;
 	currentFlashcardIndex = 0;
 	updateStudyModeControls();
-	if (mode !== 'flashcards') {
+	if (mode === 'definitions' || mode === 'all') {
 		await ensureGlossaryLoadedForStudy();
+	}
+	if (mode === 'tables' || mode === 'all') {
+		await ensureCompareLoadedForStudy();
 	}
 	updateFlashcardDisplay();
 }
@@ -374,6 +384,148 @@ async function ensureGlossaryLoadedForStudy() {
 	glossaryLoadedForStudy = true;
 }
 
+function normalizeCompareTablesForStudy(compareData) {
+	const fallback = {
+		columns: ['Column 1', 'Column 2', 'Column 3'],
+		rows: [['', '', '']],
+		cellBold: [[false, false, false]],
+		name: 'Table'
+	};
+
+	const sourceTables = Array.isArray(compareData?.tables) && compareData.tables.length
+		? compareData.tables
+		: [{
+			name: compareData?.name || fallback.name,
+			columns: Array.isArray(compareData?.columns) ? compareData.columns : fallback.columns,
+			rows: Array.isArray(compareData?.rows) ? compareData.rows : fallback.rows,
+			cellBold: Array.isArray(compareData?.cellBold) ? compareData.cellBold : fallback.cellBold
+		}];
+
+	return sourceTables.map((table, index) => {
+		const columns = Array.isArray(table?.columns) && table.columns.length ? table.columns.slice() : fallback.columns.slice();
+		const colCount = columns.length;
+		const rows = (Array.isArray(table?.rows) && table.rows.length ? table.rows : fallback.rows).map((row) => {
+			const next = Array.isArray(row) ? row.slice(0, colCount) : [];
+			while (next.length < colCount) next.push('');
+			return next;
+		});
+		let cellBold = Array.isArray(table?.cellBold) ? table.cellBold.slice() : [];
+		while (cellBold.length < rows.length) cellBold.push(new Array(colCount).fill(false));
+		if (cellBold.length > rows.length) cellBold = cellBold.slice(0, rows.length);
+		cellBold = cellBold.map((row) => {
+			const next = Array.isArray(row) ? row.slice(0, colCount).map(Boolean) : [];
+			while (next.length < colCount) next.push(false);
+			return next;
+		});
+		return {
+			name: (typeof table?.name === 'string' && table.name.trim()) ? table.name.trim() : `Table ${index + 1}`,
+			columns,
+			rows,
+			cellBold
+		};
+	});
+}
+
+async function ensureCompareLoadedForStudy() {
+	if (compareLoadedForStudy) return;
+	let compareData = null;
+	const isCompareLikeData = (data) => {
+		if (!data || typeof data !== 'object') return false;
+		if (data.type === 'compare' || data.type === 'table' || data.type === 'tables') return true;
+		if (Array.isArray(data.tables)) return true;
+		if (Array.isArray(data.rows) && Array.isArray(data.columns)) return true;
+		return false;
+	};
+
+	if (typeof currentCompareData !== 'undefined' && isCompareLikeData(currentCompareData)) {
+		compareData = currentCompareData;
+	}
+
+	if (!compareData && typeof findQuickAccessNote === 'function') {
+		let note = findQuickAccessNote('compare');
+		if (!note && typeof getScopedNotesForQuickAccess === 'function') {
+			const scoped = getScopedNotesForQuickAccess();
+			note = scoped.find(n => n.typeToken === 'table' || n.typeToken === 'tables') || null;
+		}
+		if (note) {
+			if (noteDataCache && noteDataCache.has(note.noteKey)) {
+				const cached = noteDataCache.get(note.noteKey);
+				if (isCompareLikeData(cached)) compareData = cached;
+			} else if (note.handle && typeof note.handle.getFile === 'function') {
+				try {
+					const file = await note.handle.getFile();
+					const text = await file.text();
+					const parsed = JSON.parse(text);
+					if (isCompareLikeData(parsed)) {
+						compareData = parsed;
+						if (noteDataCache) noteDataCache.set(note.noteKey, compareData);
+					}
+				} catch (err) {
+					console.warn('Failed to read compare note for study mode', err);
+				}
+			}
+		}
+	}
+
+	if (!compareData && activeSubject && activeSubject.handle) {
+		try {
+			for await (const entry of activeSubject.handle.values()) {
+				if (entry.kind !== 'file' || !entry.name.toLowerCase().endsWith('.json')) continue;
+				try {
+					const file = await entry.getFile();
+					const text = await file.text();
+					const data = JSON.parse(text);
+					if (isCompareLikeData(data)) {
+						compareData = data;
+						break;
+					}
+					const lowerName = entry.name.toLowerCase();
+					if (!compareData && (lowerName.includes('compare') || lowerName.includes('table')) && (Array.isArray(data?.tables) || Array.isArray(data?.rows))) {
+						compareData = data;
+						break;
+					}
+				} catch (err) {
+					// skip unreadable file
+				}
+			}
+		} catch (err) {
+			console.warn('Compare scan failed', err);
+		}
+	}
+
+	// Detached window fallback: scan directory using fs.
+	if (!compareData && currentFilePath && typeof fs !== 'undefined' && typeof path !== 'undefined') {
+		try {
+			const dirPath = path.dirname(currentFilePath);
+			const entries = fs.readdirSync(dirPath);
+			for (const name of entries) {
+				if (!name.toLowerCase().endsWith('.json')) continue;
+				try {
+					const fullPath = path.join(dirPath, name);
+					const text = fs.readFileSync(fullPath, 'utf8');
+					const data = JSON.parse(text);
+					if (isCompareLikeData(data)) {
+						compareData = data;
+						break;
+					}
+					const lowerName = name.toLowerCase();
+					if (!compareData && (lowerName.includes('compare') || lowerName.includes('table')) && (Array.isArray(data?.tables) || Array.isArray(data?.rows))) {
+						compareData = data;
+						break;
+					}
+				} catch (err) {
+					// Skip unreadable files
+				}
+			}
+		} catch (err) {
+			console.warn('Compare fs scan failed', err);
+		}
+	}
+
+	cachedCompareTables = compareData ? normalizeCompareTablesForStudy(compareData) : [];
+	compareLoadedForStudy = cachedCompareTables.length > 0;
+}
+
 function getActiveStudyCards() {
 	const flashcards = currentFlashcardData.flashcards || [];
 	const glossaryCards = cachedGlossaryEntries.map(entry => ({
@@ -381,14 +533,109 @@ function getActiveStudyCards() {
 		back: entry.definition || '',
 		type: 'basic'
 	}));
+	const compareCards = cachedCompareTables.map((table, index) => ({
+		studyType: 'compare-table',
+		tableIndex: index,
+		tableName: table.name || `Table ${index + 1}`,
+		columns: table.columns,
+		rows: table.rows,
+		cellBold: table.cellBold,
+		type: 'basic'
+	}));
 
 	if (flashcardStudyMode === 'definitions') {
 		return glossaryCards;
 	}
+	if (flashcardStudyMode === 'tables') {
+		return compareCards;
+	}
 	if (flashcardStudyMode === 'all') {
-		return [...flashcards, ...glossaryCards];
+		return [...flashcards, ...glossaryCards, ...compareCards];
 	}
 	return flashcards;
+}
+
+function renderCompareStudyQuestion(container, cardData) {
+	if (!container) return;
+	container.innerHTML = '';
+
+	const title = document.createElement('div');
+	title.className = 'fc-compare-title';
+	title.textContent = cardData.tableName || 'Compare Table';
+	container.appendChild(title);
+
+	const table = document.createElement('table');
+	table.className = 'fc-compare-table compare-table';
+
+	(cardData.rows || []).forEach((row, rowIndex) => {
+		const tr = document.createElement('tr');
+		row.forEach((cellValue, colIndex) => {
+			const td = document.createElement('td');
+			const isGiven = !!(cardData.cellBold && cardData.cellBold[rowIndex] && cardData.cellBold[rowIndex][colIndex]);
+			if (isGiven) {
+				const given = document.createElement('input');
+				given.type = 'text';
+				given.className = 'compare-cell-input compare-col-bold fc-compare-given-input';
+				given.value = cellValue || '';
+				given.readOnly = true;
+				given.tabIndex = -1;
+				td.appendChild(given);
+			} else {
+				const input = document.createElement('input');
+				input.type = 'text';
+				input.className = 'compare-cell-input fc-compare-input';
+				input.dataset.row = String(rowIndex);
+				input.dataset.col = String(colIndex);
+				input.dataset.correct = cellValue || '';
+				td.appendChild(input);
+			}
+			tr.appendChild(td);
+		});
+		table.appendChild(tr);
+	});
+
+	container.appendChild(table);
+}
+
+function renderCompareStudyAnswer(container, questionContainer) {
+	if (!container || !questionContainer) return;
+	container.innerHTML = '';
+
+	const rows = Array.from(questionContainer.querySelectorAll('.fc-compare-table tr'));
+	if (!rows.length) return;
+
+	const resultTable = document.createElement('table');
+	resultTable.className = 'fc-compare-table compare-table fc-compare-result-table';
+
+	rows.forEach((srcRow) => {
+		const tr = document.createElement('tr');
+		Array.from(srcRow.children).forEach((srcCell) => {
+			const td = document.createElement('td');
+			const input = srcCell.querySelector('input.fc-compare-input');
+			if (!input) {
+				const givenInput = srcCell.querySelector('input.fc-compare-given-input, input.compare-cell-input');
+				const out = document.createElement('input');
+				out.type = 'text';
+				out.className = 'compare-cell-input compare-col-bold fc-compare-given-input fc-compare-answer-input';
+				out.value = givenInput ? (givenInput.value || '') : (srcCell.textContent || '');
+				out.readOnly = true;
+				out.tabIndex = -1;
+				td.appendChild(out);
+			} else {
+				const correctValue = (input.dataset.correct || '').trim();
+				const out = document.createElement('input');
+				out.type = 'text';
+				out.className = 'compare-cell-input fc-compare-answer-input';
+				out.value = correctValue;
+				out.readOnly = true;
+				out.tabIndex = -1;
+				td.appendChild(out);
+			}
+			tr.appendChild(td);
+		});
+		resultTable.appendChild(tr);
+	});
+	container.appendChild(resultTable);
 }
 
 function updateFlashcardDisplay() {
@@ -427,8 +674,14 @@ function updateFlashcardDisplay() {
 		if (questionContainer) questionContainer.style.display = 'block';
 		if (revealBtn) revealBtn.style.display = 'inline-flex';
 		if (answerContainer) answerContainer.classList.remove('show');
-		renderCardContent(questionContainer, cardData.front || '', cardData.frontImage || '');
-		renderCardContent(answerContainer, cardData.back || '', cardData.backImage || '');
+		if (revealBtn) revealBtn.textContent = 'Reveal Answer';
+		if (cardData.studyType === 'compare-table') {
+			renderCompareStudyQuestion(questionContainer, cardData);
+			if (answerContainer) answerContainer.innerHTML = '';
+		} else {
+			renderCardContent(questionContainer, cardData.front || '', cardData.frontImage || '');
+			renderCardContent(answerContainer, cardData.back || '', cardData.backImage || '');
+		}
 		if (fcCard) {
 			fcCard.classList.remove('is-flipped');
 			fcCard.classList.remove('is-fill-blank');
@@ -545,6 +798,17 @@ function flipCard() {
 function toggleFlashcardAnswer() {
 	const answerContainer = document.getElementById('fc-answer');
 	if (!answerContainer) return;
+	const cards = getActiveStudyCards();
+	const cardData = cards[currentFlashcardIndex];
+	if (flashcardStudyMode !== 'flashcards' && cardData && cardData.studyType === 'compare-table') {
+		isFlashcardAnswerVisible = !isFlashcardAnswerVisible;
+		if (isFlashcardAnswerVisible) {
+			const questionContainer = document.getElementById('fc-question');
+			renderCompareStudyAnswer(answerContainer, questionContainer);
+		}
+		answerContainer.classList.toggle('show', isFlashcardAnswerVisible);
+		return;
+	}
 	isFlashcardAnswerVisible = !isFlashcardAnswerVisible;
 	answerContainer.classList.toggle('show', isFlashcardAnswerVisible);
 }

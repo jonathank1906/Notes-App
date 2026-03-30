@@ -1650,6 +1650,88 @@ kbd {
     text-align: left;
 }
 
+.fc-compare-title {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    color: #b8b8b8;
+    text-align: center;
+    font-weight: 600;
+}
+
+.fc-compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    min-width: 0;
+}
+
+.fc-compare-table td {
+    border: 1px solid #2f2f2f;
+    background: #131313;
+    padding: 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.fc-compare-given {
+    background: #1f262f !important;
+    color: #ecf1ff;
+    font-weight: 700;
+}
+
+.fc-compare-input {
+    min-height: 36px;
+}
+
+.fc-compare-input:focus {
+    outline: 1px solid #3a3a3a;
+    box-shadow: none;
+}
+
+.fc-compare-given-input {
+    cursor: default;
+}
+
+.fc-compare-answer-input {
+    opacity: 1;
+}
+
+.fc-compare-score {
+    margin-bottom: 10px;
+    color: #cfd6ff;
+    font-weight: 700;
+    text-align: center;
+}
+
+.fc-compare-correct {
+    background: #122417 !important;
+    border-color: #265b31 !important;
+}
+
+.fc-compare-incorrect {
+    background: #2a1315 !important;
+    border-color: #6f2a31 !important;
+}
+
+.fc-compare-user {
+    font-weight: 700;
+    color: #f0f0f0;
+    word-break: break-word;
+}
+
+.fc-compare-correct-value {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: #b8b8b8;
+    word-break: break-word;
+}
+
+.fc-compare-reveal {
+    background: #1a1a1a !important;
+    color: #e6e6e6;
+    font-weight: 600;
+}
+
 .fc-edit-select {
     width: 100%;
     padding: 8px 10px;
