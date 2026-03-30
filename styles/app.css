@@ -2050,9 +2050,9 @@ kbd {
 }
 .glossary-term-row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
-    padding: 20px;
+    padding: 0;
     background: #2f2f2f;
     border-radius: 10px;
 }
@@ -2061,14 +2061,20 @@ kbd {
     border-radius: 10px 10px 0 0;
 }
 .glossary-carrow {
-    width: 44px;
-    height: 44px;
-    background: #3a3a3a;
-    border-radius: 8px;
+    width: 64px;
+    min-width: 64px;
+    background: #2f2f2f;
+    border-radius: 0 10px 10px 0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+}
+.glossary-carrow:hover {
+    background: #3e3e3e;
+}
+.glossary-item.open .glossary-carrow {
+    border-radius: 0 10px 0 0;
 }
 .glossary-carrow svg {
     width: 16px;
@@ -2076,6 +2082,11 @@ kbd {
 }
 .glossary-carrow.open svg {
     transform: rotate(180deg);
+}
+.glossary-term {
+    display: flex;
+    align-items: center;
+    padding: 20px;
 }
 #glossary-master-toggle {
     background: #222;
