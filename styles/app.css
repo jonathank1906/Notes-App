@@ -1436,6 +1436,10 @@ kbd {
     display: none;
 }
 
+#flashcard-page.edit-mode .fc-scratchpad {
+    display: none;
+}
+
 /* 3. THE CARD OBJECT */
 .card {
     width: 100%;
@@ -2023,6 +2027,70 @@ kbd {
     padding: 12px;
     max-height: 70vh;
     overflow: auto;
+}
+
+.fc-scratchpad {
+    position: fixed;
+    right: 20px;
+    top: 120px;
+    width: 280px;
+    height: 320px;
+    background: rgba(20, 20, 20, 0.92);
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    z-index: 60;
+}
+
+.fc-scratchpad.hidden {
+    display: none;
+}
+
+.fc-scratchpad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid #2a2a2a;
+    cursor: grab;
+}
+
+.fc-scratchpad-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cfd6ff;
+}
+
+.fc-scratchpad-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.fc-scratchpad-actions .fc-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.fc-scratchpad-text {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    padding: 10px;
+    resize: none;
+    font-size: 13px;
+    outline: none;
+}
+
+.fc-scratchpad-canvas {
+    display: none;
+    width: 100%;
+    height: 100%;
+    background: #0f0f0f;
+    border-top: 1px solid #2a2a2a;
+    touch-action: none;
 }
 
 #fc-image-canvas {

@@ -117,6 +117,19 @@ flashcardPage.innerHTML = `
 				</div>
 			</div>
 	</div>
+
+		<div id="fc-scratchpad" class="fc-scratchpad">
+			<div class="fc-scratchpad-header" id="fc-scratchpad-header">
+				<div class="fc-scratchpad-title">Scratchpad</div>
+				<div class="fc-scratchpad-actions">
+					<button class="fc-btn" onclick="setScratchpadMode('text')">Text</button>
+					<button class="fc-btn" onclick="setScratchpadMode('draw')">Draw</button>
+					<button class="fc-btn del-btn" onclick="clearScratchpad()">Clear</button>
+				</div>
+			</div>
+			<textarea id="fc-scratchpad-text" class="fc-scratchpad-text" placeholder="Type your answer..."></textarea>
+			<canvas id="fc-scratchpad-canvas" class="fc-scratchpad-canvas"></canvas>
+		</div>
 `;
 document.body.appendChild(flashcardPage);
 
@@ -140,6 +153,10 @@ let imageAnnotatorBaseCanvas = null;
 let imageAnnotatorBaseCtx = null;
 let imageAnnotatorImageRect = null;
 let suppressNextCardFlip = false;
+let scratchpadMode = 'text';
+let scratchpadIsDrawing = false;
+let scratchpadLastPoint = null;
+let scratchpadDragState = null;
 
 function openFlashcard(fileHandle, data, fileName = null) {
 	currentFlashcardHandle = fileHandle;
@@ -195,6 +212,7 @@ function renderFlashcardUI() {
 	const revealBtn = document.getElementById('fc-reveal-btn');
 	const questionContainer = document.getElementById('fc-question');
 	const answerContainer = document.getElementById('fc-answer');
+	const scratchpad = document.getElementById('fc-scratchpad');
     
 	if (isFlashcardFullEditMode) {
 		// Full Edit Mode: Show list of all cards
@@ -211,6 +229,7 @@ function renderFlashcardUI() {
 			flashcardPage.classList.add('edit-mode');
 			flashcardPage.scrollTop = 0; // Scroll to top when entering edit mode
 		}
+		if (scratchpad) scratchpad.classList.add('hidden');
 		renderFullEditList();
 	} else {
 		// Practice Mode: Show card with flip animation
@@ -221,6 +240,7 @@ function renderFlashcardUI() {
 			modeToggle.style.display = 'block'; // Show the absolute positioned button
 		}
 		if (flashcardPage) flashcardPage.classList.remove('edit-mode');
+		if (scratchpad) scratchpad.classList.remove('hidden');
         
 		if (card) card.classList.remove('is-flipped');
 		updateStudyModeControls();
@@ -387,6 +407,7 @@ function updateFlashcardDisplay() {
 	const isFillBlank = cardData && cardData.type === 'fill-blank';
 
 	isFlashcardAnswerVisible = false;
+	resetScratchpad();
 
 	if (!cardData) {
 		if (fcFront) fcFront.textContent = 'No cards for this mode yet.';
@@ -1195,6 +1216,16 @@ function getAnnotatorPoint(canvas, e) {
 	};
 }
 
+function getCanvasPoint(canvas, e) {
+	const rect = canvas.getBoundingClientRect();
+	const scaleX = rect.width ? canvas.width / rect.width : 1;
+	const scaleY = rect.height ? canvas.height / rect.height : 1;
+	return {
+		x: (e.clientX - rect.left) * scaleX,
+		y: (e.clientY - rect.top) * scaleY
+	};
+}
+
 function applyFlashcardImageZoom(imgEl, delta) {
 	if (!imgEl) return;
 	const current = parseFloat(imgEl.dataset.zoom || '1');
@@ -1216,6 +1247,82 @@ function applyFlashcardImagePan(imgEl, dx, dy) {
 	imgEl.dataset.panY = String(panY);
 	imgEl.style.transformOrigin = 'center center';
 	imgEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+}
+
+function setScratchpadMode(mode) {
+	const text = document.getElementById('fc-scratchpad-text');
+	const canvas = document.getElementById('fc-scratchpad-canvas');
+	if (!text || !canvas) return;
+	scratchpadMode = mode === 'draw' ? 'draw' : 'text';
+	text.style.display = scratchpadMode === 'text' ? 'block' : 'none';
+	canvas.style.display = scratchpadMode === 'draw' ? 'block' : 'none';
+}
+
+function clearScratchpad() {
+	const text = document.getElementById('fc-scratchpad-text');
+	const canvas = document.getElementById('fc-scratchpad-canvas');
+	if (text) text.value = '';
+	if (canvas) {
+		const ctx = canvas.getContext('2d');
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	}
+}
+
+function resetScratchpad() {
+	clearScratchpad();
+}
+
+function resizeScratchpadCanvas() {
+	const canvas = document.getElementById('fc-scratchpad-canvas');
+	if (!canvas) return;
+	const wrap = canvas.parentElement;
+	if (!wrap) return;
+	const rect = wrap.getBoundingClientRect();
+	const width = Math.max(200, Math.floor(rect.width - 20));
+	const height = Math.max(120, Math.floor(rect.height - 120));
+	const dpr = Math.max(1, window.devicePixelRatio || 1);
+	const targetW = Math.floor(width * dpr);
+	const targetH = Math.floor(height * dpr);
+	if (canvas.width !== targetW || canvas.height !== targetH) {
+		canvas.width = targetW;
+		canvas.height = targetH;
+		canvas.style.width = `${width}px`;
+		canvas.style.height = `${height}px`;
+		const ctx = canvas.getContext('2d');
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+	}
+}
+
+function snapScratchpadToEdge(panel) {
+	const margin = 16;
+	const rect = panel.getBoundingClientRect();
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
+	const distances = [
+		{ edge: 'left', value: rect.left },
+		{ edge: 'right', value: vw - rect.right },
+		{ edge: 'top', value: rect.top },
+		{ edge: 'bottom', value: vh - rect.bottom }
+	];
+	let nearest = distances[0];
+	for (let i = 1; i < distances.length; i++) {
+		if (distances[i].value < nearest.value) nearest = distances[i];
+	}
+	if (nearest.edge === 'left') {
+		panel.style.left = `${margin}px`;
+		panel.style.top = `${Math.min(Math.max(rect.top, margin), vh - rect.height - margin)}px`;
+	} else if (nearest.edge === 'right') {
+		panel.style.left = `${Math.max(margin, vw - rect.width - margin)}px`;
+		panel.style.top = `${Math.min(Math.max(rect.top, margin), vh - rect.height - margin)}px`;
+	} else if (nearest.edge === 'top') {
+		panel.style.top = `${margin}px`;
+		panel.style.left = `${Math.min(Math.max(rect.left, margin), vw - rect.width - margin)}px`;
+	} else {
+		panel.style.top = `${Math.max(margin, vh - rect.height - margin)}px`;
+		panel.style.left = `${Math.min(Math.max(rect.left, margin), vw - rect.width - margin)}px`;
+	}
 }
 
 // Add click handler for flip card
@@ -1281,6 +1388,80 @@ document.addEventListener('DOMContentLoaded', () => {
 		flashcardPageEl.addEventListener('pointerup', stopPan);
 		flashcardPageEl.addEventListener('pointercancel', stopPan);
 		flashcardPageEl.addEventListener('pointerleave', stopPan);
+	}
+
+	const scratchpad = document.getElementById('fc-scratchpad');
+	const scratchHeader = document.getElementById('fc-scratchpad-header');
+	const scratchCanvas = document.getElementById('fc-scratchpad-canvas');
+	if (scratchpad && scratchHeader && scratchCanvas) {
+		setScratchpadMode('text');
+		resizeScratchpadCanvas();
+
+		scratchHeader.addEventListener('pointerdown', (e) => {
+			if (e.target && e.target.closest && e.target.closest('.fc-scratchpad-actions')) {
+				return;
+			}
+			scratchpadDragState = {
+				startX: e.clientX,
+				startY: e.clientY,
+				origLeft: scratchpad.offsetLeft,
+				origTop: scratchpad.offsetTop
+			};
+			scratchHeader.setPointerCapture(e.pointerId);
+			e.preventDefault();
+		});
+		scratchHeader.addEventListener('pointermove', (e) => {
+			if (!scratchpadDragState) return;
+			const dx = e.clientX - scratchpadDragState.startX;
+			const dy = e.clientY - scratchpadDragState.startY;
+			scratchpad.style.left = `${scratchpadDragState.origLeft + dx}px`;
+			scratchpad.style.top = `${scratchpadDragState.origTop + dy}px`;
+		});
+		scratchHeader.addEventListener('pointerup', (e) => {
+			if (scratchHeader.hasPointerCapture(e.pointerId)) {
+				scratchHeader.releasePointerCapture(e.pointerId);
+			}
+			scratchpadDragState = null;
+			snapScratchpadToEdge(scratchpad);
+		});
+		scratchHeader.addEventListener('pointercancel', () => {
+			scratchpadDragState = null;
+		});
+
+		scratchCanvas.addEventListener('pointerdown', (e) => {
+			if (scratchpadMode !== 'draw') return;
+			scratchpadIsDrawing = true;
+			scratchpadLastPoint = getCanvasPoint(scratchCanvas, e);
+			scratchCanvas.setPointerCapture(e.pointerId);
+		});
+		scratchCanvas.addEventListener('pointermove', (e) => {
+			if (!scratchpadIsDrawing || scratchpadMode !== 'draw') return;
+			const point = getCanvasPoint(scratchCanvas, e);
+			const ctx = scratchCanvas.getContext('2d');
+			ctx.strokeStyle = '#ffffff';
+			ctx.lineWidth = 2;
+			ctx.lineCap = 'round';
+			ctx.lineJoin = 'round';
+			ctx.beginPath();
+			ctx.moveTo(scratchpadLastPoint.x, scratchpadLastPoint.y);
+			ctx.lineTo(point.x, point.y);
+			ctx.stroke();
+			scratchpadLastPoint = point;
+		});
+		const stopScratchDraw = (e) => {
+			if (scratchCanvas.hasPointerCapture(e.pointerId)) {
+				scratchCanvas.releasePointerCapture(e.pointerId);
+			}
+			scratchpadIsDrawing = false;
+			scratchpadLastPoint = null;
+		};
+		scratchCanvas.addEventListener('pointerup', stopScratchDraw);
+		scratchCanvas.addEventListener('pointerleave', stopScratchDraw);
+		scratchCanvas.addEventListener('pointercancel', stopScratchDraw);
+
+		window.addEventListener('resize', () => {
+			resizeScratchpadCanvas();
+		});
 	}
 
 	document.addEventListener('keydown', (e) => {
