@@ -4840,8 +4840,8 @@ async function generateNotePreview(fileHandle, previewEl, prefetchedData = null)
 async function openNote(fileHandle, noteKey = null, prefetchedData = null) {
     // Check note type first before loading
     let data = prefetchedData;
-    if (data && data.type === 'qa') {
-        // Always re-read Q/A from disk so canvas layout restores immediately after close/reopen.
+    if (data && (data.type === 'qa' || data.type === 'glossary')) {
+        // Always re-read Q/A and glossary from disk to avoid stale in-memory cache after close/reopen.
         data = null;
     }
     if (!data) {
