@@ -2809,7 +2809,9 @@ async function openQuickAccessNote(type) {
     // 1. Fast memory check
     const note = findQuickAccessNote(type);
     if (note) {
-        await openNote(note.handle, note.noteKey, noteDataCache.get(note.noteKey) || null);
+        // Q/A layout can change frequently; always reload from file to avoid stale in-memory cache.
+        const prefetched = type === 'qa' ? null : (noteDataCache.get(note.noteKey) || null);
+        await openNote(note.handle, note.noteKey, prefetched);
         return;
     }
 
@@ -4831,6 +4833,10 @@ async function generateNotePreview(fileHandle, previewEl, prefetchedData = null)
 async function openNote(fileHandle, noteKey = null, prefetchedData = null) {
     // Check note type first before loading
     let data = prefetchedData;
+    if (data && data.type === 'qa') {
+        // Always re-read Q/A from disk so canvas layout restores immediately after close/reopen.
+        data = null;
+    }
     if (!data) {
         const file = await fileHandle.getFile();
         const text = await file.text();
