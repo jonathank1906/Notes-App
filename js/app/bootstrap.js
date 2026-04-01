@@ -334,10 +334,11 @@ let aiAdvancedModalEl = null;
 let aiAdvancedModalImageEl = null;
 let aiAdvancedModalTitleEl = null;
 let aiAdvancedModalStatusEl = null;
+let aiAdvancedModalRequestToken = 0;
 const aiAdvancedViewState = {
     scale: 1,
     minScale: 0.35,
-    maxScale: 9,
+    maxScale: 60,
     tx: 0,
     ty: 0,
     panning: false,
@@ -4072,6 +4073,7 @@ function queueNotePreview(note, previewEl) {
     }
 
     previewEl.dataset.previewState = 'queued';
+    previewEl.dataset.previewLoadToken = 'queued-' + Date.now() + '-' + Math.random().toString(36).slice(2);
     previewEl.__previewHandle = note.handle;
     previewEl.__previewNoteKey = note.noteKey;
     previewEl.innerHTML = '';
@@ -4087,10 +4089,19 @@ async function loadNotePreviewWhenNeeded(previewEl) {
     if (!fileHandle) return;
 
     const cachedData = noteDataCache.get(previewEl.__previewNoteKey);
+    const loadToken = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
 
     previewEl.dataset.previewState = 'loading';
+    previewEl.dataset.previewLoadToken = loadToken;
     await generateNotePreview(fileHandle, previewEl, cachedData || null);
+
+    // Guard against stale async writes when cards are recycled or re-queued.
+    if (previewEl.dataset.previewLoadToken !== loadToken) {
+        return;
+    }
+
     previewEl.dataset.previewState = 'loaded';
+    delete previewEl.dataset.previewLoadToken;
     delete previewEl.__previewHandle;
     delete previewEl.__previewNoteKey;
 }
@@ -4104,6 +4115,36 @@ function updateAiAdvancedTransform() {
     aiAdvancedModalImageEl.style.transform = `translate(${aiAdvancedViewState.tx}px, ${aiAdvancedViewState.ty}px) scale(${aiAdvancedViewState.scale})`;
 }
 
+function setAiAdvancedStatusText(text) {
+    if (!aiAdvancedModalStatusEl) return;
+    aiAdvancedModalStatusEl.textContent = text || '';
+}
+
+function setAiAdvancedStatusLoading(label = 'Loading...') {
+    if (!aiAdvancedModalStatusEl) return;
+    aiAdvancedModalStatusEl.innerHTML = `
+        <div class="ai-advanced-preview-progress-wrap" role="status" aria-live="polite" aria-label="${escapeHtml(label)}">
+            <span class="ai-advanced-preview-progress-label">${escapeHtml(label)}</span>
+            <span class="ai-advanced-preview-progress-track"><span class="ai-advanced-preview-progress-fill"></span></span>
+        </div>
+    `;
+}
+
+function setAiAdvancedStatusProgress(label, value) {
+    if (!aiAdvancedModalStatusEl) return;
+
+    const safeLabel = label || 'Loading...';
+    const pct = clamp(Number.isFinite(value) ? value : 0, 0, 100);
+    aiAdvancedModalStatusEl.innerHTML = `
+        <div class="ai-advanced-preview-progress-wrap" role="status" aria-live="polite" aria-label="${escapeHtml(safeLabel)} ${Math.round(pct)}%">
+            <span class="ai-advanced-preview-progress-label">${escapeHtml(safeLabel)}</span>
+            <span class="ai-advanced-preview-progress-track">
+                <span class="ai-advanced-preview-progress-fill" style="width:${pct.toFixed(1)}%;left:0;"></span>
+            </span>
+        </div>
+    `;
+}
+
 function resetAiAdvancedTransform() {
     aiAdvancedViewState.scale = 1;
     aiAdvancedViewState.tx = 0;
@@ -4112,28 +4153,70 @@ function resetAiAdvancedTransform() {
     updateAiAdvancedTransform();
 }
 
-async function renderAiPreviewDataUrl(fileHandle, targetWidth = 1800, targetHeight = 1300) {
+async function renderAiPreviewDataUrl(fileHandle, targetWidth = 1800, targetHeight = 1300, opts = null) {
     if (!fileHandle || typeof pdfjsLib === 'undefined' || !pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
         return null;
     }
 
+    const options = opts || {};
+    const qualityBoost = Number.isFinite(options.qualityBoost) ? options.qualityBoost : 1.35;
+    const minScale = Number.isFinite(options.minScale) ? options.minScale : 0.08;
+    const maxScale = Number.isFinite(options.maxScale) ? options.maxScale : 12;
+    const maxPixels = Number.isFinite(options.maxPixels) ? options.maxPixels : 150_000_000;
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+
+    const reportProgress = (pct) => {
+        if (!onProgress) return;
+        try { onProgress(clamp(pct, 0, 100)); } catch (err) {}
+    };
+
     let pdfDoc = null;
     try {
+        reportProgress(5);
         const file = await fileHandle.getFile();
         const buffer = await file.arrayBuffer();
 
-        pdfDoc = await pdfjsLib.getDocument({
-            data: buffer,
-            stopAtErrors: false,
-            useSystemFonts: true,
-            maxImageSize: -1
-        }).promise;
+        const loadDocument = async (useWorker = true) => {
+            const loadingTask = pdfjsLib.getDocument({
+                data: new Uint8Array(buffer),
+                stopAtErrors: false,
+                useSystemFonts: true,
+                maxImageSize: -1,
+                // Some environments are flaky with workers; allow a no-worker retry.
+                disableWorker: !useWorker
+            });
+
+            if (loadingTask && typeof loadingTask.onProgress !== 'undefined') {
+                loadingTask.onProgress = (prog) => {
+                    if (!prog || !prog.total) return;
+                    const loadedPct = (prog.loaded / prog.total) * 100;
+                    // Reserve 5-40% for document read/parse.
+                    reportProgress(5 + loadedPct * 0.35);
+                };
+            }
+
+            return loadingTask.promise;
+        };
+
+        try {
+            pdfDoc = await loadDocument(true);
+        } catch (firstErr) {
+            pdfDoc = await loadDocument(false);
+        }
 
         const firstPage = await pdfDoc.getPage(1);
+        reportProgress(50);
         const baseViewport = firstPage.getViewport({ scale: 1 });
         const fitScale = Math.max(0.1, Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height));
-        const detailScale = Math.max(1.4, Math.min(3.2, fitScale));
-        const viewport = firstPage.getViewport({ scale: detailScale });
+        // Keep quality high while preventing huge canvases on large artboards.
+        let detailScale = clamp(fitScale * qualityBoost, 0.12, maxScale);
+        const projectedPixels = (baseViewport.width * detailScale) * (baseViewport.height * detailScale);
+        if (projectedPixels > maxPixels) {
+            detailScale = detailScale * Math.sqrt(maxPixels / projectedPixels);
+        }
+
+        const viewport = firstPage.getViewport({ scale: Math.max(minScale, detailScale) });
+        reportProgress(62);
 
         const canvasEl = document.createElement('canvas');
         canvasEl.width = Math.max(1, Math.floor(viewport.width));
@@ -4142,9 +4225,68 @@ async function renderAiPreviewDataUrl(fileHandle, targetWidth = 1800, targetHeig
         const previewCtx = canvasEl.getContext('2d');
         previewCtx.fillStyle = '#000';
         previewCtx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+        reportProgress(72);
         await firstPage.render({ canvasContext: previewCtx, viewport }).promise;
+        reportProgress(100);
 
         return canvasEl.toDataURL('image/png');
+    } catch (err) {
+        return null;
+    } finally {
+        if (pdfDoc && typeof pdfDoc.destroy === 'function') {
+            try { await pdfDoc.destroy(); } catch (destroyErr) {}
+        }
+    }
+}
+
+async function renderAiPreviewSvgDataUrl(fileHandle, targetWidth = 2600, targetHeight = 1900, opts = null) {
+    if (!fileHandle || typeof pdfjsLib === 'undefined' || !pdfjsLib || typeof pdfjsLib.getDocument !== 'function' || typeof pdfjsLib.SVGGraphics !== 'function') {
+        return null;
+    }
+
+    const options = opts || {};
+    const qualityBoost = Number.isFinite(options.qualityBoost) ? options.qualityBoost : 1.2;
+    const minScale = Number.isFinite(options.minScale) ? options.minScale : 0.08;
+    const maxScale = Number.isFinite(options.maxScale) ? options.maxScale : 20;
+
+    let pdfDoc = null;
+    try {
+        const file = await fileHandle.getFile();
+        const buffer = await file.arrayBuffer();
+
+        const loadDocument = async (useWorker = true) => {
+            return pdfjsLib.getDocument({
+                data: new Uint8Array(buffer),
+                stopAtErrors: false,
+                useSystemFonts: true,
+                maxImageSize: -1,
+                disableWorker: !useWorker
+            }).promise;
+        };
+
+        try {
+            pdfDoc = await loadDocument(true);
+        } catch (firstErr) {
+            pdfDoc = await loadDocument(false);
+        }
+
+        const firstPage = await pdfDoc.getPage(1);
+        const baseViewport = firstPage.getViewport({ scale: 1 });
+        const fitScale = Math.max(0.1, Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height));
+        const svgScale = clamp(fitScale * qualityBoost, minScale, maxScale);
+        const viewport = firstPage.getViewport({ scale: svgScale });
+
+        const operatorList = await firstPage.getOperatorList();
+        const svgGfx = new pdfjsLib.SVGGraphics(firstPage.commonObjs, firstPage.objs);
+        const svgEl = await svgGfx.getSVG(operatorList, viewport);
+        if (!svgEl) return null;
+
+        svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svgEl.setAttribute('shape-rendering', 'geometricPrecision');
+        svgEl.style.background = '#000';
+
+        const serialized = new XMLSerializer().serializeToString(svgEl);
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
     } catch (err) {
         return null;
     } finally {
@@ -4184,7 +4326,7 @@ function ensureAiAdvancedPreviewModal() {
 
         // Center-anchored smooth zoom: keep current viewport position stable,
         // then let user pan explicitly after zooming.
-        const factor = clamp(Math.exp(-e.deltaY * 0.0012), 0.88, 1.12);
+        const factor = clamp(Math.exp(-e.deltaY * 0.0025), 0.8, 1.3);
         const prevScale = aiAdvancedViewState.scale;
         const nextScale = clamp(prevScale * factor, aiAdvancedViewState.minScale, aiAdvancedViewState.maxScale);
         if (nextScale === prevScale) return;
@@ -4232,6 +4374,7 @@ function ensureAiAdvancedPreviewModal() {
 
 function closeAiAdvancedPreviewModal() {
     if (!aiAdvancedModalEl) return;
+    aiAdvancedModalRequestToken += 1;
     aiAdvancedModalEl.classList.remove('show');
     resetAiAdvancedTransform();
 }
@@ -4241,30 +4384,82 @@ async function openAiAdvancedPreviewModal(note) {
 
     const modal = ensureAiAdvancedPreviewModal();
     if (!modal || !aiAdvancedModalImageEl) return;
+    const requestToken = ++aiAdvancedModalRequestToken;
 
     if (aiAdvancedModalTitleEl) aiAdvancedModalTitleEl.textContent = `${note.name}.ai`;
-    if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Rendering high-detail preview...';
+    setAiAdvancedStatusText('Rendering vector preview...');
 
     modal.classList.add('show');
     resetAiAdvancedTransform();
 
     const cacheKey = note.noteKey || `${note.subject}:${note.name}`;
-    let dataUrl = aiAdvancedPreviewCache.get(cacheKey) || null;
+    const cached = aiAdvancedPreviewCache.get(cacheKey) || null;
+    let vectorDataUrl = null;
+    let fallbackDataUrl = null;
 
-    if (!dataUrl) {
-        dataUrl = await renderAiPreviewDataUrl(note.handle, 2200, 1600);
-        if (dataUrl) aiAdvancedPreviewCache.set(cacheKey, dataUrl);
+    if (cached) {
+        if (typeof cached === 'string') {
+            if (cached.startsWith('data:image/svg+xml')) vectorDataUrl = cached;
+            else fallbackDataUrl = cached;
+        } else if (typeof cached === 'object') {
+            vectorDataUrl = cached.vector || null;
+            fallbackDataUrl = cached.fallback || null;
+            if (!fallbackDataUrl) {
+                fallbackDataUrl = cached.detail || cached.quick || null;
+            }
+        }
     }
 
-    if (!modal.classList.contains('show')) return;
+    if (!modal.classList.contains('show') || requestToken !== aiAdvancedModalRequestToken) return;
 
-    if (dataUrl) {
-        aiAdvancedModalImageEl.src = dataUrl;
-        if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Scroll to zoom, drag to pan, Esc to close';
-    } else {
+    if (vectorDataUrl) {
+        aiAdvancedModalImageEl.src = vectorDataUrl;
+        setAiAdvancedStatusText('Vector preview ready. Scroll to zoom, drag to pan, Esc to close');
+        return;
+    }
+
+    setAiAdvancedStatusText('Rendering vector preview...');
+    vectorDataUrl = await renderAiPreviewSvgDataUrl(note.handle, 2800, 2100, {
+        qualityBoost: 1.35,
+        maxScale: 5,
+        minScale: 0.08
+    });
+
+    if (!modal.classList.contains('show') || requestToken !== aiAdvancedModalRequestToken) return;
+
+    if (vectorDataUrl) {
+        aiAdvancedModalImageEl.src = vectorDataUrl;
+        aiAdvancedPreviewCache.set(cacheKey, { vector: vectorDataUrl, fallback: fallbackDataUrl || null });
+        setAiAdvancedStatusText('Vector preview ready. Scroll to zoom, drag to pan, Esc to close');
+        return;
+    }
+
+    setAiAdvancedStatusProgress('Rendering high-resolution raster fallback...', 0);
+
+    if (!fallbackDataUrl) {
+        fallbackDataUrl = await renderAiPreviewDataUrl(note.handle, 7000, 5000, {
+            qualityBoost: 2.2,
+            maxPixels: 150_000_000,
+            maxScale: 8,
+            minScale: 0.08,
+            onProgress: (pct) => {
+                if (!modal.classList.contains('show') || requestToken !== aiAdvancedModalRequestToken) return;
+                setAiAdvancedStatusProgress('Rendering high-resolution raster fallback...', pct);
+            }
+        });
+    }
+
+    if (!modal.classList.contains('show') || requestToken !== aiAdvancedModalRequestToken) return;
+
+    if (!fallbackDataUrl) {
         aiAdvancedModalImageEl.removeAttribute('src');
-        if (aiAdvancedModalStatusEl) aiAdvancedModalStatusEl.textContent = 'Preview unavailable for this file';
+        setAiAdvancedStatusText('Preview unavailable for this file');
+        return;
     }
+
+    aiAdvancedModalImageEl.src = fallbackDataUrl;
+    aiAdvancedPreviewCache.set(cacheKey, { vector: null, fallback: fallbackDataUrl });
+    setAiAdvancedStatusText('Raster fallback ready. Scroll to zoom, drag to pan, Esc to close');
 }
 
 function createNoteCard(note) {
@@ -4372,36 +4567,25 @@ async function generateNotePreview(fileHandle, previewEl, prefetchedData = null)
     if (fileHandle.name.toLowerCase().endsWith('.ai')) {
         try {
             if (typeof pdfjsLib !== 'undefined' && pdfjsLib && typeof pdfjsLib.getDocument === 'function') {
-                const file = await fileHandle.getFile();
-                const buffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: buffer });
-                const pdfDoc = await loadingTask.promise;
-                const firstPage = await pdfDoc.getPage(1);
-                const baseViewport = firstPage.getViewport({ scale: 1 });
-                const targetWidth = 500;
-                const targetHeight = 400;
-                const fitScale = Math.max(0.1, Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height));
-                const viewport = firstPage.getViewport({ scale: fitScale });
+                const dataUrl = await renderAiPreviewDataUrl(fileHandle, 500, 400, {
+                    qualityBoost: 1.4,
+                    maxPixels: 8_000_000,
+                    maxScale: 2.6
+                });
+                if (dataUrl) {
+                    const previewImg = document.createElement('img');
+                    previewImg.src = dataUrl;
+                    previewImg.alt = 'Illustrator preview';
+                    previewImg.loading = 'lazy';
+                    previewImg.style.width = '100%';
+                    previewImg.style.height = '100%';
+                    previewImg.style.objectFit = 'contain';
+                    previewImg.style.display = 'block';
 
-                const previewCanvas = document.createElement('canvas');
-                previewCanvas.width = Math.max(1, Math.floor(viewport.width));
-                previewCanvas.height = Math.max(1, Math.floor(viewport.height));
-
-                const previewCtx = previewCanvas.getContext('2d');
-                await firstPage.render({ canvasContext: previewCtx, viewport }).promise;
-
-                previewCanvas.style.width = '100%';
-                previewCanvas.style.height = '100%';
-                previewCanvas.style.objectFit = 'contain';
-                previewCanvas.style.display = 'block';
-
-                previewEl.innerHTML = '';
-                previewEl.appendChild(previewCanvas);
-
-                if (pdfDoc && typeof pdfDoc.destroy === 'function') {
-                    try { await pdfDoc.destroy(); } catch (destroyErr) {}
+                    previewEl.innerHTML = '';
+                    previewEl.appendChild(previewImg);
+                    return;
                 }
-                return;
             }
         } catch (aiPreviewErr) {
             console.warn('AI preview render failed, using icon fallback:', aiPreviewErr);
@@ -6309,6 +6493,38 @@ style.textContent = `
         color: #bbbbbb;
         font-size: 12px;
         white-space: nowrap;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-progress-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 320px;
+        max-width: 42vw;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-progress-label {
+        color: #bbbbbb;
+        font-size: 12px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-progress-track {
+        position: relative;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.18);
+        overflow: hidden;
+        flex: 1;
+        min-width: 120px;
+    }
+    #ai-advanced-preview-modal .ai-advanced-preview-progress-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: rgba(255,255,255,0.85);
+        transition: width 120ms linear;
     }
     #ai-advanced-preview-modal .ai-advanced-preview-viewport {
         position: relative;
