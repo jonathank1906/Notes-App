@@ -280,17 +280,26 @@
             display: block;
             position: absolute;
             inset: 0;
-            overflow: auto;
-            padding: 20px 0 40px;
+            overflow: hidden;
             visibility: hidden;
             opacity: 0;
             pointer-events: none;
             background: #050505;
+            touch-action: none;
         }
         #continuous-pdf-view.active {
             visibility: visible;
             opacity: 1;
             pointer-events: auto;
+        }
+        #continuous-pdf-stage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 0 40px;
+            transform-origin: 0 0;
+            will-change: transform;
         }
         .continuous-page-wrap {
             width: fit-content;
@@ -528,7 +537,7 @@
     </div>
 
     <div id="notes-container">
-        <div id="continuous-pdf-view"></div>
+        <div id="continuous-pdf-view"><div id="continuous-pdf-stage"></div></div>
         <div id="notes-wrapper">
               <textarea id="slideNotesEditor"></textarea>
             <div id="slideNotesPreview" onclick="activateEditor()"></div>
@@ -545,6 +554,7 @@
         const preview = document.getElementById('slideNotesPreview');
         const notesWrapper = document.getElementById('notes-wrapper');
         const continuousPdfView = document.getElementById('continuous-pdf-view');
+        const continuousPdfStage = document.getElementById('continuous-pdf-stage');
         const continuousCacheStatus = document.getElementById('continuous-cache-status');
         const continuousCacheStatusLabel = document.getElementById('continuous-cache-status-label');
         const continuousCacheProgressFill = document.getElementById('continuous-cache-progress-fill');
@@ -564,6 +574,12 @@
         let pendingContinuousTargetSlide = null;
         let continuousPrewarmPromise = null;
         let continuousCacheReady = false;
+        let continuousCanvasPanX = 0;
+        let continuousCanvasPanY = 0;
+        let continuousCanvasZoom = 1;
+        let continuousCanvasInteractionInitialized = false;
+        let continuousLastCursorX = null;
+        let continuousLastCursorY = null;
 
         function setContinuousCacheStatus({ done = 0, total = 0, active = false, ready = false, failed = false } = {}) {
             if (!continuousCacheStatus || !continuousCacheStatusLabel || !continuousCacheProgressFill) return;
@@ -722,7 +738,7 @@
             const wraps = continuousPdfView.querySelectorAll('.continuous-page-wrap[data-page-num]');
             if (!wraps.length) return null;
 
-            const viewCenter = continuousPdfView.scrollTop + (continuousPdfView.clientHeight / 2);
+            const viewCenter = (continuousPdfView.clientHeight / 2 - continuousCanvasPanY) / continuousCanvasZoom;
             let bestPage = null;
             let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -770,7 +786,7 @@
             }
 
             if (target) {
-                target.scrollIntoView({ block: 'start', inline: 'nearest' });
+                scrollContinuousToSlide(pageNum);
                 pendingContinuousTargetSlide = null;
                 return;
             }
@@ -788,8 +804,9 @@
                 target = wraps[fallbackIndex] || null;
             }
             if (!target) return;
-            const top = Math.max(0, target.offsetTop - Math.floor(continuousPdfView.clientHeight * 0.12));
-            continuousPdfView.scrollTop = top;
+            const anchorY = Math.floor(continuousPdfView.clientHeight * 0.12);
+            continuousCanvasPanY = anchorY - (target.offsetTop * continuousCanvasZoom);
+            applyContinuousZoomTransform();
         }
 
         function getContinuousRenderSignature() {
@@ -803,20 +820,118 @@
 
         function hasContinuousCacheForCurrentSignature() {
             if (!continuousPdfView) return false;
-            if (continuousPdfView.childElementCount === 0) return false;
+            if (!continuousPdfStage || continuousPdfStage.childElementCount === 0) return false;
             return continuousRenderSignature !== '' && continuousRenderSignature === getContinuousRenderSignature() && continuousCacheReady;
         }
 
+        function applyContinuousZoomTransform() {
+            if (!continuousPdfStage) return;
+            continuousPdfStage.style.transform = `translate(${continuousCanvasPanX}px, ${continuousCanvasPanY}px) scale(${continuousCanvasZoom})`;
+        }
+
+        function getContinuousZoomAnchor() {
+            if (!continuousPdfView) {
+                return { x: 0, y: 0 };
+            }
+            if (Number.isFinite(continuousLastCursorX) && Number.isFinite(continuousLastCursorY)) {
+                return { x: continuousLastCursorX, y: continuousLastCursorY };
+            }
+            return {
+                x: continuousPdfView.clientWidth / 2,
+                y: continuousPdfView.clientHeight / 2
+            };
+        }
+
+        function initContinuousCanvasInteractions() {
+            if (continuousCanvasInteractionInitialized || !continuousPdfView) return;
+            continuousCanvasInteractionInitialized = true;
+
+            let panning = false;
+            let pointerId = null;
+            let startX = 0;
+            let startY = 0;
+            let originPanX = 0;
+            let originPanY = 0;
+
+            continuousPdfView.addEventListener('wheel', (event) => {
+                if (!isReadOnlyMode || !isFreeScrollMode) return;
+                event.preventDefault();
+
+                const rect = continuousPdfView.getBoundingClientRect();
+                const cursorX = event.clientX - rect.left;
+                const cursorY = event.clientY - rect.top;
+                continuousLastCursorX = cursorX;
+                continuousLastCursorY = cursorY;
+                const worldX = (cursorX - continuousCanvasPanX) / continuousCanvasZoom;
+                const worldY = (cursorY - continuousCanvasPanY) / continuousCanvasZoom;
+
+                const zoomFactor = event.deltaY < 0 ? 1.08 : 0.925;
+                continuousCanvasZoom = Math.min(2.8, Math.max(0.35, continuousCanvasZoom * zoomFactor));
+                continuousCanvasPanX = cursorX - worldX * continuousCanvasZoom;
+                continuousCanvasPanY = cursorY - worldY * continuousCanvasZoom;
+
+                applyContinuousZoomTransform();
+            }, { passive: false });
+
+            continuousPdfView.addEventListener('pointerdown', (event) => {
+                if (!isReadOnlyMode || !isFreeScrollMode) return;
+                if (event.button !== 1) return;
+
+                event.preventDefault();
+                panning = true;
+                pointerId = event.pointerId;
+                startX = event.clientX;
+                startY = event.clientY;
+                originPanX = continuousCanvasPanX;
+                originPanY = continuousCanvasPanY;
+                try { continuousPdfView.setPointerCapture(pointerId); } catch (e) {}
+            });
+
+            continuousPdfView.addEventListener('pointermove', (event) => {
+                const rect = continuousPdfView.getBoundingClientRect();
+                continuousLastCursorX = event.clientX - rect.left;
+                continuousLastCursorY = event.clientY - rect.top;
+                if (!panning || event.pointerId !== pointerId) return;
+                continuousCanvasPanX = originPanX + (event.clientX - startX);
+                continuousCanvasPanY = originPanY + (event.clientY - startY);
+                applyContinuousZoomTransform();
+            });
+
+            continuousPdfView.addEventListener('pointerleave', () => {
+                continuousLastCursorX = null;
+                continuousLastCursorY = null;
+            });
+
+            const endPan = (event) => {
+                if (!panning || event.pointerId !== pointerId) return;
+                panning = false;
+                pointerId = null;
+                try { continuousPdfView.releasePointerCapture(event.pointerId); } catch (e) {}
+            };
+
+            continuousPdfView.addEventListener('pointerup', endPan);
+            continuousPdfView.addEventListener('pointercancel', endPan);
+        }
+
         function applyContinuousZoom() {
-            if (!continuousPdfView) return;
-            const zoomPercent = getContinuousZoomPercent();
-            continuousPdfView.style.zoom = `${zoomPercent}%`;
+            if (!continuousPdfView || !continuousPdfStage) return;
+            const nextZoom = Math.min(2.8, Math.max(0.35, getContinuousZoomPercent() / 100));
+            const anchor = getContinuousZoomAnchor();
+            const anchorX = anchor.x;
+            const anchorY = anchor.y;
+            const worldX = (anchorX - continuousCanvasPanX) / continuousCanvasZoom;
+            const worldY = (anchorY - continuousCanvasPanY) / continuousCanvasZoom;
+
+            continuousCanvasZoom = nextZoom;
+            continuousCanvasPanX = anchorX - worldX * continuousCanvasZoom;
+            continuousCanvasPanY = anchorY - worldY * continuousCanvasZoom;
+            applyContinuousZoomTransform();
         }
 
         async function renderContinuousPdfView() {
             const token = ++continuousRenderToken;
-            if (!continuousPdfView) return;
-            continuousPdfView.innerHTML = '';
+            if (!continuousPdfStage) return;
+            continuousPdfStage.innerHTML = '';
 
             const totalPages = getReadOnlyTotalPages();
             if (totalPages === 0) {
@@ -869,7 +984,7 @@
                 if (token !== continuousRenderToken) return;
 
                 wrap.appendChild(canvas);
-                continuousPdfView.appendChild(wrap);
+                continuousPdfStage.appendChild(wrap);
                 renderedPages += 1;
                 setContinuousCacheStatus({ done: renderedPages, total: totalPages, active: true, ready: false });
 
@@ -909,6 +1024,7 @@
         function showContinuousModeView() {
             const stickyHeaderGroup = document.getElementById('sticky-header-group');
             if (!stickyHeaderGroup || !notesWrapper || !continuousPdfView) return;
+            initContinuousCanvasInteractions();
             stickyHeaderGroup.style.display = 'none';
             notesWrapper.style.display = 'none';
             continuousPdfView.classList.add('active');
@@ -920,7 +1036,9 @@
             const stickyHeaderGroup = document.getElementById('sticky-header-group');
             if (!stickyHeaderGroup || !notesWrapper || !continuousPdfView) return;
             continuousPdfView.classList.remove('active');
-            continuousPdfView.style.zoom = '';
+            if (continuousPdfStage) {
+                continuousPdfStage.style.transform = '';
+            }
             stickyHeaderGroup.style.display = '';
             notesWrapper.style.display = '';
         }

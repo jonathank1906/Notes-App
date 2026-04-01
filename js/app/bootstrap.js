@@ -4326,18 +4326,25 @@ function ensureAiAdvancedPreviewModal() {
         e.preventDefault();
         if (!aiAdvancedModalEl || !aiAdvancedModalEl.classList.contains('show')) return;
 
-        // Center-anchored smooth zoom: keep current viewport position stable,
-        // then let user pan explicitly after zooming.
         const factor = clamp(Math.exp(-e.deltaY * 0.0025), 0.8, 1.3);
         const prevScale = aiAdvancedViewState.scale;
         const nextScale = clamp(prevScale * factor, aiAdvancedViewState.minScale, aiAdvancedViewState.maxScale);
         if (nextScale === prevScale) return;
 
-        // Preserve the world point currently under viewport center during zoom.
-        const ratio = nextScale / prevScale;
-        aiAdvancedViewState.tx *= ratio;
-        aiAdvancedViewState.ty *= ratio;
+        // Cursor-anchored zoom: preserve the world point under the pointer,
+        // matching the Q/A canvas zoom feel.
+        const rect = viewport.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const worldX = (cursorX - centerX - aiAdvancedViewState.tx) / prevScale;
+        const worldY = (cursorY - centerY - aiAdvancedViewState.ty) / prevScale;
+
         aiAdvancedViewState.scale = nextScale;
+        aiAdvancedViewState.tx = (cursorX - centerX) - (worldX * nextScale);
+        aiAdvancedViewState.ty = (cursorY - centerY) - (worldY * nextScale);
         updateAiAdvancedTransform();
     }, { passive: false });
 
