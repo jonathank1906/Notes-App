@@ -2454,6 +2454,28 @@ kbd {
     font-weight: 600;
     color: #ffffff;
 }
+.glossary-term-main {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    min-width: 0;
+    flex: 1;
+}
+.glossary-term-abbrev {
+    font-size: 20px;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    padding: 20px 14px 20px 20px;
+}
+.glossary-term-sep {
+    width: 2px;
+    background: #6a6a6a;
+    align-self: stretch;
+    flex: 0 0 2px;
+}
 .glossary-term-row {
     display: flex;
     align-items: stretch;
@@ -2493,6 +2515,7 @@ kbd {
     display: flex;
     align-items: center;
     padding: 20px;
+    min-width: 0;
 }
 #glossary-master-toggle {
     background: #222;

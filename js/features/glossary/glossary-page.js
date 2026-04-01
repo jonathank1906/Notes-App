@@ -22,7 +22,7 @@ glossaryPage.innerHTML = `
 				<input id="glossary-search-input" type="text" placeholder="Search glossary..." oninput="filterGlossary()">
 			</div>
 			<div class="glossary-search-meta">
-				<span>Search matches term or definition.</span>
+				<span>Search matches abbreviation, term, or definition.</span>
 				<span id="glossary-search-count"></span>
 			</div>
 		</div>
@@ -38,6 +38,10 @@ glossaryPage.innerHTML = `
 			<div class="fc-modal-header">
 				<div class="fc-modal-title">Edit Glossary Entry</div>
 				<button class="fc-modal-close" onclick="closeGlossaryEditModal()">&times;</button>
+			</div>
+			<div class="fc-edit-field">
+				<label>Abbreviation</label>
+				<input type="text" id="glossary-modal-abbrev" class="glossary-input" style="width:100%;" placeholder="e.g. ATP (optional)">
 			</div>
 			<div class="fc-edit-field">
 				<label>Term</label>
@@ -61,6 +65,10 @@ glossaryPage.innerHTML = `
 				<button class="glossary-modal-close" id="glossary-add-close" type="button" aria-label="Close add entry">&times;</button>
 			</div>
 			<div class="glossary-modal-body">
+				<div class="glossary-input-row">
+					<label class="glossary-label" for="glossary-abbrev-input">Abbreviation</label>
+					<input type="text" class="glossary-input" id="glossary-abbrev-input" placeholder="e.g. ATP (optional)">
+				</div>
 				<div class="glossary-input-row">
 					<label class="glossary-label" for="glossary-term-input">Term</label>
 					<input type="text" class="glossary-input" id="glossary-term-input" placeholder="e.g. Newton's Third Law">
@@ -145,12 +153,13 @@ function initGlossaryTopControls() {
 	const openBtn = document.getElementById('glossary-open-add');
 	const closeBtn = document.getElementById('glossary-add-close');
 	const modal = document.getElementById('glossary-add-modal');
+	const abbrevInput = document.getElementById('glossary-abbrev-input');
 	const termInput = document.getElementById('glossary-term-input');
 	const defInput = document.getElementById('glossary-def-input');
 	const addBtn = document.getElementById('glossary-add-btn');
 	const searchInput = document.getElementById('glossary-search-input');
 
-	if (!openBtn || !closeBtn || !modal || !termInput || !defInput || !addBtn || !searchInput) return;
+	if (!openBtn || !closeBtn || !modal || !abbrevInput || !termInput || !defInput || !addBtn || !searchInput) return;
 
 	const openModal = () => {
 		modal.classList.add('show');
@@ -179,6 +188,7 @@ function initGlossaryTopControls() {
 		addBtn.classList.toggle('disabled', addBtn.disabled);
 	};
 
+	abbrevInput.addEventListener('input', updateAddState);
 	termInput.addEventListener('input', updateAddState);
 	defInput.addEventListener('input', updateAddState);
 
@@ -197,6 +207,19 @@ function initGlossaryTopControls() {
 	});
 
 	updateAddState();
+}
+
+function normalizeGlossaryEntries() {
+	if (!currentGlossaryData || !Array.isArray(currentGlossaryData.glossary)) return;
+
+	currentGlossaryData.glossary = currentGlossaryData.glossary.map((entry) => {
+		const normalized = entry && typeof entry === 'object' ? entry : {};
+		const rawAbbrev = typeof normalized.abbreviation === 'string' ? normalized.abbreviation.trim() : '';
+		return {
+			...normalized,
+			abbreviation: rawAbbrev || null
+		};
+	});
 }
 
 function showGlossaryAddStatus(message, tone) {
@@ -289,6 +312,7 @@ function jumpGlossaryToLetter(letter) {
 function openGlossary(fileHandle, data, fileName = null) {
 	currentGlossaryHandle = fileHandle;
 	currentGlossaryData = data;
+	normalizeGlossaryEntries();
     
 	// Hide other screens
 	document.getElementById('home-screen').classList.add('hidden');
@@ -350,6 +374,7 @@ function renderGlossaryList() {
 	let filteredGlossary = currentGlossaryData.glossary;
 	if (searchTerm) {
 		filteredGlossary = currentGlossaryData.glossary.filter(entry => 
+			(entry.abbreviation || '').toLowerCase().includes(searchTerm) ||
 			entry.term.toLowerCase().includes(searchTerm) || 
 			entry.definition.toLowerCase().includes(searchTerm)
 		);
@@ -418,6 +443,8 @@ function renderGlossaryList() {
 		}
 		const itemDiv = document.createElement('div');
 		itemDiv.className = 'glossary-item';
+		const abbreviation = (entry.abbreviation || '').trim();
+		const abbreviationHTML = abbreviation ? escapeHtml(abbreviation) : '';
 		const termHTML = escapeHtml(entry.term);
 		let definitionHTML;
 		try {
@@ -462,7 +489,10 @@ function renderGlossaryList() {
         
 		itemDiv.innerHTML = `
 			<div class="glossary-term-row">
-				<span class="glossary-term">${termHTML}</span>
+				<span class="glossary-term-main">
+					${abbreviationHTML ? `<span class="glossary-term-abbrev">${abbreviationHTML}</span><span class="glossary-term-sep"></span>` : ''}
+					<span class="glossary-term">${termHTML}</span>
+				</span>
 				<span class="glossary-carrow">
 					<svg viewBox="0 0 20 20">
 						<polygon fill="#fff" points="20 5.79 10 15.79 0 5.79 2.34 3.45 10 11.11 17.66 3.45 20 5.79"/>
@@ -510,6 +540,9 @@ function renderGlossaryList() {
 }
 
 async function addGlossaryEntry() {
+	const abbreviationInput = document.getElementById('glossary-abbrev-input');
+	const abbreviationRaw = abbreviationInput ? abbreviationInput.value.trim() : '';
+	const abbreviation = abbreviationRaw || null;
 	const term = document.getElementById('glossary-term-input').value.trim();
 	const definition = document.getElementById('glossary-def-input').value.trim();
     
@@ -534,14 +567,16 @@ async function addGlossaryEntry() {
 			showGlossaryAddStatus('Duplicate term kept', 'muted');
 			return;
 		}
-		currentGlossaryData.glossary[existingIndex] = { term, definition };
+		currentGlossaryData.glossary[existingIndex] = { abbreviation, term, definition };
 	} else {
-		currentGlossaryData.glossary.push({ term, definition });
+		currentGlossaryData.glossary.push({ abbreviation, term, definition });
 	}
 	await saveGlossaryData();
     
+	if (abbreviationInput) abbreviationInput.value = '';
 	document.getElementById('glossary-term-input').value = '';
 	document.getElementById('glossary-def-input').value = '';
+	if (abbreviationInput) abbreviationInput.dispatchEvent(new Event('input'));
 	const termInput = document.getElementById('glossary-term-input');
 	const defInput = document.getElementById('glossary-def-input');
 	if (termInput) termInput.dispatchEvent(new Event('input'));
@@ -564,10 +599,12 @@ function editGlossaryEntry(index) {
 	if (index < 0 || index >= currentGlossaryData.glossary.length) return;
     
 	const modal = document.getElementById('glossary-edit-modal');
+	const abbrevInput = document.getElementById('glossary-modal-abbrev');
 	const termInput = document.getElementById('glossary-modal-term');
 	const defTextarea = document.getElementById('glossary-modal-def');
     
 	const entry = currentGlossaryData.glossary[index];
+	abbrevInput.value = entry.abbreviation || '';
 	termInput.value = entry.term || '';
 	defTextarea.value = entry.definition || '';
     
@@ -586,6 +623,7 @@ function closeGlossaryEditModal() {
 
 async function saveGlossaryEditModal() {
 	const modal = document.getElementById('glossary-edit-modal');
+	const abbrevInput = document.getElementById('glossary-modal-abbrev');
 	const termInput = document.getElementById('glossary-modal-term');
 	const defTextarea = document.getElementById('glossary-modal-def');
 	const index = parseInt(modal.dataset.editIndex);
@@ -593,6 +631,8 @@ async function saveGlossaryEditModal() {
 	if (isNaN(index) || !currentGlossaryData || !currentGlossaryData.glossary) return;
 	if (index < 0 || index >= currentGlossaryData.glossary.length) return;
     
+	const abbrevValRaw = abbrevInput.value.trim();
+	const abbrevVal = abbrevValRaw || null;
 	const termVal = termInput.value.trim();
 	const defVal = defTextarea.value.trim();
     
@@ -601,6 +641,7 @@ async function saveGlossaryEditModal() {
 		return;
 	}
     
+	currentGlossaryData.glossary[index].abbreviation = abbrevVal;
 	currentGlossaryData.glossary[index].term = termVal;
 	currentGlossaryData.glossary[index].definition = defVal;
     
