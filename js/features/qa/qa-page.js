@@ -6,21 +6,56 @@ qaPage.innerHTML = `
 	<div class="qa-container">
 		<div class="qa-header">
 			<h1 id="qa-title">Q/A</h1>
+			<button class="qa-add-trigger" id="qa-open-add" type="button" aria-label="Add entry">
+				<span class="qa-add-plus">+</span>
+				<span class="qa-add-text">Add</span>
+			</button>
 		</div>
-        
-		<div class="qa-add-section">
-			<div class="qa-input-group">
-				<input type="text" class="qa-input" id="qa-question-input" placeholder="Question">
+
+		<div class="qa-search-center">
+			<div class="qa-search-wrap">
+				<div class="qa-search-icon" aria-hidden="true">
+					<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+						<path d="M10 2.25a7.75 7.75 0 1 0 4.924 13.735l5.546 5.545 1.06-1.06-5.545-5.546A7.75 7.75 0 0 0 10 2.25ZM3.75 10a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0Z"/>
+					</svg>
+				</div>
+				<input id="qa-search-input" type="text" placeholder="Search Q/A..." oninput="filterQA()">
 			</div>
-			<textarea class="qa-textarea" id="qa-answer-input" placeholder="Answer (Markdown supported)"></textarea>
-			<button class="qa-add-btn" onclick="addQAEntry()">Add Entry</button>
+			<div class="qa-search-meta">
+				<span>Search matches question or answer.</span>
+				<span id="qa-search-count"></span>
+			</div>
 		</div>
-        
-		<div class="qa-search">
-			<input type="text" id="qa-search-input" placeholder="Search Q/A..." oninput="filterQA()">
-		</div>
-        
+
 		<div class="qa-list" id="qa-list"></div>
+	</div>
+
+	<div id="qa-add-modal" class="qa-modal" aria-hidden="true">
+		<div class="qa-modal-card" role="dialog" aria-modal="true" aria-labelledby="qa-add-title">
+			<div class="qa-modal-header">
+				<div class="qa-modal-title" id="qa-add-title">Add Q/A entry</div>
+				<button class="qa-modal-close" id="qa-add-close" type="button" aria-label="Close add entry">&times;</button>
+			</div>
+			<div class="qa-modal-body">
+				<div class="qa-input-row">
+					<label class="qa-label" for="qa-question-input">Question</label>
+					<input type="text" class="qa-input" id="qa-question-input" placeholder="Question">
+				</div>
+				<div class="qa-input-row">
+					<label class="qa-label" for="qa-answer-input">Answer</label>
+					<textarea class="qa-textarea" id="qa-answer-input" placeholder="Answer (Markdown supported)"></textarea>
+					<div class="qa-meta">
+						<span class="qa-hint">Markdown supported. Press Ctrl+Enter to add.</span>
+					</div>
+				</div>
+			</div>
+			<div class="qa-modal-footer">
+				<div class="qa-modal-actions">
+					<span class="qa-status" id="qa-add-status"></span>
+					<button class="qa-add-btn" id="qa-add-btn" onclick="addQAEntry()">Add Entry</button>
+				</div>
+			</div>
+		</div>
 	</div>
     
 	<!-- Q/A Edit Modal -->
@@ -56,6 +91,8 @@ document.body.appendChild(qaPage);
 
 let currentQAData = null;
 let currentQAHandle = null;
+let qaTopInitialized = false;
+let qaStatusTimer = null;
 
 document.getElementById('qa-page')?.addEventListener('scroll', updateQAScrollTopButtonVisibility, { passive: true });
 
@@ -71,6 +108,85 @@ function scrollQAToTop() {
 	const page = document.getElementById('qa-page');
 	if (!page) return;
 	page.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function initQATopControls() {
+	if (qaTopInitialized) return;
+	qaTopInitialized = true;
+
+	const openBtn = document.getElementById('qa-open-add');
+	const closeBtn = document.getElementById('qa-add-close');
+	const modal = document.getElementById('qa-add-modal');
+	const questionInput = document.getElementById('qa-question-input');
+	const answerInput = document.getElementById('qa-answer-input');
+	const addBtn = document.getElementById('qa-add-btn');
+
+	if (!openBtn || !closeBtn || !modal || !questionInput || !answerInput || !addBtn) return;
+
+	const openModal = () => {
+		modal.classList.add('show');
+		modal.setAttribute('aria-hidden', 'false');
+		setTimeout(() => questionInput.focus(), 0);
+	};
+
+	const closeModal = () => {
+		modal.classList.remove('show');
+		modal.setAttribute('aria-hidden', 'true');
+	};
+
+	openBtn.addEventListener('click', openModal);
+	closeBtn.addEventListener('click', closeModal);
+
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && modal.classList.contains('show')) {
+			closeModal();
+		}
+	});
+
+	const updateAddState = () => {
+		const questionVal = questionInput.value.trim();
+		const answerVal = answerInput.value.trim();
+		addBtn.disabled = !(questionVal && answerVal);
+		addBtn.classList.toggle('disabled', addBtn.disabled);
+	};
+
+	questionInput.addEventListener('input', updateAddState);
+	answerInput.addEventListener('input', updateAddState);
+
+	questionInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+			e.preventDefault();
+			answerInput.focus();
+		}
+	});
+
+	answerInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && e.ctrlKey) {
+			e.preventDefault();
+			addQAEntry();
+		}
+	});
+
+	updateAddState();
+}
+
+function showQAAddStatus(message, tone) {
+	const statusEl = document.getElementById('qa-add-status');
+	if (!statusEl) return;
+
+	statusEl.textContent = message || '';
+	statusEl.classList.toggle('error', tone === 'error');
+	statusEl.classList.toggle('muted', tone === 'muted');
+
+	if (qaStatusTimer) {
+		clearTimeout(qaStatusTimer);
+	}
+	if (message) {
+		qaStatusTimer = setTimeout(() => {
+			statusEl.textContent = '';
+			statusEl.classList.remove('error', 'muted');
+		}, 2500);
+	}
 }
 
 function openQA(fileHandle, data, fileName = null) {
@@ -97,6 +213,11 @@ function openQA(fileHandle, data, fileName = null) {
 	if (!currentQAData.qa) {
 		currentQAData.qa = [];
 	}
+
+	const fileNameStr = fileHandle ? fileHandle.name.replace('.json', '') : (fileName ? fileName.replace('.json', '') : 'Q/A');
+	document.getElementById('qa-title').textContent = fileNameStr;
+
+	initQATopControls();
     
 	renderQAList();
 	updateQAScrollTopButtonVisibility();
@@ -112,15 +233,36 @@ function closeQA() {
 
 function renderQAList() {
 	const qaList = document.getElementById('qa-list');
+	const searchTerm = document.getElementById('qa-search-input').value.toLowerCase();
+	const searchCountEl = document.getElementById('qa-search-count');
+	const totalCount = currentQAData && currentQAData.qa ? currentQAData.qa.length : 0;
 	qaList.innerHTML = '';
     
 	if (!currentQAData || !currentQAData.qa || currentQAData.qa.length === 0) {
 		qaList.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">No Q/A entries yet. Add your first question above!</div>';
+		if (searchCountEl) searchCountEl.textContent = `0 / ${totalCount}`;
 		return;
 	}
+
+	let filteredEntries = currentQAData.qa;
+	if (searchTerm) {
+		filteredEntries = currentQAData.qa.filter(entry => {
+			const question = (entry.question || '').toLowerCase();
+			const answer = (entry.answer || '').toLowerCase();
+			return question.includes(searchTerm) || answer.includes(searchTerm);
+		});
+	}
+
+	if (filteredEntries.length === 0) {
+		qaList.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">No matching entries found.</div>';
+		if (searchCountEl) searchCountEl.textContent = `0 / ${totalCount}`;
+		return;
+	}
+
+	if (searchCountEl) searchCountEl.textContent = `${filteredEntries.length} / ${totalCount}`;
     
 	// Sort entries alphabetically by question
-	const sortedEntries = [...currentQAData.qa].sort((a, b) => 
+	const sortedEntries = [...filteredEntries].sort((a, b) => 
 		(a.question || '').toLowerCase().localeCompare((b.question || '').toLowerCase())
 	);
     
@@ -135,27 +277,26 @@ function renderQAList() {
 	// Add master toggle button at the top
 	const masterToggle = document.createElement('button');
 	masterToggle.id = 'qa-master-toggle';
-	masterToggle.textContent = 'Expand All';
+	masterToggle.className = 'qa-item-btn';
+	masterToggle.textContent = 'Show All Answers';
+	masterToggle.dataset.state = 'hidden';
 	masterToggle.onclick = () => {
+		const allAnswers = qaList.querySelectorAll('.qa-answer');
+		const allCarrows = qaList.querySelectorAll('.qa-carrow');
 		const allItems = qaList.querySelectorAll('.qa-item');
-		const allClosed = Array.from(allItems).every(item => !item.classList.contains('open'));
-        
-		allItems.forEach(item => {
-			const def = item.querySelector('.qa-answer');
-			const arrow = item.querySelector('.qa-carrow');
-            
-			if (allClosed) {
-				item.classList.add('open');
-				arrow.classList.add('open');
-				def.style.maxHeight = def.scrollHeight + 'px';
-			} else {
-				item.classList.remove('open');
-				arrow.classList.remove('open');
-				def.style.maxHeight = '0';
-			}
-		});
-        
-		masterToggle.textContent = allClosed ? 'Collapse All' : 'Expand All';
+		if (masterToggle.dataset.state === 'hidden') {
+			allAnswers.forEach(answer => answer.style.display = 'block');
+			allCarrows.forEach(carrow => carrow.classList.add('open'));
+			allItems.forEach(item => item.classList.add('open'));
+			masterToggle.textContent = 'Hide All Answers';
+			masterToggle.dataset.state = 'shown';
+		} else {
+			allAnswers.forEach(answer => answer.style.display = 'none');
+			allCarrows.forEach(carrow => carrow.classList.remove('open'));
+			allItems.forEach(item => item.classList.remove('open'));
+			masterToggle.textContent = 'Show All Answers';
+			masterToggle.dataset.state = 'hidden';
+		}
 	};
 	qaList.appendChild(masterToggle);
     
@@ -276,6 +417,7 @@ async function addQAEntry() {
     
 	if (!question || !answer) {
 		alert('Please enter both question and answer');
+		showQAAddStatus('Missing question or answer', 'error');
 		return;
 	}
     
@@ -285,6 +427,9 @@ async function addQAEntry() {
     
 	questionInput.value = '';
 	answerInput.value = '';
+	questionInput.dispatchEvent(new Event('input'));
+	answerInput.dispatchEvent(new Event('input'));
+	showQAAddStatus('Entry added');
 	questionInput.focus();
 }
 
@@ -388,20 +533,7 @@ async function saveQAData() {
 }
 
 function filterQA() {
-	const searchInput = document.getElementById('qa-search-input');
-	const query = searchInput.value.toLowerCase();
-	const items = document.querySelectorAll('.qa-item');
-    
-	items.forEach(item => {
-		const question = item.querySelector('.qa-question').textContent.toLowerCase();
-		const answer = item.querySelector('.qa-answer').textContent.toLowerCase();
-        
-		if (question.includes(query) || answer.includes(query)) {
-			item.style.display = 'block';
-		} else {
-			item.style.display = 'none';
-		}
-	});
+	renderQAList();
 }
 
 // Click outside handler to hide Q/A hover panes
