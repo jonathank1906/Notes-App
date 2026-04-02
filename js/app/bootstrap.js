@@ -328,7 +328,6 @@ let globalSearchIndex = new Map();
 let globalSearchRequestId = 0;
 let isGlobalSearchOpen = false;
 let lastIllustratorSvgExportPath = null;
-let hoveredAiPreviewNote = null;
 let aiAdvancedPreviewCache = new Map();
 let aiAdvancedModalEl = null;
 let aiAdvancedModalImageEl = null;
@@ -2909,7 +2908,7 @@ function renderOrganizedSections() {
 
         const cardsGrid = document.createElement('div');
         cardsGrid.className = 'type-section-cards';
-        if (type === 'markdown') cardsGrid.classList.add('markdown-compact-list');
+        if (type === 'markdown' || type === 'note') cardsGrid.classList.add('markdown-compact-list');
         if (type === 'test') cardsGrid.classList.add('test-compact-list');
 
         for (const card of cards) {
@@ -4494,6 +4493,8 @@ function createNoteCard(note) {
         card.appendChild(badge);
     }
     
+    const isNonLinearFileRow = note.typeToken === 'note' && !note.isExternalFile;
+
     const preview = document.createElement('div');
     preview.className = 'note-preview';
     preview.innerHTML = '';
@@ -4528,21 +4529,16 @@ function createNoteCard(note) {
     info.appendChild(metaDiv);
     // --- END OF UPDATED SECTION --- //
     
-    card.appendChild(preview);
+    if (!isNonLinearFileRow) {
+        card.appendChild(preview);
+    } else {
+        card.classList.add('nonlinear-file-row');
+    }
     card.appendChild(info);
     
     // Queue preview rendering so names appear first and previews load on demand.
-    queueNotePreview(note, preview);
-
-    if (note.isExternalFile && note.externalType === 'illustrator') {
-        card.addEventListener('mouseenter', () => {
-            hoveredAiPreviewNote = note;
-        });
-        card.addEventListener('mouseleave', () => {
-            if (hoveredAiPreviewNote && hoveredAiPreviewNote.noteKey === note.noteKey) {
-                hoveredAiPreviewNote = null;
-            }
-        });
+    if (!isNonLinearFileRow) {
+        queueNotePreview(note, preview);
     }
 
     card.onclick = async (e) => {
@@ -5785,12 +5781,6 @@ window.addEventListener('keydown', async (e) => {
                 fabricCanvas.requestRenderAll();
             }
         }
-        return;
-    }
-
-    if ((e.key === 'p' || e.key === 'P') && hoveredAiPreviewNote) {
-        e.preventDefault();
-        await openAiAdvancedPreviewModal(hoveredAiPreviewNote);
         return;
     }
 
